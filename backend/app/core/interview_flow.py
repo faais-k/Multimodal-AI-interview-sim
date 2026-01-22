@@ -1,127 +1,165 @@
 # backend/app/core/interview_flow.py
-from pathlib import Path
 import json
-import uuid
-from typing import Dict, Any, Optional
+from pathlib import Path
+from datetime import datetime
+from typing import Optional, Dict, Any, List
 
-STEPS = [
-    "self_intro",
-    "project_probe",
-    "role_probe",
-    "skill_probe",
-    "project_detail",
-    "followups",
-    "wrapup"
-]
+STATE_FILE = "interview_state.json"
 
-def _load(session_dir: Path, name: str):
-    p = session_dir / name
+
+def _session_dir(storage_dir: Path, session_id: str) -> Path:
+    return Path(storage_dir) / session_id
+
+
+def _state_path(storage_dir: Path, session_id: str) -> Path:
+    return _session_dir(storage_dir, session_id) / STATE_FILE
+
+
+def _now():
+    return datetime.utcnow().isoformat() + "Z"
+
+
+def read_state(storage_dir: Path, session_id: str) -> Dict[str, Any]:
+    p = _state_path(storage_dir, session_id)
     if not p.exists():
-        return None
+        raise FileNotFoundError("interview_state.json not found. Call start_interview first.")
     return json.loads(p.read_text(encoding="utf-8"))
 
-def _save(session_dir: Path, name: str, obj):
-    p = session_dir / name
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(obj, ensure_ascii=False, indent=2))
 
-def init_interview_state(storage_dir: Path, session_id: str, parsed_resume: dict):
-    session_dir = storage_dir / session_id
+def write_state(storage_dir: Path, session_id: str, state: Dict[str, Any]):
+    p = _state_path(storage_dir, session_id)
+    p.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def init_interview_state(storage_dir: Path, session_id: str, parsed_resume: dict, job_role: Optional[str] = None):
+    """
+    Creates interview_state.json and sets stage = intro
+    """
+    session_dir = _session_dir(storage_dir, session_id)
+    session_dir.mkdir(parents=True, exist_ok=True)
+
     state = {
         "session_id": session_id,
-        "step_index": 0,
-        "history": [],  # list of {question_id, question, answer, timestamp}
-        "context": {
-            "has_projects": bool(parsed_resume.get("projects")),
-            "has_work_experience": False,  # optionally derive from resume
-            "detected_skills": parsed_resume.get("skills", []),
-            "resume_summary": parsed_resume.get("summary", "")
-        }
+        "job_role": job_role,
+        "candidate": {
+            "name": parsed_resume.get("name"),
+            "email": parsed_resume.get("email"),
+            "skills": parsed_resume.get("skills", []),
+            "projects": parsed_resume.get("projects", []),
+            "summary": parsed_resume.get("summary", "")
+        },
+        "cursor": {
+            "stage": "intro",  # intro -> project -> dynamic
+            "last_question_id": None
+        },
+        "questions_asked": [],
+        "answers": {}
     }
-    _save(session_dir, "interview_state.json", state)
+
+    write_state(storage_dir, session_id, state)
     return state
 
-def get_state(storage_dir: Path, session_id: str) -> Optional[dict]:
-    session_dir = storage_dir / session_id
-    return _load(session_dir, "interview_state.json")
 
-def persist_state(storage_dir: Path, session_id: str, state: dict):
-    session_dir = storage_dir / session_id
-    _save(session_dir, "interview_state.json", state)
-
-def decide_next_question(storage_dir: Path, session_id: str, plan: dict) -> dict:
+def record_answer(
+    storage_dir: Path,
+    session_id: str,
+    question_id: str,
+    question_text: str,
+    answer_text: str,
+    score: Optional[float] = None
+):
     """
-    Returns a question object from plan and updates the state.
-    Logic:
-      - first: self_intro
-      - second: project_probe if projects else role_probe or skill_probe
-      - afterwards: drill into project details and then followups (based on previous answers)
+    Stores answer + score into interview_state.json
     """
-    session_dir = storage_dir / session_id
-    state = get_state(storage_dir, session_id)
-    if state is None:
-        # try to initialize using parsed resume
-        parsed = _load(session_dir, "parsed_resume.json") or {}
-        state = init_interview_state(storage_dir, session_id, parsed)
+    state = read_state(storage_dir, session_id)
 
-    step_idx = state.get("step_index", 0)
-    # Helper to find question by id or by type/skill in plan
-    questions = plan.get("questions", [])
-
-    # STEP 0: self introduction question
-    if step_idx == 0:
-        q = next((q for q in questions if q.get("id") == "intro"), None)
-        if not q:
-            q = {"id": "intro", "type": "hr", "question": "Please introduce yourself briefly."}
-        # update state
-        state["step_index"] += 1
-        persist_state(storage_dir, session_id, state)
-        return q
-
-    # STEP 1: project_probe or role_probe or skill_probe
-    if step_idx == 1:
-        if state["context"].get("has_projects"):
-            q = {"id": "project_probe", "type": "hr", "question": "Tell me about your most important project."}
-        elif state["context"].get("has_work_experience"):
-            q = {"id": "role_probe", "type": "hr", "question": "Describe your previous role and responsibilities."}
-        else:
-            # fallback: ask about top skill from parsed resume
-            skill = state["context"].get("detected_skills", ["technical"])[0]
-            q = {"id": f"skill_probe_{skill}", "type": "technical", "skill": skill, "question": f"Tell me about your experience with {skill}."}
-        state["step_index"] += 1
-        persist_state(storage_dir, session_id, state)
-        return q
-
-    # STEP 2+: contextual drill down: choose a question from plan matching project/skill
-    # Very simple heuristic: prefer technical questions matching resume skills
-    for q in questions:
-        # skip already asked
-        if any(h.get("question_id") == q.get("id") for h in state["history"]):
-            continue
-        if q.get("type") == "technical" and q.get("skill") in state["context"].get("detected_skills", []):
-            # ask this
-            state["history"].append({"question_id": q.get("id"), "question": q.get("question"), "asked_at": None})
-            state["step_index"] += 1
-            persist_state(storage_dir, session_id, state)
-            return q
-
-    # if nothing found, return a generic followup
-    q = {"id": str(uuid.uuid4()), "type": "hr", "question": "Can you describe a challenge you solved recently?"}
-    state["history"].append({"question_id": q.get("id"), "question": q.get("question"), "asked_at": None})
-    state["step_index"] += 1
-    persist_state(storage_dir, session_id, state)
-    return q
-
-def record_answer(storage_dir: Path, session_id: str, question_id: str, question_text: str, answer_text: str, score=None):
-    session_dir = storage_dir / session_id
-    state = get_state(storage_dir, session_id) or {}
-    entry = {
-        "question_id": question_id,
+    state["answers"][question_id] = {
         "question": question_text,
         "answer": answer_text,
         "score": score,
-        "timestamp": __import__("datetime").datetime.utcnow().isoformat() + "Z"
+        "time": _now()
     }
-    state.setdefault("history", []).append(entry)
-    persist_state(storage_dir, session_id, state)
-    return state
+
+    # move stage forward after intro and project
+    if state["cursor"]["stage"] == "intro":
+        state["cursor"]["stage"] = "project"
+    elif state["cursor"]["stage"] == "project":
+        state["cursor"]["stage"] = "dynamic"
+
+    state["cursor"]["last_question_id"] = question_id
+    write_state(storage_dir, session_id, state)
+    return True
+
+
+def _make_question(qid: str, qtype: str, question: str, meta: Optional[dict] = None):
+    return {
+        "id": qid,
+        "type": qtype,
+        "question": question,
+        "meta": meta or {}
+    }
+
+
+def decide_next_question(storage_dir: Path, session_id: str, plan: dict) -> Dict[str, Any]:
+    """
+    Dynamic question selection (MVP):
+    - Intro
+    - Project overview
+    - Then skill-based dynamic questions (not fixed order)
+    """
+    state = read_state(storage_dir, session_id)
+    stage = state["cursor"]["stage"]
+
+    candidate_name = state["candidate"].get("name") or "there"
+    projects = state["candidate"].get("projects", []) or []
+    skills = state["candidate"].get("skills", []) or []
+
+    # 1) Intro
+    if stage == "intro":
+        q = _make_question(
+            qid="intro_1",
+            qtype="intro",
+            question=f"Hi {candidate_name}! Please introduce yourself briefly (education, skills, and what you're looking for)."
+        )
+        state["questions_asked"].append({"id": q["id"], "question": q["question"], "time": _now()})
+        write_state(storage_dir, session_id, state)
+        return q
+
+    # 2) Project overview
+    if stage == "project":
+        if projects:
+            q = _make_question(
+                qid="project_1",
+                qtype="project",
+                question="Can you explain one of your main projects? Focus on your role, what problem it solved, and the tech stack."
+            )
+        else:
+            q = _make_question(
+                qid="project_1",
+                qtype="project",
+                question="You don’t seem to have projects listed. Can you explain any work you’ve done (internship/mini-project/learning project)?"
+            )
+        state["questions_asked"].append({"id": q["id"], "question": q["question"], "time": _now()})
+        write_state(storage_dir, session_id, state)
+        return q
+
+    # 3) Dynamic stage: pick next unasked skill question from plan
+    asked_ids = {q["id"] for q in state["questions_asked"]}
+    plan_questions = plan.get("questions", [])
+
+    # prefer technical questions
+    for q in plan_questions:
+        if q.get("id") not in asked_ids:
+            state["questions_asked"].append({"id": q["id"], "question": q.get("question"), "time": _now()})
+            write_state(storage_dir, session_id, state)
+            return q
+
+    # fallback end
+    q = _make_question(
+        qid="end_1",
+        qtype="end",
+        question="That’s all from my side. Do you have any questions for me?"
+    )
+    state["questions_asked"].append({"id": q["id"], "question": q["question"], "time": _now()})
+    write_state(storage_dir, session_id, state)
+    return q
