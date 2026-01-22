@@ -9,6 +9,8 @@ from backend.app.api.routes.parse_resume import router as parse_router
 from backend.app.api.routes.interview_plan import router as plan_router
 from backend.app.api.routes.score_text import router as score_router
 from backend.app.api.routes.answer_audio import router as answer_audio_router
+from backend.app.api.routes.posture import router as posture_router
+
 
 app = FastAPI(
     title="Multimodal AI Interview Simulator",
@@ -33,6 +35,8 @@ app.include_router(parse_router, prefix="/api")
 app.include_router(plan_router, prefix="/api")
 app.include_router(score_router, prefix="/api")
 app.include_router(answer_audio_router, prefix="/api")
+app.include_router(posture_router, prefix="/api")
+
 
 @app.get("/")
 def root():
