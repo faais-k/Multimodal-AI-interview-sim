@@ -5,6 +5,7 @@ import json, traceback
 from sentence_transformers import util
 from backend.app.core.ml_models import encode_sentence
 from typing import List, Dict, Any
+from backend.app.core.interview_flow import record_answer
 
 # explainability imports
 import numpy as np
@@ -72,8 +73,10 @@ async def score_text_answer(payload: dict):
         session_id = payload.get("session_id")
         question_id = payload.get("question_id")
         answer_text = payload.get("answer_text", "")
-        if not (session_id and question_id and answer_text is not None):
-            raise HTTPException(status_code=400, detail="session_id, question_id and answer_text required")
+        answer_text = answer_text.strip()
+        if not answer_text:
+            raise HTTPException(status_code=400, detail="answer_text is empty")
+
 
         BASE_DIR = Path(__file__).resolve().parents[4]
         STORAGE_DIR = BASE_DIR / "storage"
@@ -105,6 +108,14 @@ async def score_text_answer(payload: dict):
 
         # explainability: token matches
         top_matches = compute_top_matches(ref_text, answer_text, top_k=6)
+
+        
+        # record answer in interview_state (question_id, question text, answer, score)
+        try:
+            record_answer(STORAGE_DIR, session_id, question_id, q_obj.get("question", ""), answer_text, score_0_10)
+        except Exception as e:
+            print("Warning: failed to record answer in interview state", e)
+
 
         score_obj = {
             "question_id": question_id,
