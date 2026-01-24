@@ -112,7 +112,8 @@ async def score_text_answer(payload: dict):
         
         # record answer in interview_state (question_id, question text, answer, score)
         try:
-            record_answer(STORAGE_DIR, session_id, question_id, q_obj.get("question", ""), answer_text, score_0_10)
+           record_answer(STORAGE_DIR, session_id, question_id, q_obj.get("question", ""), answer_text, score_0_10)
+
         except Exception as e:
             print("Warning: failed to record answer in interview state", e)
 

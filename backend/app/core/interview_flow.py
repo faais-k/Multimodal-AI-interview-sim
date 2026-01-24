@@ -163,3 +163,21 @@ def decide_next_question(storage_dir: Path, session_id: str, plan: dict) -> Dict
     state["questions_asked"].append({"id": q["id"], "question": q["question"], "time": _now()})
     write_state(storage_dir, session_id, state)
     return q
+
+def advance_stage(storage_dir: Path, session_id: str, current_question_id: str):
+    state = read_state(storage_dir, session_id)
+
+    stage = state.get("cursor", {}).get("stage", "intro")
+
+    # move stages forward
+    if stage == "intro":
+        state["cursor"]["stage"] = "project"
+    elif stage == "project":
+        state["cursor"]["stage"] = "dynamic"
+    # dynamic stays dynamic (we don't auto-finish here)
+
+    state["cursor"]["last_question_id"] = current_question_id
+
+    write_state(storage_dir, session_id, state)
+    return state["cursor"]["stage"]
+
