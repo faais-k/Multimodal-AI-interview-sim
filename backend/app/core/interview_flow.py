@@ -49,11 +49,14 @@ def init_interview_state(storage_dir: Path, session_id: str, parsed_resume: dict
             "summary": parsed_resume.get("summary", "")
         },
         "cursor": {
-            "stage": "intro",  # intro -> project -> dynamic
-            "last_question_id": None
+            "stage": "intro",
+            "last_question_id": None,
+            "current_topic": None
         },
+
         "questions_asked": [],
-        "answers": {}
+        "answers": {},
+        "turns": []
     }
 
     write_state(storage_dir, session_id, state)
@@ -79,6 +82,15 @@ def record_answer(
         "score": score,
         "time": _now()
     }
+
+    state["turns"].append({
+    "role": "candidate",
+    "id": question_id,
+    "text": answer_text,
+    "score": score,
+    "time": _now()
+})
+
 
     # move stage forward after intro and project
     if state["cursor"]["stage"] == "intro":
@@ -122,6 +134,13 @@ def decide_next_question(storage_dir: Path, session_id: str, plan: dict) -> Dict
             question=f"Hi {candidate_name}! Please introduce yourself briefly (education, skills, and what you're looking for)."
         )
         state["questions_asked"].append({"id": q["id"], "question": q["question"], "time": _now()})
+        state["turns"].append({
+            "role": "interviewer",
+            "id": q["id"],
+            "text": q["question"],
+            "time": _now()
+        })
+
         write_state(storage_dir, session_id, state)
         return q
 
@@ -140,6 +159,12 @@ def decide_next_question(storage_dir: Path, session_id: str, plan: dict) -> Dict
                 question="You don’t seem to have projects listed. Can you explain any work you’ve done (internship/mini-project/learning project)?"
             )
         state["questions_asked"].append({"id": q["id"], "question": q["question"], "time": _now()})
+        state["turns"].append({
+            "role": "interviewer",
+            "id": q["id"],
+            "text": q["question"],
+            "time": _now()
+        })
         write_state(storage_dir, session_id, state)
         return q
 
@@ -151,6 +176,12 @@ def decide_next_question(storage_dir: Path, session_id: str, plan: dict) -> Dict
     for q in plan_questions:
         if q.get("id") not in asked_ids:
             state["questions_asked"].append({"id": q["id"], "question": q.get("question"), "time": _now()})
+            state["turns"].append({
+                "role": "interviewer",
+                "id": q["id"],
+                "text": q["question"],
+                "time": _now()
+            })
             write_state(storage_dir, session_id, state)
             return q
 
@@ -161,6 +192,12 @@ def decide_next_question(storage_dir: Path, session_id: str, plan: dict) -> Dict
         question="That’s all from my side. Do you have any questions for me?"
     )
     state["questions_asked"].append({"id": q["id"], "question": q["question"], "time": _now()})
+    state["turns"].append({
+            "role": "interviewer",
+            "id": q["id"],
+            "text": q["question"],
+            "time": _now()
+        })
     write_state(storage_dir, session_id, state)
     return q
 
