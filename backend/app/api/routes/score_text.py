@@ -1,148 +1,199 @@
-# backend/app/api/routes/score_text.py
 from fastapi import APIRouter, HTTPException
 from pathlib import Path
 import json, traceback
-from sentence_transformers import util
-from backend.app.core.ml_models import encode_sentence
 from typing import List, Dict, Any
-from backend.app.core.interview_flow import record_answer
 
-# explainability imports
-import numpy as np
+from sentence_transformers import util
 from sklearn.feature_extraction.text import TfidfVectorizer
+import numpy as np
+
+from backend.app.core.ml_models import encode_sentence
+from backend.app.core.interview_flow import record_answer
+from backend.app.core.scoring_config import QUESTION_TYPE_WEIGHTS
 
 router = APIRouter()
 
-def load_parsed_and_plan(storage_dir: Path, session_id: str):
-    parsed_path = storage_dir / session_id / "parsed_resume.json"
-    plan_path = storage_dir / session_id / "interview_plan.json"
-    if not parsed_path.exists():
-        raise FileNotFoundError(f"parsed_resume.json not found at {parsed_path}")
-    if not plan_path.exists():
-        raise FileNotFoundError(f"interview_plan.json not found at {plan_path}")
-    parsed = json.loads(parsed_path.read_text(encoding="utf-8", errors="ignore"))
-    plan = json.loads(plan_path.read_text(encoding="utf-8", errors="ignore"))
-    return parsed, plan
+# --------------------------------------------------
+# Helpers
+# --------------------------------------------------
 
-def build_reference_text(parsed: dict, plan: dict, question_obj: dict) -> str:
-    if question_obj.get("type") == "technical":
-        skill = question_obj.get("skill") or question_obj.get("question", "")
-        resume_summary = parsed.get("summary", "")
-        projects = parsed.get("projects", []) or []
-        project_snippet = (projects[0][:800]) if projects else ""
-        ref = (
-            f"Describe your experience with {skill}. Mention projects using {skill}, tools/frameworks, "
-            "your role, responsibilities, and any concrete results or metrics. "
-            f"Resume summary: {resume_summary}. Example project excerpt: {project_snippet}"
-        )
-        return ref
-    else:
-        resume_summary = parsed.get("summary", "")
-        return (
-            f"Answer: {question_obj.get('question')}. Include role, duration, achievements. "
-            f"Resume summary: {resume_summary}"
-        )
+def load_parsed_resume(storage_dir: Path, session_id: str) -> dict:
+    p = storage_dir / session_id / "parsed_resume.json"
+    if not p.exists():
+        raise FileNotFoundError("parsed_resume.json not found")
+    return json.loads(p.read_text(encoding="utf-8", errors="ignore"))
 
-def compute_top_matches(reference: str, answer: str, top_k: int = 6) -> List[Dict[str, Any]]:
-    """
-    Compute simple TF-IDF overlap tokens between reference and answer.
-    Returns list of {token, ref_tfidf} ordered by importance in reference.
-    """
+
+def load_interview_state(storage_dir: Path, session_id: str) -> dict:
+    p = storage_dir / session_id / "interview_state.json"
+    if not p.exists():
+        raise FileNotFoundError("interview_state.json not found")
+    return json.loads(p.read_text(encoding="utf-8", errors="ignore"))
+
+
+def find_question_from_state(state: dict, question_id: str) -> dict:
+    for t in state.get("turns", []):
+        if t["role"] == "interviewer" and t["id"] == question_id:
+            return t
+    raise FileNotFoundError(f"Question {question_id} not found in interview_state")
+
+
+def infer_question_type(question_id: str, question_text: str) -> str:
+    qid = question_id.lower()
+
+    if qid.startswith("intro"):
+        return "self_intro"
+    if qid.startswith("project"):
+        return "project"
+    if qid.startswith("followup"):
+        return "followup"
+    if qid.startswith("wrapup"):
+        return "wrapup"
+
+    # fallback heuristic
+    tech_keywords = ["explain", "how", "design", "architecture", "implement"]
+    if any(k in question_text.lower() for k in tech_keywords):
+        return "technical"
+
+    return "followup"
+
+
+def build_dynamic_reference_text(
+    question_text: str,
+    parsed_resume: dict,
+    state: dict
+) -> str:
+    resume_summary = parsed_resume.get("summary", "")
+    skills = ", ".join(parsed_resume.get("skills", []))
+    projects = " ".join(parsed_resume.get("projects", [])[:2])
+
+    recent_turns = []
+    for t in state.get("turns", [])[-6:]:
+        recent_turns.append(f"{t['role']}: {t['text']}")
+
+    return f"""
+Interview question:
+{question_text}
+
+Resume summary:
+{resume_summary}
+
+Skills:
+{skills}
+
+Projects:
+{projects}
+
+Recent interview context:
+{' | '.join(recent_turns)}
+
+A strong answer should be clear, relevant, structured, and specific.
+"""
+
+
+def compute_top_matches(reference: str, answer: str, top_k: int = 6):
     try:
-        vec = TfidfVectorizer(stop_words="english", ngram_range=(1,2), max_features=2000)
-        docs = [reference, answer]
-        X = vec.fit_transform(docs)  # shape (2, n_features)
-        feature_names = np.array(vec.get_feature_names_out())
+        vec = TfidfVectorizer(stop_words="english", ngram_range=(1, 2))
+        X = vec.fit_transform([reference, answer])
+        names = np.array(vec.get_feature_names_out())
+
         ref_vec = X[0].toarray().ravel()
         ans_vec = X[1].toarray().ravel()
-        common_mask = (ref_vec > 0) & (ans_vec > 0)
-        if not np.any(common_mask):
+
+        mask = (ref_vec > 0) & (ans_vec > 0)
+        if not np.any(mask):
             return []
-        common_scores = ref_vec * common_mask  # importance from reference
-        idx = np.argsort(common_scores)[::-1]
-        top_idx = [i for i in idx if common_mask[i]][:top_k]
-        matches = [{"token": feature_names[i], "ref_tfidf": float(round(ref_vec[i], 6))} for i in top_idx]
-        return matches
+
+        scores = ref_vec * mask
+        idx = np.argsort(scores)[::-1][:top_k]
+
+        return [{"token": names[i], "ref_tfidf": round(float(ref_vec[i]), 6)} for i in idx if mask[i]]
     except Exception:
-        # on any failure, return empty explainability to avoid blocking scoring
         return []
+
+
+# --------------------------------------------------
+# Endpoint
+# --------------------------------------------------
 
 @router.post("/score/text")
 async def score_text_answer(payload: dict):
     try:
         session_id = payload.get("session_id")
         question_id = payload.get("question_id")
-        answer_text = payload.get("answer_text", "")
-        answer_text = answer_text.strip()
-        if not answer_text:
-            raise HTTPException(status_code=400, detail="answer_text is empty")
+        answer_text = (payload.get("answer_text") or "").strip()
 
+        if not session_id or not question_id:
+            raise HTTPException(400, "session_id and question_id required")
+        if not answer_text:
+            raise HTTPException(400, "answer_text is empty")
 
         BASE_DIR = Path(__file__).resolve().parents[4]
         STORAGE_DIR = BASE_DIR / "storage"
 
-        # load parsed and plan -> FileNotFoundError if missing
-        parsed, plan = load_parsed_and_plan(STORAGE_DIR, session_id)
+        parsed_resume = load_parsed_resume(STORAGE_DIR, session_id)
+        state = load_interview_state(STORAGE_DIR, session_id)
 
-        # find question object
-        q_obj = next((q for q in plan.get("questions", []) if q.get("id") == question_id), None)
-        if q_obj is None:
-            raise HTTPException(status_code=404, detail="question_id not found in interview_plan.json")
+        q_turn = find_question_from_state(state, question_id)
+        question_text = q_turn["text"]
 
-        # build reference
-        ref_text = build_reference_text(parsed, plan, q_obj)
+        # 🔹 infer question type
+        qtype = infer_question_type(question_id, question_text)
+        config = QUESTION_TYPE_WEIGHTS.get(qtype, {})
 
-        # encode reference and answer using shared ML helper
-        emb_ref = encode_sentence(ref_text)
-        emb_ans = encode_sentence(answer_text)
+        min_score = config.get("min_score", 5.0)
+        weight = config.get("weight", 0.2)
 
-        # cosine similarity
-        sim = util.cos_sim(emb_ref, emb_ans).item()
-        sim_clamped = max(min(sim, 1.0), -1.0)
-        score_0_10 = round(((sim_clamped + 1.0) / 2.0) * 10.0, 2)
+        # 🔹 dynamic reference
+        ref_text = build_dynamic_reference_text(question_text, parsed_resume, state)
 
-        # per-question min_score (if specified in plan)
-        default_min = 5.0
-        min_score = q_obj.get("min_score", plan.get("default_min_score", default_min))
-        needs_human_review = score_0_10 < float(min_score)
+        # embeddings
+        sim = util.cos_sim(
+            encode_sentence(ref_text),
+            encode_sentence(answer_text)
+        ).item()
 
-        # explainability: token matches
-        top_matches = compute_top_matches(ref_text, answer_text, top_k=6)
+        sim = max(min(sim, 1.0), -1.0)
+        raw_score = round(((sim + 1) / 2) * 10, 2)
+        weighted_score = round(raw_score * weight, 2)
 
-        
-        # record answer in interview_state (question_id, question text, answer, score)
-        try:
-           record_answer(STORAGE_DIR, session_id, question_id, q_obj.get("question", ""), answer_text, score_0_10)
+        needs_review = raw_score < min_score
+        top_matches = compute_top_matches(ref_text, answer_text)
 
-        except Exception as e:
-            print("Warning: failed to record answer in interview state", e)
-
+        # persist answer
+        record_answer(
+            STORAGE_DIR,
+            session_id,
+            question_id,
+            question_text,
+            answer_text,
+            raw_score
+        )
 
         score_obj = {
-            "question_id": question_id,
             "session_id": session_id,
-            "similarity": float(sim_clamped),
-            "score": float(score_0_10),
-            "min_score": float(min_score),
-            "needs_human_review": bool(needs_human_review),
-            "reference_snippet": ref_text[:1200],
-            "answer_excerpt": answer_text[:1200],
+            "question_id": question_id,
+            "question_type": qtype,
+            "raw_score": raw_score,
+            "weighted_score": weighted_score,
+            "weight": weight,
+            "min_score": min_score,
+            "needs_human_review": needs_review,
+            "similarity": sim,
             "top_matches": top_matches
         }
 
         out_dir = STORAGE_DIR / session_id / "scores"
         out_dir.mkdir(parents=True, exist_ok=True)
-        out_file = out_dir / f"{question_id}.json"
-        out_file.write_text(json.dumps(score_obj, indent=2, ensure_ascii=False))
+        (out_dir / f"{question_id}.json").write_text(
+            json.dumps(score_obj, indent=2),
+            encoding="utf-8"
+        )
 
-        return {"status": "ok", "question_id": question_id, "similarity": sim_clamped, "score": score_0_10, "needs_human_review": needs_human_review, "top_matches": top_matches, "score_path": str(out_file)}
+        return {"status": "ok", **score_obj}
 
     except HTTPException:
         raise
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        tb = traceback.format_exc()
-        print("Error in /score/text:", e)
-        print(tb)
-        raise HTTPException(status_code=500, detail=f"Internal error scoring answer: {str(e)}")
+    except Exception:
+        print(traceback.format_exc())
+        raise HTTPException(500, "Internal error scoring answer")

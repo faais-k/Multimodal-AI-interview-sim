@@ -26,12 +26,12 @@ async def create_interview_plan(session_id: str):
 
     questions = []
 
-    # --- Self Introduction ---
-    questions.append({
-        "id": "intro",
-        "type": "hr",
-        "question": f"Hi {name}, please introduce yourself and briefly explain your background."
-    })
+    # # --- Self Introduction ---
+    # questions.append({
+    #     "id": "intro",
+    #     "type": "hr",
+    #     "question": f"Hi {name}, please introduce yourself and briefly explain your background."
+    # })
 
     # --- Skill-based technical questions ---
     for skill in skills[:5]:  # limit to 5 for now
