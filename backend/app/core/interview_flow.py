@@ -216,8 +216,6 @@ def decide_next_question(storage_dir: Path, session_id: str, plan: dict) -> Dict
     state = read_state(storage_dir, session_id)
     stage = state["cursor"]["stage"]
 
-    state = read_state(storage_dir, session_id)
-
     if state.get("completed"):
         return {
             "status": "completed",
@@ -279,17 +277,18 @@ def decide_next_question(storage_dir: Path, session_id: str, plan: dict) -> Dict
         write_state(storage_dir, session_id, state)
         return q
 
+# -----------------------------------------------------------------------------------------------------------
+# removed code 🔽
 
+# # ───────────────────────────
+# # Scoring helper
+# # ───────────────────────────
 
-# ───────────────────────────
-# Scoring helper
-# ───────────────────────────
-
-def get_question_context(storage_dir: Path, session_id: str, question_id: str):
-    if question_id.startswith("intro"):
-        return "self_intro", {}
-    if question_id.startswith("project"):
-        return "project", {}
-    if question_id.startswith("followup"):
-        return "followup", {}
-    return "technical", {}
+# def get_question_context(storage_dir: Path, session_id: str, question_id: str):
+#     if question_id.startswith("intro"):
+#         return "self_intro", {}
+#     if question_id.startswith("project"):
+#         return "project", {}
+#     if question_id.startswith("followup"):
+#         return "followup", {}
+#     return "technical", {}
