@@ -1,72 +1,100 @@
+## 📄 `docs/api_contracts.md`
 
 # API Contract — Multimodal AI Interview Simulator
-
 **Backend v0.1.0**
 
-This document defines the backend API endpoints used by the frontend and testing clients.
-All endpoints return JSON unless otherwise stated.
+This document is the **single source of truth** for frontend integration, testing, demos, and future maintenance.
 
-**Base URL (local development)**
 
-```
-http://127.0.0.1:8000
-```
 
----
+## Global Notes
+
+- Base URL (local): `http://127.0.0.1:8000`
+- All endpoints return JSON unless stated otherwise
+- Every session-scoped operation **must** include `session_id`
+- Backend controls interview flow and state
+- Frontend must treat all returned file paths as **opaque**
+- Interview lifecycle:
+
+
+create session
+→ upload resume
+→ parse resume
+→ (optional) job description + candidate profile
+→ generate plan
+→ start interview
+→ next_question ↔ answer + score (loop)
+→ aggregate
+→ analytics
+→ decision
+
+
+
+
+
+## API Versioning
+
+- Current version: `0.1.0`
+- Optional request header:
+
+
+X-API-Version: 0.1.0
+
+
+- Breaking changes require major version bump
+
+
 
 ## 1. Health Check
 
 ### GET `/api/health`
 
 **Purpose**
+- Verify backend availability
+- Used by frontend and CI
 
-* Verify backend service availability
-* Used by frontend and CI checks
-
-**Request**
-
-* No body
-
-**Response (200)**
-
-```json
+**Response 200**
+json
 {
-  "status": "ok",
-  "service": "backend",
-  "stage": "development"
+"status": "ok",
+"service": "backend",
+"stage": "development"
 }
-```
 
----
 
-## 2. Interview Session Management
+
+
+## 2. Session Management
+
+### Create Session
 
 ### POST `/api/session/create`
 
 **Purpose**
 
-* Create a new interview session
-* Allocates a unique session directory under `storage/`
+* Creates a new interview session
+* Allocates `storage/<session_id>/`
 
 **Request**
 
 * No body
 
-**Response (200)**
+**Response 200**
 
-```json
+json
 {
   "session_id": "699d7239-f89b-4d58-b6a3-64a5c5110bce",
   "storage_path": "storage/699d7239-f89b-4d58-b6a3-64a5c5110bce"
 }
-```
 
-**Notes**
 
-* All future requests must include this `session_id`
-* Session data is isolated per candidate
+**Curl**
 
----
+bash
+curl -X POST http://127.0.0.1:8000/api/session/create
+
+
+
 
 ## 3. Resume Upload
 
@@ -74,35 +102,36 @@ http://127.0.0.1:8000
 
 **Purpose**
 
-* Upload candidate resume (PDF or DOCX)
-* Stored under session directory
+* Upload candidate resume (PDF/DOCX)
 
 **Request**
-
-* `multipart/form-data`
+`multipart/form-data`
 
 | Field      | Type   | Required |
 | ---------- | ------ | -------- |
 | session_id | string | yes      |
 | file       | file   | yes      |
 
-**Response (200)**
+**Response 200**
 
-```json
+json
 {
   "status": "ok",
-  "filename": "Faais_resume.pdf",
-  "path": "storage/<session_id>/resumes/Faais_resume.pdf"
+  "filename": "resume.pdf",
+  "saved_path": "storage/<session_id>/resumes/resume.pdf",
+  "session_id": "<session_id>"
 }
-```
 
-**Storage**
 
-```
-storage/<session_id>/resumes/<filename>
-```
+**Curl**
 
----
+bash
+curl -F "session_id=<SESSION_ID>" \
+     -F "file=@resume.pdf" \
+     http://127.0.0.1:8000/api/upload/resume
+
+
+
 
 ## 4. Resume Parsing
 
@@ -110,193 +139,321 @@ storage/<session_id>/resumes/<filename>
 
 **Purpose**
 
-* Extract structured information from uploaded resume
-* Uses PDF/DOCX text extraction + heuristics
+* Extract name, email, skills from resume
 
-**Request**
+**Response 200**
 
-* Path parameter: `session_id`
-
-**Response (200)**
-
-```json
+json
 {
   "status": "ok",
   "parsed_path": "storage/<session_id>/parsed_resume.json",
-  "skills": ["python", "pytorch", "docker"],
+  "skills": ["python", "docker", "machine learning"],
   "email": "candidate@email.com",
   "name": "Candidate Name"
 }
-```
 
-**Generated File**
 
-```
-storage/<session_id>/parsed_resume.json
-```
+**Curl**
 
----
+bash
+curl -X POST http://127.0.0.1:8000/api/parse/resume/<SESSION_ID>
 
-## 5. Interview Plan Generation
 
-### POST `/api/interview/plan`
 
-**Purpose**
 
-* Generate interview questions based on parsed resume
-* Includes HR + technical questions
+## 5. Job Description (Optional)
+
+### POST `/api/session/job_description`
 
 **Request**
 
-```json
+json
 {
-  "session_id": "699d7239-f89b-4d58-b6a3-64a5c5110bce"
+  "session_id": "<SESSION_ID>",
+  "job_role": "Machine Learning Engineer",
+  "job_description": "Build ML pipelines, deploy models, integrate with backend APIs"
 }
-```
 
-**Response (200)**
 
-```json
+**Response**
+
+json
 {
-  "session_id": "699d7239-f89b-4d58-b6a3-64a5c5110bce",
-  "candidate": "Faais K",
+  "status": "ok",
+  "path": "storage/<session_id>/job_description.json"
+}
+
+
+
+
+## 6. Candidate Profile (Optional)
+
+### POST `/api/session/candidate_profile`
+
+**Request**
+
+json
+{
+  "session_id": "<SESSION_ID>",
+  "experience": "Internships in ML and backend development",
+  "education": "BSc Computer Science"
+}
+
+
+**Response**
+
+json
+{
+  "status": "ok",
+  "path": "storage/<session_id>/candidate_profile.json"
+}
+
+
+
+
+## 7. Interview Plan Generation
+
+### POST `/api/interview/plan/{session_id}`
+
+**Purpose**
+
+* Generate structured interview plan
+
+**Response**
+
+json
+{
+  "status": "ok",
+  "session_id": "<session_id>",
+  "candidate": "Candidate Name",
   "summary": "Machine Learning Engineer",
-  "total_questions": 7,
-  "questions": [
-    {
-      "id": "intro",
-      "type": "hr",
-      "question": "Please introduce yourself."
-    },
-    {
-      "id": "uuid-123",
-      "type": "technical",
-      "skill": "python",
-      "question": "Explain your experience with Python."
-    }
-  ]
+  "total_questions": 15,
+  "plan_path": "storage/<session_id>/interview_plan.json"
 }
-```
 
-**Generated File**
 
-```
-storage/<session_id>/interview_plan.json
-```
 
----
 
-## 6. Text Answer Scoring
+## 8. Interview Control (State Machine)
+
+### Start Interview
+
+### POST `/api/session/start_interview?session_id=<SESSION_ID>`
+
+**Response**
+
+json
+{
+  "status": "ok",
+  "message": "interview started"
+}
+
+
+
+
+### Next Question
+
+### POST `/api/session/next_question?session_id=<SESSION_ID>`
+
+**Response — question**
+
+json
+{
+  "status": "ok",
+  "question": {
+    "id": "project_1",
+    "type": "project",
+    "question": "Explain one of your main projects.",
+    "meta": {}
+  }
+}
+
+
+**Response — completed**
+
+json
+{
+  "status": "ok",
+  "question": {
+    "status": "completed",
+    "message": "Interview has ended. Thank you."
+  }
+}
+
+
+
+
+## 9. Text Answer Scoring
 
 ### POST `/api/score/text`
 
-**Purpose**
-
-* Score candidate’s text answer
-* Uses SentenceTransformer embeddings + cosine similarity
-* Produces explainable scoring signals
-
 **Request**
 
-```json
+json
 {
-  "session_id": "699d7239-f89b-4d58-b6a3-64a5c5110bce",
-  "question_id": "uuid-123",
-  "answer_text": "I used Python for ML pipelines and data preprocessing."
+  "session_id": "<SESSION_ID>",
+  "question_id": "<QUESTION_ID>",
+  "answer_text": "I built ML pipelines using PyTorch and Docker."
 }
-```
 
-**Response (200)**
 
-```json
+**Response**
+
+json
 {
   "status": "ok",
-  "question_id": "uuid-123",
-  "similarity": 0.73,
-  "score": 8.6,
+  "question_id": "<QUESTION_ID>",
+  "question_type": "technical",
+  "raw_score": 7.1,
+  "weighted_score": 2.13,
+  "weight": 0.3,
+  "min_score": 6.5,
   "needs_human_review": false,
+  "similarity": 0.42,
   "top_matches": [
-    { "token": "python", "ref_tfidf": 0.41 },
-    { "token": "machine learning", "ref_tfidf": 0.32 }
+    { "token": "pytorch", "ref_tfidf": 0.26 }
   ],
-  "score_path": "storage/<session_id>/scores/uuid-123.json"
+  "score_path": "storage/<session_id>/scores/<question_id>.json"
 }
-```
 
-**Scoring Logic**
 
-* Cosine similarity ∈ [-1, 1]
-* Normalized to score ∈ [0, 10]
-* Per-question minimum score triggers human review flag
 
----
 
-## 7. Audio Answer Scoring (ASR + NLP)
+## 10. Audio Answer Scoring
 
 ### POST `/api/answer/audio`
 
-**Purpose**
-
-* Accept audio answer
-* Run ASR (Whisper)
-* Automatically score transcript via text scoring pipeline
-
 **Request**
+`multipart/form-data`
 
-* `multipart/form-data`
+| Field       | Required |
+| ----------- | -------- |
+| session_id  | yes      |
+| question_id | yes      |
+| file        | yes      |
 
-| Field       | Type   | Required |
-| ----------- | ------ | -------- |
-| session_id  | string | yes      |
-| question_id | string | yes      |
-| file        | audio  | yes      |
+**Response**
 
-**Response (200)**
-
-```json
+json
 {
   "status": "ok",
+  "transcript": "I built models using PyTorch",
   "score": 8.2,
   "similarity": 0.69,
   "needs_human_review": false,
-  "transcript": "I built CNN models using PyTorch.",
-  "audio_path": "storage/<session_id>/answers/uuid.wav"
+  "audio_path": "storage/<session_id>/answers/<uuid>.wav"
 }
-```
 
----
 
-## 8. Storage Layout (Reference)
 
-```
+
+## 11. Score Aggregation (Phase 6.1)
+
+### POST `/api/aggregate/{session_id}`
+
+**Response**
+
+json
+{
+  "status": "ok",
+  "final_score": 6.74,
+  "needs_human_review": true,
+  "report_path": "storage/<session_id>/final_report.json"
+}
+
+
+
+
+## 12. Analytics Report (Phase 6.2)
+
+### POST `/api/analytics/{session_id}`
+
+**Response**
+
+json
+{
+  "status": "ok",
+  "analytics_path": "storage/<session_id>/analytics_report.json",
+  "readiness_level": "JUNIOR-MID"
+}
+
+
+
+
+## 13. Decision Engine (Phase 6.3)
+
+### POST `/api/decision/{session_id}`
+
+**Response**
+
+json
+{
+  "status": "ok",
+  "decision": "BORDERLINE",
+  "confidence": 0.67,
+  "final_score": 6.74,
+  "readiness_level": "JUNIOR-MID",
+  "needs_human_review": true,
+  "reasons": [
+    "Inconsistent answer depth",
+    "High-risk skills identified"
+  ]
+}
+
+
+
+
+## 14. Storage Structure
+
+
 storage/
 └── <session_id>/
     ├── resumes/
-    │   └── resume.pdf
     ├── parsed_resume.json
+    ├── job_description.json
+    ├── candidate_profile.json
     ├── interview_plan.json
+    ├── interview_state.json
     ├── answers/
-    │   └── <question_id>_<uuid>.wav
-    └── scores/
-        └── <question_id>.json
-```
+    ├── scores/
+    ├── final_report.json
+    ├── analytics_report.json
+    └── decision.json
 
----
 
-## 9. Error Handling
 
-| Status Code | Meaning                                        |
-| ----------- | ---------------------------------------------- |
-| 400         | Invalid request / missing fields               |
-| 404         | Session or question not found                  |
-| 500         | Internal processing error (logged server-side) |
 
----
+## 15. Error Handling
 
-## 10. Design Notes
+| Code | Meaning                   |
+| ---- | ------------------------- |
+| 400  | Invalid request           |
+| 404  | Session or file not found |
+| 500  | Internal server error     |
 
-* ML models are loaded once and reused
-* No identity inference from video/audio
-* Scoring is explainable and transparent
-* All endpoints are free/open-source compatible
-* Designed for Colab + local dev
+json
+{
+  "detail": "Human readable error message"
+}
+
+
+
+
+## 16. Frontend Best Practices
+
+1. Never generate questions client-side
+2. Always call `next_question` after scoring
+3. Treat `needs_human_review` as a blocker flag
+4. Never infer decision client-side
+5. Backend is authoritative
+
+
+
+## 17. Change Log
+
+* **v0.1.0**
+
+  * Session, resume, interview flow
+  * Scoring, aggregation, analytics, decision engine
+
+

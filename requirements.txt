@@ -1,24 +1,33 @@
-
+# -----------------------------
+# Core Web Framework
+# -----------------------------
 fastapi
 uvicorn[standard]
 python-multipart
+
+# -----------------------------
+# ML / NLP / Scoring
+# -----------------------------
 transformers
 sentence-transformers
-opencv-python
-mediapipe
 torch
-torchaudio
-ffmpeg-python
-gradio
-pydantic
-python-dotenv
-gunicorn
-pytest
-pillow
-pdf2image
-pytesseract
-datasets
-soundfile
-jiwer
 numpy
 scikit-learn
+
+# -----------------------------
+# Audio Processing / ASR
+# -----------------------------
+soundfile
+jiwer
+
+# -----------------------------
+# Computer Vision (posture)
+# -----------------------------
+opencv-python
+mediapipe
+
+# -----------------------------
+# Utilities / Validation
+# -----------------------------
+pydantic
+python-dotenv

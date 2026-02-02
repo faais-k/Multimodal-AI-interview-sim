@@ -227,13 +227,27 @@ def decide_next_question(storage_dir: Path, session_id: str, plan: dict) -> Dict
     name = state["candidate"].get("name") or "there"
     projects = state["candidate"].get("projects", [])
 
-    # 1️⃣ Follow-up has absolute priority
-    if should_ask_followup(state):
+    # # 1️⃣ Follow-up has absolute priority
+    # if should_ask_followup(state):
+    #     q = generate_followup_question(state)
+    #     if q:
+    #         _store_question(state, q)
+    #         write_state(storage_dir, session_id, state)
+    #         return q
+
+    # Determine whether to allow followups now:
+    # rule: do NOT ask followups in the immediate transition from intro -> project.
+    last_qid = state.get("cursor", {}).get("last_question_id") or ""
+    # If we are just after intro and about to ask project, skip followups for that transition.
+    skip_followup_now = (stage == "project" and last_qid.startswith("intro"))
+
+    if not skip_followup_now and should_ask_followup(state):
         q = generate_followup_question(state)
         if q:
             _store_question(state, q)
             write_state(storage_dir, session_id, state)
             return q
+
 
     # 2️⃣ Intro (only once)
     if stage == "intro":

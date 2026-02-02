@@ -30,3 +30,26 @@ storage/
 # IDE
 .vscode/
 .idea/
+
+
+# resumes / personal files
+*.pdf
+*.docx
+
+# local scratch files
+structure.txt
+
+# storage runtime data
+storage/
+*.log
+
+# python
+__pycache__/
+*.pyc
+.env
+venv/
+intrv-sim/
+
+# frontend
+node_modules/
+dist/
