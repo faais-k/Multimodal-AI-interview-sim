@@ -1,0 +1,55 @@
+venv/
+storage/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual env
+intrv-sim/
+venv/
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime data (VERY IMPORTANT)
+storage/
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+
+# resumes / personal files
+*.pdf
+*.docx
+
+# local scratch files
+structure.txt
+
+# storage runtime data
+storage/
+*.log
+
+# python
+__pycache__/
+*.pyc
+.env
+venv/
+intrv-sim/
+
+# frontend
+node_modules/
+dist/

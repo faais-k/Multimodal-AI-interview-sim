@@ -1,0 +1,77 @@
+"""
+Anti-cheat violation logging endpoint.
+Frontend sends events whenever the candidate:
+  - exits fullscreen
+  - switches tabs (visibilitychange)
+  - defocuses the window (blur)
+Each violation is timestamped and stored in violations.json.
+"""
+import json
+import asyncio
+from backend.app.core.db_ops import log_violation_db
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict
+
+from fastapi import APIRouter, HTTPException
+
+router = APIRouter()
+_session_locks: dict[str, asyncio.Lock] = {}
+
+
+def get_session_lock(session_id: str) -> asyncio.Lock:
+    lock = _session_locks.get(session_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _session_locks[session_id] = lock
+    return lock
+
+
+def _storage_dir() -> Path:
+    return Path(__file__).resolve().parents[4] / "storage"
+
+
+def _now() -> str:
+    return datetime.utcnow().isoformat() + "Z"
+
+
+@router.post("/session/violation")
+async def log_violation(payload: Dict[str, Any]):
+    """
+    body: {
+      "session_id": "...",
+      "type": "TAB_SWITCH" | "FULLSCREEN_EXIT" | "WINDOW_BLUR",
+      "details": "optional string",
+      "timestamp": "ISO string (optional, server time used if missing)"
+    }
+    """
+    session_id = payload.get("session_id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id required")
+
+    session_dir = _storage_dir() / session_id
+    if not session_dir.exists():
+        raise HTTPException(status_code=404, detail="session not found")
+
+    v_path = session_dir / "violations.json"
+    async with get_session_lock(session_id):
+        violations = []
+        if v_path.exists():
+            try:
+                violations = json.loads(v_path.read_text(encoding="utf-8"))
+            except Exception:
+                violations = []
+
+        entry = {
+            "type":      payload.get("type", "UNKNOWN"),
+            "details":   payload.get("details", ""),
+            "timestamp": payload.get("timestamp") or _now(),
+            "server_ts": _now(),
+        }
+        violations.append(entry)
+        v_path.write_text(json.dumps(violations, indent=2), encoding="utf-8")
+
+        return {
+            "status":           "ok",
+            "total_violations": len(violations),
+        }

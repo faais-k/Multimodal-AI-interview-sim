@@ -1,0 +1,45 @@
+# ── Web framework ──────────────────────────────────────────────────────────────
+fastapi
+uvicorn[standard]
+python-multipart
+
+# ── ML / NLP ──────────────────────────────────────────────────────────────────
+# Embedding model: all-mpnet-base-v2 (better MTEB scores than MiniLM)
+sentence-transformers
+# ASR: whisper-large-v3-turbo (8x faster than large-v3, near-identical accuracy)
+transformers
+torch
+torchaudio
+accelerate
+# NLP utilities
+scikit-learn
+numpy
+
+# ── Resume parsing ─────────────────────────────────────────────────────────────
+pdfplumber
+docx2txt
+spacy
+
+# ── Audio ─────────────────────────────────────────────────────────────────────
+soundfile
+librosa
+ffmpeg-python
+
+# ── LLM question generation (via HuggingFace Inference API) ───────────────────
+requests
+httpx
+
+# ── LLM scoring engine — Qwen2.5-7B-Instruct 4-bit (P1-A) ────────────────────
+# Required for 4-bit NF4 quantization on GPU
+bitsandbytes>=0.43.0
+# accelerate is already listed above but needs pinned version for quantization
+# accelerate>=0.26.0 already covered by the unpinned entry above
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+pydantic
+python-dotenv
+jiwer
+
+# ── MongoDB async driver ─────────────────────────────────────────────────────
+motor>=3.3.0
+pymongo>=4.6.0

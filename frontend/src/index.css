@@ -1,0 +1,24 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  background: #0f1117;
+  color: #e2e8f0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font-family: inherit; }
+textarea, input, select { font-family: inherit; color: inherit; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0f1117; }
+::-webkit-scrollbar-thumb { background: #2a2d3e; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3d4e; }
+
+/* Animations */
+@keyframes spin          { to { transform: rotate(360deg); } }
+@keyframes pulse         { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+@keyframes shimmer       { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
+@keyframes progressPulse { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
