@@ -165,9 +165,3 @@ HF_TOKEN=hf_...   # HuggingFace token for LLM question generation
 | POST | `/api/analytics/{id}` | Generate analytics |
 | POST | `/api/decision/{id}` | Final hiring decision |
 | GET  | `/api/report/{id}` | Full unified scorecard |
-
----
-
-## 👥 Authors
-
-Mohammed Asaf CT & Faais K — Final Year Project
