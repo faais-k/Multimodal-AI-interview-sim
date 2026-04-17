@@ -47,7 +47,8 @@ router = APIRouter()
 
 
 def _storage_dir() -> Path:
-    return Path(__file__).resolve().parents[4] / "storage"
+    from backend.app.core.storage import get_storage_dir
+    return get_storage_dir()
 
 
 def _load_json(p: Path) -> dict:

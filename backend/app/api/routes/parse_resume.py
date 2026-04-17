@@ -15,7 +15,8 @@ router = APIRouter()
 
 
 def _storage_dir() -> Path:
-    return Path(__file__).resolve().parents[4] / "storage"
+    from backend.app.core.storage import get_storage_dir
+    return get_storage_dir()
 
 # ── Regexes ───────────────────────────────────────────────────────────────────
 EMAIL_RE    = re.compile(r"[a-zA-Z0-9.+_-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")

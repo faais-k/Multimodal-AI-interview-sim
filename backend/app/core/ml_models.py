@@ -264,3 +264,14 @@ def load_models() -> None:
         load_llm_model()
     else:
         print("ℹ️  LLM lazy-loads on first scoring request (set LLM_EAGER_LOAD=true to pre-warm)")
+
+
+# ── GPU availability check ─────────────────────────────────────────────────────
+
+def is_gpu_available() -> bool:
+    """Return True if a CUDA GPU is available."""
+    try:
+        import torch
+        return torch.cuda.is_available()
+    except ImportError:
+        return False

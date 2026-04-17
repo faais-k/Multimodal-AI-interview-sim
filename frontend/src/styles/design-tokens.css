@@ -1,0 +1,140 @@
+/* ============================================================
+   ASCENT — Design Tokens
+   Warm cream/ivory base · Teal-emerald accent · Amber highlights
+   Typography: Fraunces (display) + DM Sans (body)
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* ── Core Palette ── */
+  --cream-50:  #FDFCF8;
+  --cream-100: #F8F5EE;
+  --cream-200: #F0EAD9;
+  --cream-300: #E4D9C3;
+  --stone-400: #C4B99E;
+  --stone-500: #9E9178;
+  --stone-600: #6E624E;
+  --stone-700: #4A4035;
+  --stone-800: #2D2620;
+  --stone-900: #1A1510;
+
+  /* ── Surfaces ── */
+  --bg-base:     var(--cream-50);
+  --bg-surface:  var(--cream-100);
+  --bg-elevated: #FFFFFF;
+  --bg-sunken:   var(--cream-200);
+  --bg-input:    #FFFFFF;
+
+  /* ── Brand: Teal (Primary) ── */
+  --teal-400:   #2DD4BF;
+  --teal-500:   #14B8A6;
+  --teal-600:   #0D9488;
+  --teal-700:   #0F766E;
+  --teal-glow:  rgba(20, 184, 166, 0.12);
+  --teal-glow-strong: rgba(20, 184, 166, 0.22);
+
+  --primary:       var(--teal-500);
+  --primary-light: var(--teal-400);
+  --primary-dark:  var(--teal-700);
+  --primary-glow:  var(--teal-glow);
+  --primary-glow-strong: var(--teal-glow-strong);
+
+  /* ── Brand: Amber (Accent) ── */
+  --amber-400:  #FBBF24;
+  --amber-500:  #F59E0B;
+  --amber-600:  #D97706;
+  --amber-glow: rgba(245, 158, 11, 0.12);
+
+  --accent:       var(--amber-500);
+  --accent-light: var(--amber-400);
+  --accent-dark:  var(--amber-600);
+  --accent-glow:  var(--amber-glow);
+
+  /* ── Semantic ── */
+  --success:       #059669;
+  --success-light: #10B981;
+  --success-dark:  #065F46;
+  --success-glow:  rgba(5, 150, 105, 0.10);
+
+  --warning:       #D97706;
+  --warning-light: #F59E0B;
+  --warning-dark:  #92400E;
+  --warning-glow:  rgba(217, 119, 6, 0.10);
+
+  --danger:       #DC2626;
+  --danger-light: #EF4444;
+  --danger-dark:  #991B1B;
+  --danger-glow:  rgba(220, 38, 38, 0.10);
+
+  /* ── Borders ── */
+  --border:         rgba(78, 64, 53, 0.10);
+  --border-medium:  rgba(78, 64, 53, 0.16);
+  --border-strong:  rgba(78, 64, 53, 0.24);
+  --border-hover:   rgba(20, 184, 166, 0.30);
+  --border-focus:   rgba(20, 184, 166, 0.60);
+
+  /* ── Text ── */
+  --text-primary:   var(--stone-900);
+  --text-secondary: var(--stone-600);
+  --text-muted:     var(--stone-500);
+  --text-placeholder: var(--stone-400);
+  --text-inverse:   #FFFFFF;
+
+  /* ── Typography ── */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body:    'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+
+  /* ── Type Scale ── */
+  --text-xs:      0.75rem;
+  --text-sm:      0.8125rem;
+  --text-base:    0.9375rem;
+  --text-md:      1.0625rem;
+  --text-lg:      1.1875rem;
+  --text-xl:      1.375rem;
+  --text-2xl:     1.625rem;
+  --text-3xl:     2rem;
+  --text-4xl:     2.5rem;
+  --text-display: clamp(2.2rem, 4.5vw, 3.25rem);
+
+  /* ── Spacing (4px base) ── */
+  --space-1:  4px;  --space-2:  8px;  --space-3:  12px; --space-4:  16px;
+  --space-5:  20px; --space-6:  24px; --space-8:  32px; --space-10: 40px;
+  --space-12: 48px; --space-16: 64px;
+
+  /* ── Radii ── */
+  --radius-sm:   6px;   --radius-md:   10px;  --radius-lg:   14px;
+  --radius-xl:   18px;  --radius-2xl:  24px;  --radius-full: 9999px;
+
+  /* ── Shadows (warm-tinted) ── */
+  --shadow-xs:  0 1px 3px rgba(74, 64, 53, 0.08);
+  --shadow-sm:  0 2px 6px rgba(74, 64, 53, 0.10);
+  --shadow-md:  0 4px 16px rgba(74, 64, 53, 0.12);
+  --shadow-lg:  0 8px 28px rgba(74, 64, 53, 0.14);
+  --shadow-xl:  0 16px 48px rgba(74, 64, 53, 0.16);
+  --shadow-glow-teal:  0 0 0 3px rgba(20, 184, 166, 0.18);
+  --shadow-glow-amber: 0 0 0 3px rgba(245, 158, 11, 0.18);
+
+  /* ── Easing ── */
+  --ease-out:       cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out:    cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ── Durations ── */
+  --dur-fast: 110ms;
+  --dur-base: 200ms;
+  --dur-slow: 380ms;
+
+  /* ── Gradients ── */
+  --gradient-hero:    linear-gradient(135deg, #F8F5EE 0%, #EDF5F3 50%, #F5F0E8 100%);
+  --gradient-teal:    linear-gradient(135deg, #14B8A6, #0D9488);
+  --gradient-amber:   linear-gradient(135deg, #F59E0B, #D97706);
+  --gradient-warm:    linear-gradient(135deg, #FBBF24, #14B8A6);
+  --gradient-text:    linear-gradient(135deg, #0D9488, #D97706);
+  --gradient-surface: linear-gradient(160deg, #FFFFFF 0%, #F8F5EE 100%);
+
+  /* ── Z-Index ── */
+  --z-base:    0; --z-sticky: 10; --z-nav: 50;
+  --z-overlay: 60; --z-modal: 70; --z-toast: 80;
+}

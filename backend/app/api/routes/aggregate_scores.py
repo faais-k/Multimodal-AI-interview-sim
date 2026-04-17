@@ -16,7 +16,8 @@ MIN_COVERAGE_FOR_AUTO_DECISION  = 0.7
 
 
 def _storage_dir() -> Path:
-    return Path(__file__).resolve().parents[4] / "storage"
+    from backend.app.core.storage import get_storage_dir
+    return get_storage_dir()
 
 def _scores_dir(session_id: str) -> Path:
     return _storage_dir() / session_id / "scores"

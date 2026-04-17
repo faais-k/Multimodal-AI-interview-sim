@@ -1,111 +1,128 @@
 import { useEffect, useRef, useState } from "react";
+import "./PreInterview.css";
 
-const CHECKS = [
-  { id: "camera", label: "Camera access",     icon: "📷" },
-  { id: "mic",    label: "Microphone access", icon: "🎤" },
-  { id: "full",   label: "Fullscreen ready",  icon: "⛶"  },
-];
+const Logo = () => (
+  <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
+    <rect width="36" height="36" rx="10" fill="url(#pi-lg)"/>
+    <path d="M8 26 L18 10 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" fill="none" opacity="0.4"/>
+    <path d="M8 26 L14 18 L18 22 L22 14 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
+    <defs><linearGradient id="pi-lg" x1="0" y1="0" x2="36" y2="36"><stop offset="0%" stopColor="#14B8A6"/><stop offset="100%" stopColor="#0D9488"/></linearGradient></defs>
+  </svg>
+);
 
 export default function PreInterview({ onBegin, setupData }) {
-  const [checks, setChecks] = useState({ camera: false, mic: false, full: false });
-  const [stream, setStream] = useState(null);
+  const [checks, setChecks] = useState({ camera: false, mic: false });
   const [starting, setStarting] = useState(false);
   const [camError, setCamError] = useState(null);
   const videoRef  = useRef();
-  const streamRef = useRef(null);   // ref so cleanup always sees latest stream
+  const streamRef = useRef(null);
 
   useEffect(() => {
     (async () => {
       try {
         const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         streamRef.current = s;
-        setStream(s);
-        setChecks(c => ({ ...c, camera: true, mic: true }));
+        setChecks({ camera: true, mic: true });
         if (videoRef.current) videoRef.current.srcObject = s;
       } catch (e) {
         console.warn("Camera/mic:", e);
-        setCamError("Camera or microphone not accessible. You can still proceed.");
+        setCamError("Camera or microphone not accessible. You can still proceed with text answers.");
       }
     })();
-    // Use ref so cleanup always has the latest stream regardless of closure
     return () => streamRef.current?.getTracks().forEach(t => t.stop());
   }, []);
 
   const begin = async () => {
     setStarting(true);
-    setChecks(c => ({ ...c, full: true }));
     try { await document.documentElement.requestFullscreen(); } catch (_) {}
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
     onBegin();
   };
 
-  // Allow proceeding with camera warning rather than hard-blocking
-  const allReady = true;
+  const CheckRow = ({ label, done, optional }) => (
+    <div className="pi-check">
+      <div className={`pi-check__icon${done ? " done" : optional ? " optional" : ""}`}>
+        {done
+          ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/></svg>
+        }
+      </div>
+      <div className="pi-check__label">{label}</div>
+      {optional && !done && <span className="chip chip-stone" style={{fontSize:"var(--text-xs)"}}>Optional</span>}
+    </div>
+  );
 
   return (
-    <div style={S.page}>
-      <div style={S.card}>
-        <div style={S.header}>
-          <h2 style={S.title}>Ready to Start?</h2>
-          <p style={S.sub}>Hi <strong style={{color:"#667eea"}}>{setupData?.name || "Candidate"}</strong> — let's run a quick check before your interview begins.</p>
+    <div className="pi-shell">
+      <header className="pi-bar">
+        <div className="pi-bar__brand"><Logo /><span>Ascent</span></div>
+        <span className="pi-bar__step">Pre-Interview Check</span>
+      </header>
+
+      <div className="pi-body">
+        <div className="pi-left animate-in">
+          <div className="pi-left__header">
+            <h1 className="pi-left__title">
+              Ready, <em className="gradient-text">{setupData?.name || "Candidate"}</em>?
+            </h1>
+            <p className="pi-left__sub">Let's verify your equipment before the interview begins.</p>
+          </div>
+
+          {/* Camera preview */}
+          <div className="pi-video-wrap">
+            {camError ? (
+              <div className="pi-video-error">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.87v6.26a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H3z"/></svg>
+                <span>{camError}</span>
+              </div>
+            ) : (
+              <video ref={videoRef} autoPlay playsInline muted className="pi-video" />
+            )}
+          </div>
+
+          {/* Checks */}
+          <div className="pi-checks" style={{display: "flex", flexDirection: "row", gap: "1rem", justifyContent: "space-between"}}>
+            <CheckRow label="Camera accessible" done={checks.camera} optional />
+            <CheckRow label="Microphone accessible" done={checks.mic} optional />
+            <CheckRow label="Questions generated" done={true} />
+          </div>
+
+          <button
+            className="btn-primary pi-begin"
+            onClick={begin}
+            disabled={starting}
+          >
+            {starting
+              ? <><span className="spinner"/>Starting…</>
+              : <>Begin Interview<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg></>
+            }
+          </button>
         </div>
 
-        <div style={S.body}>
-          <div style={S.previewWrap}>
-            <video ref={videoRef} autoPlay muted playsInline style={S.video} />
-            {!checks.camera && <div style={S.noCamera}>📷 Camera not detected</div>}
+        <div className="pi-right animate-in">
+          <div className="card pi-session-card">
+            <div className="pi-session-card__title">Session Details</div>
+            <div className="pi-session-rows">
+              {setupData?.name && <div className="pi-session-row"><span>Candidate</span><span>{setupData.name}</span></div>}
+              {setupData?.jobRole && <div className="pi-session-row"><span>Target Role</span><span>{setupData.jobRole}</span></div>}
+              {setupData?.company && <div className="pi-session-row"><span>Company</span><span>{setupData.company}</span></div>}
+              {setupData?.expertiseLevel && <div className="pi-session-row"><span>Level</span><span style={{textTransform:"capitalize"}}>{setupData.expertiseLevel}</span></div>}
+            </div>
           </div>
 
-          <div style={S.checks}>
-            {CHECKS.map(c => (
-              <div key={c.id} style={{ ...S.checkRow, ...(checks[c.id] ? S.checkOk : {}) }}>
-                <span style={S.checkIcon}>{c.icon}</span>
-                <span style={S.checkLabel}>{c.label}</span>
-                <span style={S.checkStatus}>{checks[c.id] ? "✅ Ready" : "⏳ Checking…"}</span>
-              </div>
-            ))}
-          </div>
-
-          {camError && <div style={{background:"#ed893622",border:"1px solid #ed893655",borderRadius:"8px",padding:"10px 14px",color:"#ed8936",fontSize:"13px",marginBottom:"16px"}}>⚠️ {camError}</div>}
-          <div style={S.rules}>
-            <div style={S.rulesTitle}>📋 Interview Rules</div>
-            <ul style={S.rulesList}>
-              <li>This is a <strong>proctored interview</strong> — tab switches and fullscreen exits are logged.</li>
-              <li>Answer each question clearly — you can type or speak your answer.</li>
-              <li>Follow-up questions may be asked based on your responses.</li>
-              <li>Stay seated in front of your camera throughout the interview.</li>
+          <div className="card pi-tips-card">
+            <div className="pi-tips-card__title">Before You Begin</div>
+            <ul className="pi-tips-list">
+              <li>Sit in a quiet, well-lit space</li>
+              <li>Face the camera directly</li>
+              <li>Keep your shoulders level and back straight</li>
+              <li>Answers are evaluated in real time — be specific and structured</li>
+              <li>Use the STAR method: Situation → Task → Action → Result</li>
+              <li>Don't tab away — anti-cheat monitoring is active</li>
             </ul>
           </div>
-
-          <button style={{ ...S.btn, ...(!allReady || starting ? S.btnDisabled : {}) }}
-            onClick={begin} disabled={!allReady || starting}>
-            {starting ? "⏳ Starting interview…" : "🎯 Begin Interview (Fullscreen)"}
-          </button>
         </div>
       </div>
     </div>
   );
 }
-
-const S = {
-  page:        { minHeight:"100vh", background:"#0f1117", display:"flex", alignItems:"center", justifyContent:"center", padding:"24px", fontFamily:"'Segoe UI',system-ui,sans-serif" },
-  card:        { background:"#1a1d2e", border:"1px solid #2a2d3e", borderRadius:"16px", width:"100%", maxWidth:"600px", overflow:"hidden" },
-  header:      { background:"linear-gradient(135deg,#667eea,#764ba2)", padding:"28px 32px" },
-  title:       { color:"#fff", margin:"0 0 8px", fontSize:"24px", fontWeight:700 },
-  sub:         { color:"rgba(255,255,255,0.85)", margin:0, fontSize:"15px" },
-  body:        { padding:"28px 32px" },
-  previewWrap: { position:"relative", background:"#0f1117", borderRadius:"12px", overflow:"hidden", aspectRatio:"16/9", marginBottom:"24px" },
-  video:       { width:"100%", height:"100%", objectFit:"cover", transform:"scaleX(-1)" },
-  noCamera:    { position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", color:"#a0a3b1", fontSize:"16px" },
-  checks:      { display:"flex", flexDirection:"column", gap:"10px", marginBottom:"24px" },
-  checkRow:    { display:"flex", alignItems:"center", gap:"12px", background:"#0f1117", border:"1px solid #2a2d3e", borderRadius:"8px", padding:"12px 16px", transition:"all .3s" },
-  checkOk:     { border:"1px solid #48bb7833", background:"#48bb7811" },
-  checkIcon:   { fontSize:"20px" },
-  checkLabel:  { flex:1, color:"#e2e8f0", fontSize:"14px", fontWeight:500 },
-  checkStatus: { color:"#a0a3b1", fontSize:"13px" },
-  rules:       { background:"#0f1117", borderRadius:"10px", padding:"16px 20px", marginBottom:"24px" },
-  rulesTitle:  { fontWeight:700, color:"#e2e8f0", marginBottom:"10px", fontSize:"14px" },
-  rulesList:   { margin:0, paddingLeft:"20px", color:"#a0a3b1", fontSize:"13px", lineHeight:1.7 },
-  btn:         { width:"100%", padding:"16px", background:"linear-gradient(135deg,#667eea,#764ba2)", border:"none", borderRadius:"10px", color:"#fff", fontSize:"16px", fontWeight:700, cursor:"pointer" },
-  btnDisabled: { opacity:0.5, cursor:"not-allowed" },
-};

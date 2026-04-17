@@ -1,0 +1,9 @@
+.proc-shell { min-height:100dvh; display:flex; align-items:center; justify-content:center; background:var(--bg-base); padding:var(--space-6); }
+.proc-card { background:var(--bg-elevated); border:1.5px solid var(--border); border-radius:var(--radius-2xl); padding:var(--space-12) var(--space-8); max-width:480px; width:100%; display:flex; flex-direction:column; align-items:center; gap:var(--space-5); text-align:center; box-shadow:var(--shadow-lg); }
+.proc-icon { color:var(--teal-500); }
+.proc-icon--error { color:var(--danger); }
+.proc-icon svg { width:48px; height:48px; }
+.proc-title { font-family:var(--font-display); font-size:var(--text-2xl); font-weight:700; letter-spacing:-0.02em; }
+.proc-sub   { font-size:var(--text-base); color:var(--text-secondary); }
+.proc-steps { display:flex; flex-direction:column; gap:var(--space-3); width:100%; }
+.proc-step  { display:flex; align-items:center; gap:var(--space-3); font-size:var(--text-sm); color:var(--text-secondary); animation:fadeIn 0.4s var(--ease-out) both; }

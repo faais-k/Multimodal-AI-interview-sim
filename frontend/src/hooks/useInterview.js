@@ -14,11 +14,11 @@ const SESSION_KEY = "ai_interview_session_id";
 
 const INIT = {
   sessionId:      null,
-  step:           "setup",  // setup | preinterview | interview | processing | results
+  step:           "landing",  // landing | setup | preinterview | interview | processing | results
   question:       null,
   questionNumber: 0,
   loading:        false,
-  evaluating:     false,    // P3-B: true while LLM is scoring the submitted answer
+  evaluating:     false,
   error:          null,
   report:         null,
   setupData:      null,
@@ -27,7 +27,7 @@ const INIT = {
 function reducer(s, a) {
   switch (a.type) {
     case "SET_LOADING":        return { ...s, loading: a.v };
-    case "SET_EVALUATING":     return { ...s, evaluating: a.v };   // P3-B
+    case "SET_EVALUATING":     return { ...s, evaluating: a.v };
     case "SET_ERROR":          return { ...s, error: a.v, loading: false, evaluating: false };
     case "CLEAR_ERROR":        return { ...s, error: null };
     case "SET_SESSION":        return { ...s, sessionId: a.v };
@@ -45,8 +45,9 @@ export function useInterview() {
   const [state, dispatch] = useReducer(reducer, INIT);
 
   const setLoading    = v => dispatch({ type: "SET_LOADING",    v });
-  const setEvaluating = v => dispatch({ type: "SET_EVALUATING", v });  // P3-B
+  const setEvaluating = v => dispatch({ type: "SET_EVALUATING", v });
   const setError      = v => dispatch({ type: "SET_ERROR",      v });
+  const setStep       = v => dispatch({ type: "SET_STEP",       v });
 
   // ── Restore persisted session on mount ─────────────────────────────────────
   useEffect(() => {
@@ -268,6 +269,6 @@ export function useInterview() {
 
   return {
     ...state,
-    setup, startInterview, submitText, submitAudio, fetchNext, retryFinalize,
+    setup, startInterview, submitText, submitAudio, fetchNext, retryFinalize, setStep,
   };
 }

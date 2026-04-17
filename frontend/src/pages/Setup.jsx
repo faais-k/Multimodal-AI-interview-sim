@@ -1,15 +1,31 @@
 import { useRef, useState } from "react";
+import "./Setup.css";
+
+const Logo = () => (
+  <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="36" height="36" rx="10" fill="url(#sb-lg)"/>
+    <path d="M8 26 L18 10 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" fill="none" opacity="0.4"/>
+    <path d="M8 26 L14 18 L18 22 L22 14 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
+    <defs><linearGradient id="sb-lg" x1="0" y1="0" x2="36" y2="36"><stop offset="0%" stopColor="#14B8A6"/><stop offset="100%" stopColor="#0D9488"/></linearGradient></defs>
+  </svg>
+);
 
 const LEVELS = ["fresher", "intermediate", "experienced"];
+const LEVEL_DESC = {
+  fresher:      "Fundamentals, projects & learning approach",
+  intermediate: "Previous work, deeper concepts & trade-offs",
+  experienced:  "Architecture, leadership & production decisions",
+};
 
 export default function Setup({ onSubmit, loading, error }) {
-  const [form, setForm]     = useState({
-    name: "", jobRole: "", expertiseLevel: "fresher",
-    jobDescription: "", company: "", experience: "", education: "",
+  const [form, setForm] = useState({
+    name:"", jobRole:"", expertiseLevel:"fresher",
+    jobDescription:"", company:"", experience:"", education:"",
   });
-  const [file, setFile]     = useState(null);
-  const [drag, setDrag]     = useState(false);
-  const fileRef             = useRef();
+  const [file, setFile]   = useState(null);
+  const [drag, setDrag]   = useState(false);
+  const [section, setSection] = useState("required");
+  const fileRef = useRef();
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const canSubmit = form.name.trim() && form.jobRole.trim() && file;
@@ -17,141 +33,230 @@ export default function Setup({ onSubmit, loading, error }) {
   const handleDrop = e => {
     e.preventDefault(); setDrag(false);
     const f = e.dataTransfer.files[0];
-    const allowed = ["application/pdf",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/msword"];
-    if (f && (allowed.includes(f.type) || f.name.match(/\.(pdf|docx|doc)$/i))) setFile(f);
-  };
-
-  const submit = e => {
-    e.preventDefault();
-    if (!canSubmit) return;
-    onSubmit({ ...form, resumeFile: file });
+    const ok = f && (
+      ["application/pdf","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/msword"].includes(f.type)
+      || f.name.match(/\.(pdf|docx|doc)$/i)
+    );
+    if (ok) setFile(f);
   };
 
   return (
-    <div style={S.page}>
-      <div style={S.card}>
-        {/* Header */}
-        <div style={S.header}>
-          <div style={S.logo}>🤖</div>
-          <h1 style={S.title}>AI Interview Simulator</h1>
-          <p style={S.subtitle}>Practice real interviews. Get detailed feedback.</p>
-        </div>
+    <div className="setup-shell">
+      {/* Header bar */}
+      <header className="setup-bar">
+        <a href="#" className="setup-bar__brand" onClick={e=>{e.preventDefault();window.location.reload();}}>
+          <Logo/><span>Ascent</span>
+        </a>
+        <span className="setup-bar__step">Setup · Step 1 of 2</span>
+      </header>
 
-        <form onSubmit={submit} style={S.form}>
-          {/* Required fields */}
-          <div style={S.section}>
-            <div style={S.sectionLabel}>REQUIRED</div>
-            <div style={S.row}>
-              <div style={S.field}>
-                <label style={S.label}>Full Name</label>
-                <input style={S.input} placeholder="Your full name"
-                  value={form.name} onChange={e => set("name", e.target.value)} />
-              </div>
-              <div style={S.field}>
-                <label style={S.label}>Target Job Role</label>
-                <input style={S.input} placeholder="e.g. Machine Learning Engineer"
-                  value={form.jobRole} onChange={e => set("jobRole", e.target.value)} />
-              </div>
-            </div>
+      <div className="setup-body">
+        {/* Sidebar */}
+        <aside className="setup-aside">
+          <div className="setup-aside__title">Interview Setup</div>
+          <p className="setup-aside__sub">Fill in your details to generate a personalised interview session.</p>
 
-            <div style={S.field}>
-              <label style={S.label}>Expertise Level</label>
-              <div style={S.levelRow}>
-                {LEVELS.map(l => (
-                  <button key={l} type="button"
-                    style={{ ...S.levelBtn, ...(form.expertiseLevel === l ? S.levelActive : {}) }}
-                    onClick={() => set("expertiseLevel", l)}>
-                    {l.charAt(0).toUpperCase() + l.slice(1)}
+          <nav className="setup-nav">
+            <button
+              className={`setup-nav__item${section === "required" ? " active" : ""}`}
+              onClick={() => setSection("required")}
+            >
+              <span className="setup-nav__dot" data-done={!!(form.name && form.jobRole && file)}/>
+              Required
+            </button>
+            <button
+              className={`setup-nav__item${section === "optional" ? " active" : ""}`}
+              onClick={() => setSection("optional")}
+            >
+              <span className="setup-nav__dot" data-done="false"/>
+              Optional
+            </button>
+          </nav>
+
+          <div className="setup-aside__tip">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
+            The more context you provide, the better the interview is tailored to your target role.
+          </div>
+        </aside>
+
+        {/* Main form */}
+        <main className="setup-main">
+          <form
+            onSubmit={e => { e.preventDefault(); if (canSubmit && !loading) onSubmit({...form, resumeFile: file}); }}
+            noValidate
+          >
+            {section === "required" && (
+              <div className="setup-section animate-in">
+                <div className="setup-section__title">About You</div>
+
+                <div className="setup-row">
+                  <div className="input-group">
+                    <label className="input-label">Full Name *</label>
+                    <input
+                      value={form.name}
+                      onChange={e => set("name", e.target.value)}
+                      placeholder="e.g. Faais K"
+                      required
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Target Role *</label>
+                    <input
+                      value={form.jobRole}
+                      onChange={e => set("jobRole", e.target.value)}
+                      placeholder="e.g. Machine Learning Engineer"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Target Company (optional)</label>
+                  <input
+                    value={form.company}
+                    onChange={e => set("company", e.target.value)}
+                    placeholder="e.g. Google, Infosys, startup …"
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Experience Level *</label>
+                  <div className="level-grid">
+                    {LEVELS.map(l => (
+                      <button
+                        key={l}
+                        type="button"
+                        className={`level-btn${form.expertiseLevel === l ? " level-btn--active" : ""}`}
+                        onClick={() => set("expertiseLevel", l)}
+                      >
+                        <span className="level-btn__name">{l.charAt(0).toUpperCase() + l.slice(1)}</span>
+                        <span className="level-btn__desc">{LEVEL_DESC[l]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Resume (PDF / DOCX) *</label>
+                  <div
+                    className={`dropzone${drag?" dropzone--drag":""}${file?" dropzone--done":""}`}
+                    onDragOver={e=>{e.preventDefault();setDrag(true);}}
+                    onDragLeave={()=>setDrag(false)}
+                    onDrop={handleDrop}
+                    onClick={()=>fileRef.current.click()}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={e=>{if(e.key==="Enter"||e.key===" ")fileRef.current.click();}}
+                    aria-label="Upload resume"
+                  >
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept=".pdf,.docx,.doc"
+                      style={{display:"none"}}
+                      onChange={e=>{const f=e.target.files?.[0]; if(f) setFile(f);}}
+                    />
+                    {file ? (
+                      <>
+                        <div className="dropzone__icon dropzone__icon--done">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                        <div className="dropzone__name">{file.name}</div>
+                        <div className="dropzone__sub">{(file.size/1024).toFixed(0)} KB · Click to replace</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="dropzone__icon">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        </div>
+                        <div className="dropzone__label">Drop your resume here, or <span>browse</span></div>
+                        <div className="dropzone__sub">PDF, DOC, DOCX · Max 10 MB</div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="setup-error">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+                    {error}
+                  </div>
+                )}
+
+                <div className="setup-actions">
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={()=>setSection("optional")}
+                  >
+                    Add optional details
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                   </button>
-                ))}
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={!canSubmit || loading}
+                  >
+                    {loading ? <><span className="spinner"/>&nbsp;Processing…</> : <>Generate Interview<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></>}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Resume upload */}
-            <div style={S.field}>
-              <label style={S.label}>Resume (PDF)</label>
-              <div
-                style={{ ...S.dropzone, ...(drag ? S.dropActive : {}), ...(file ? S.dropDone : {}) }}
-                onDragOver={e => { e.preventDefault(); setDrag(true); }}
-                onDragLeave={() => setDrag(false)}
-                onDrop={handleDrop}
-                onClick={() => fileRef.current.click()}>
-                <input ref={fileRef} type="file" accept=".pdf,.docx,.doc" style={{ display: "none" }}
-                  onChange={e => { if (e.target.files[0]) setFile(e.target.files[0]); }} />
-                {file
-                  ? <><span style={S.dropIcon}>✅</span><span>{file.name}</span></>
-                  : <><span style={S.dropIcon}>📄</span><span>Drop your resume PDF or DOCX here or click to browse</span></>
-                }
+            {section === "optional" && (
+              <div className="setup-section animate-in">
+                <div className="setup-section__title">Additional Context <span className="setup-section__tag">Optional</span></div>
+                <p className="setup-section__note">These help generate more targeted questions. Skip any that aren't relevant.</p>
+
+                <div className="input-group">
+                  <label className="input-label">Job Description</label>
+                  <textarea
+                    value={form.jobDescription}
+                    onChange={e=>set("jobDescription",e.target.value)}
+                    placeholder="Paste the job posting here to get skill-matched questions…"
+                    rows={5}
+                    style={{resize:"vertical"}}
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Experience Summary</label>
+                  <textarea
+                    value={form.experience}
+                    onChange={e=>set("experience",e.target.value)}
+                    placeholder="Brief summary of your work experience…"
+                    rows={3}
+                    style={{resize:"vertical"}}
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Education</label>
+                  <input
+                    value={form.education}
+                    onChange={e=>set("education",e.target.value)}
+                    placeholder="e.g. B.Tech Computer Science, 2023"
+                  />
+                </div>
+
+                <div className="setup-actions">
+                  <button type="button" className="btn-ghost" onClick={()=>setSection("required")}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={!canSubmit || loading}
+                  >
+                    {loading ? <><span className="spinner"/>&nbsp;Processing…</> : <>Generate Interview<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></>}
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
-
-          {/* Optional fields */}
-          <div style={S.section}>
-            <div style={S.sectionLabel}>OPTIONAL — IMPROVES QUESTION QUALITY</div>
-            <div style={S.row}>
-              <div style={S.field}>
-                <label style={S.label}>Company</label>
-                <input style={S.input} placeholder="Target company (optional)"
-                  value={form.company} onChange={e => set("company", e.target.value)} />
-              </div>
-              <div style={S.field}>
-                <label style={S.label}>Education</label>
-                <input style={S.input} placeholder="e.g. B.Sc Computer Science"
-                  value={form.education} onChange={e => set("education", e.target.value)} />
-              </div>
-            </div>
-            <div style={S.field}>
-              <label style={S.label}>Job Description</label>
-              <textarea style={S.textarea} rows={3}
-                placeholder="Paste the job description here for highly targeted questions…"
-                value={form.jobDescription} onChange={e => set("jobDescription", e.target.value)} />
-            </div>
-            <div style={S.field}>
-              <label style={S.label}>Experience Summary</label>
-              <textarea style={S.textarea} rows={2}
-                placeholder="Brief summary of your work experience…"
-                value={form.experience} onChange={e => set("experience", e.target.value)} />
-            </div>
-          </div>
-
-          {error && <div style={S.error}>❌ {error}</div>}
-
-          <button style={{ ...S.submitBtn, ...((!canSubmit || loading) ? S.submitDisabled : {}) }}
-            type="submit" disabled={!canSubmit || loading}>
-            {loading ? "⏳ Setting up your interview…" : "🚀 Proceed to Interview Setup"}
-          </button>
-        </form>
+            )}
+          </form>
+        </main>
       </div>
     </div>
   );
 }
-
-const S = {
-  page:        { minHeight:"100vh", background:"#0f1117", display:"flex", alignItems:"center", justifyContent:"center", padding:"24px", fontFamily:"'Segoe UI',system-ui,sans-serif" },
-  card:        { background:"#1a1d2e", border:"1px solid #2a2d3e", borderRadius:"16px", width:"100%", maxWidth:"720px", overflow:"hidden" },
-  header:      { background:"linear-gradient(135deg,#667eea,#764ba2)", padding:"32px", textAlign:"center" },
-  logo:        { fontSize:"48px", marginBottom:"8px" },
-  title:       { color:"#fff", fontSize:"28px", fontWeight:700, margin:"0 0 8px" },
-  subtitle:    { color:"rgba(255,255,255,0.8)", margin:0, fontSize:"15px" },
-  form:        { padding:"32px" },
-  section:     { marginBottom:"28px" },
-  sectionLabel:{ fontSize:"11px", fontWeight:700, color:"#667eea", letterSpacing:"1.5px", marginBottom:"16px" },
-  row:         { display:"grid", gridTemplateColumns:"1fr 1fr", gap:"16px" },
-  field:       { marginBottom:"16px" },
-  label:       { display:"block", color:"#a0a3b1", fontSize:"13px", fontWeight:600, marginBottom:"6px" },
-  input:       { width:"100%", background:"#0f1117", border:"1px solid #2a2d3e", borderRadius:"8px", padding:"10px 14px", color:"#e2e8f0", fontSize:"14px", outline:"none", boxSizing:"border-box" },
-  textarea:    { width:"100%", background:"#0f1117", border:"1px solid #2a2d3e", borderRadius:"8px", padding:"10px 14px", color:"#e2e8f0", fontSize:"14px", outline:"none", resize:"vertical", boxSizing:"border-box" },
-  levelRow:    { display:"flex", gap:"12px" },
-  levelBtn:    { flex:1, padding:"10px", background:"#0f1117", border:"1px solid #2a2d3e", borderRadius:"8px", color:"#a0a3b1", cursor:"pointer", fontSize:"14px", fontWeight:600, transition:"all .2s" },
-  levelActive: { background:"#667eea22", border:"1px solid #667eea", color:"#667eea" },
-  dropzone:    { border:"2px dashed #2a2d3e", borderRadius:"10px", padding:"28px", textAlign:"center", cursor:"pointer", color:"#a0a3b1", fontSize:"14px", display:"flex", alignItems:"center", justifyContent:"center", gap:"10px", transition:"all .2s" },
-  dropActive:  { borderColor:"#667eea", background:"#667eea11" },
-  dropDone:    { borderColor:"#48bb78", background:"#48bb7811", color:"#48bb78" },
-  dropIcon:    { fontSize:"24px" },
-  error:       { background:"#ff4d4d22", border:"1px solid #ff4d4d44", borderRadius:"8px", padding:"12px", color:"#ff7070", marginBottom:"16px", fontSize:"14px" },
-  submitBtn:   { width:"100%", padding:"16px", background:"linear-gradient(135deg,#667eea,#764ba2)", border:"none", borderRadius:"10px", color:"#fff", fontSize:"16px", fontWeight:700, cursor:"pointer", transition:"opacity .2s" },
-  submitDisabled: { opacity:0.5, cursor:"not-allowed" },
-};

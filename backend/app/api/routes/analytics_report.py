@@ -26,7 +26,8 @@ STOP_WORDS = {
 
 
 def _storage_dir() -> Path:
-    return Path(__file__).resolve().parents[4] / "storage"
+    from backend.app.core.storage import get_storage_dir
+    return get_storage_dir()
 
 def _read_json(path: Path) -> Dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -252,12 +253,26 @@ async def generate_analytics(session_id: str):
     posture_summary = final_report.get("posture_summary", {})
 
     # ── Template recommendations (always built as fallback) ───────────────────
+    # Deduplicate: only show unique skill recommendations; group similar ones
     recommendations: List[str] = []
+    seen_rec_skills: set = set()
     for sk in weak_areas:
-        topic = weak_skill_topics.get(sk, "the low-scoring technical questions")
-        recommendations.append(f"Practice more {sk} — specifically {topic}")
-    for sk in not_assessed:
-        recommendations.append(f"Consider preparing answers about {sk} as it appears on your resume but wasn't covered today")
+        sk_lower = sk.lower()
+        if sk_lower in seen_rec_skills:
+            continue
+        seen_rec_skills.add(sk_lower)
+        topic = weak_skill_topics.get(sk, "")
+        # Build a specific recommendation rather than repeating the question
+        if expertise_level == "fresher":
+            recommendations.append(f"Study {sk} fundamentals: review core concepts, complete a small project, and practise explaining it out loud.")
+        elif expertise_level == "intermediate":
+            recommendations.append(f"Deepen {sk} knowledge: work through a real-world problem end-to-end and document the trade-offs you considered.")
+        else:
+            recommendations.append(f"Strengthen {sk} depth: prepare a detailed example covering architecture decisions, performance optimisation, or failure handling.")
+    not_assessed_grouped = [sk for sk in not_assessed if sk.lower() not in seen_rec_skills]
+    if not_assessed_grouped:
+        skills_str = ", ".join(not_assessed_grouped[:4])
+        recommendations.append(f"Prepare answers for resume skills not yet assessed: {skills_str}. Use the STAR format for each.")
     if filler_summary.get("total_fillers", 0) > 0:
         common_words = ", ".join([str(i.get("word", "")) for i in filler_summary.get("top_fillers", []) if i.get("word")])
         recommendations.append(
