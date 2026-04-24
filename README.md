@@ -44,14 +44,11 @@ npm run dev
 
 ---
 
-## ☁️ Google Colab Deployment
+## ☁️ Deployment (Vercel + Hugging Face)
 
-1. Open `colab_server.ipynb` in Google Colab
-2. Set runtime to **T4 GPU** (Runtime → Change runtime type)
-3. Run all cells in order
-4. Copy the ngrok public URL
-5. Set `VITE_API_BASE=<ngrok-url>/api` in frontend `.env`
-6. Run `npm run build` and serve the `dist/` folder
+For a stable, zero-cost public demo deployment, we use **Vercel** for the frontend and a **Hugging Face Docker Space** for the backend.
+
+See [docs/DEPLOY_VERCEL_HF_SPACE.md](docs/DEPLOY_VERCEL_HF_SPACE.md) for the full step-by-step setup.
 
 ---
 
@@ -126,7 +123,6 @@ Backend (FastAPI)
 │   │   ├── useAntiCheat.js
 │   │   └── useAudioRecorder.js
 │   └── api/client.js
-├── colab_server.ipynb            # one-click Colab deploy
 └── requirements.txt
 ```
 
@@ -136,7 +132,7 @@ Backend (FastAPI)
 
 ```env
 # Frontend (.env in frontend/)
-VITE_API_BASE=http://127.0.0.1:8000/api   # change for Colab/production
+VITE_API_BASE=http://127.0.0.1:8000/api   # change for production
 
 # Backend (optional)
 HF_TOKEN=hf_...   # HuggingFace token for LLM question generation
@@ -165,11 +161,3 @@ HF_TOKEN=hf_...   # HuggingFace token for LLM question generation
 | POST | `/api/analytics/{id}` | Generate analytics |
 | POST | `/api/decision/{id}` | Final hiring decision |
 | GET  | `/api/report/{id}` | Full unified scorecard |
-
----
-
-## Deployment Guide
-
-For a cleaner public demo deployment, use `Vercel` for the frontend and a `Hugging Face Docker Space` for the backend.
-
-See [docs/DEPLOY_VERCEL_HF_SPACE.md](docs/DEPLOY_VERCEL_HF_SPACE.md) for the full step-by-step setup.
