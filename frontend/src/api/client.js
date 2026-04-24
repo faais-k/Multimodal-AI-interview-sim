@@ -7,7 +7,14 @@
  * All calls throw on non-ok responses so callers always catch errors.
  * scoreAudio derives extension from actual blob MIME type.
  */
-const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000/api";
+const API_BASE = (import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000/api").replace(/\/$/, "");
+
+export const AUDIO_INPUT_ENABLED =
+  String(import.meta.env.VITE_ENABLE_AUDIO_INPUT ?? "true").toLowerCase() !== "false";
+
+export const AUDIO_INPUT_HINT =
+  import.meta.env.VITE_AUDIO_INPUT_HINT ||
+  "Audio transcription needs a GPU-backed backend. If this deployment is CPU-only, use text mode.";
 
 async function req(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {

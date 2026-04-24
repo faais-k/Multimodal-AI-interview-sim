@@ -1,0 +1,16 @@
+.git
+.gitignore
+.agent
+.cursor
+venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+storage
+frontend/node_modules
+frontend/dist
+docs
+colab_server.ipynb
+test_fixes.py

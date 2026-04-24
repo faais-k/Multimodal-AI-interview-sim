@@ -165,3 +165,11 @@ HF_TOKEN=hf_...   # HuggingFace token for LLM question generation
 | POST | `/api/analytics/{id}` | Generate analytics |
 | POST | `/api/decision/{id}` | Final hiring decision |
 | GET  | `/api/report/{id}` | Full unified scorecard |
+
+---
+
+## Deployment Guide
+
+For a cleaner public demo deployment, use `Vercel` for the frontend and a `Hugging Face Docker Space` for the backend.
+
+See [docs/DEPLOY_VERCEL_HF_SPACE.md](docs/DEPLOY_VERCEL_HF_SPACE.md) for the full step-by-step setup.

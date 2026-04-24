@@ -52,9 +52,8 @@ async def answer_audio(session_id: str, question_id: str, file: UploadFile = Fil
             raise HTTPException(
                 status_code=503,
                 detail=(
-                    "Audio transcription requires a GPU. You are running on CPU. "
-                    "Please use the Colab T4 backend, or switch to text answer mode. "
-                    "Tip: open colab_server.ipynb, select Runtime → Change runtime type → T4 GPU."
+                    "Audio transcription requires a GPU-backed backend. This deployment is running on CPU. "
+                    "Please switch to text answer mode, or deploy the backend on GPU-enabled infrastructure."
                 ),
             )
 
