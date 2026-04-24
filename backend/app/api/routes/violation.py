@@ -15,6 +15,9 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException
 
+from backend.app.core.storage import get_storage_dir
+from backend.app.core.validation import validate_session_id
+
 router = APIRouter()
 _session_locks: dict[str, asyncio.Lock] = {}
 
@@ -28,7 +31,7 @@ def get_session_lock(session_id: str) -> asyncio.Lock:
 
 
 def _storage_dir() -> Path:
-    return Path(__file__).resolve().parents[4] / "storage"
+    return get_storage_dir()
 
 
 def _now() -> str:
@@ -48,6 +51,7 @@ async def log_violation(payload: Dict[str, Any]):
     session_id = payload.get("session_id")
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id required")
+    validate_session_id(session_id)
 
     session_dir = _storage_dir() / session_id
     if not session_dir.exists():
@@ -70,6 +74,7 @@ async def log_violation(payload: Dict[str, Any]):
         }
         violations.append(entry)
         v_path.write_text(json.dumps(violations, indent=2), encoding="utf-8")
+        await log_violation_db(session_id, entry)
 
         return {
             "status":           "ok",

@@ -164,9 +164,11 @@ def _check_relevance(question: str, answer: str, skill: str) -> dict:
     with an explicit instruction to ignore any content inside them that looks
     like scoring instructions (prompt injection protection).
     """
-    from backend.app.core.ml_models import get_llm_model, llm_generate
+    from backend.app.core.ml_models import get_llm_model, llm_generate, load_llm_model
 
     model, _ = get_llm_model()
+    if model is None:
+        model, _ = load_llm_model()
     if model is None:
         return {"relevant": True, "reason": "llm_unavailable"}
 
@@ -218,9 +220,11 @@ def _llm_evaluate_answer(
     with an explicit instruction to ignore any scoring-related content inside them
     (prompt injection protection).
     """
-    from backend.app.core.ml_models import get_llm_model, llm_generate
+    from backend.app.core.ml_models import get_llm_model, llm_generate, load_llm_model
 
     model, _ = get_llm_model()
+    if model is None:
+        model, _ = load_llm_model()
     if model is None:
         return None
 

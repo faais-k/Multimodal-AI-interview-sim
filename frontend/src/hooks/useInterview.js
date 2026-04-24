@@ -200,15 +200,27 @@ export function useInterview() {
   async function _finalize(sid) {
     dispatch({ type: "SET_STEP",     v: "processing" });
     dispatch({ type: "CLEAR_QUESTION" }); // clear stale question so it cannot re-appear
+    let finalizeError = null;
     try {
       await api.aggregate(sid);
       await api.analytics(sid);
-      await api.decision(sid);
+      try {
+        await api.decision(sid);
+      } catch (e) {
+        finalizeError = e;
+      }
       const report = await api.getReport(sid);
+      if (finalizeError) {
+        report.reviewer_summary = {
+          ...(report.reviewer_summary || {}),
+          overall: (report.reviewer_summary?.overall || "Interview report generated.")
+            + " Final decision generation had a transient issue, but the scorecard is available.",
+        };
+      }
       dispatch({ type: "SET_REPORT", v: report });
     } catch (e) {
       // Stay on "processing" — never go back to "interview" (prevents wrapup re-display)
-      setError("FINALIZE_RETRY:" + (e.message || "Failed to generate report."));
+      setError(e.message || "Failed to generate report.");
     }
   }
 

@@ -29,6 +29,7 @@ export default function Interview({ sessionId, question, questionNumber, loading
   const [mode, setMode]       = useState("text");
   const [answer, setAnswer]   = useState("");
   const [submitting, setSub]  = useState(false);
+  const [cameraStream, setCameraStream] = useState(null);
   const streamRef             = useRef(null);
 
   const { recording, audioBlob, audioURL, micError, start: startRec, stop: stopRec, reset: resetRec } = useAudioRecorder();
@@ -36,9 +37,15 @@ export default function Interview({ sessionId, question, questionNumber, loading
 
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({ video:true, audio:false })
-      .then(s => { streamRef.current = s; })
+      .then(s => {
+        streamRef.current = s;
+        setCameraStream(s);
+      })
       .catch(e => console.warn("Camera unavailable:", e));
-    return () => streamRef.current?.getTracks().forEach(t => t.stop());
+    return () => {
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      setCameraStream(null);
+    };
   }, []);
 
   useEffect(() => {
@@ -227,7 +234,7 @@ export default function Interview({ sessionId, question, questionNumber, loading
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/></svg>
               Live Posture Monitor
             </div>
-            <PostureMonitor stream={streamRef.current} />
+            <PostureMonitor sessionId={sessionId} stream={cameraStream} />
           </div>
 
           <div className="iv-info-card card card-sm">

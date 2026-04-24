@@ -8,6 +8,8 @@ from fastapi import APIRouter, HTTPException
 from backend.app.core.db_ops import save_final_report, update_session_status
 
 from backend.app.core.scoring_config import QUESTION_TYPE_WEIGHTS
+from backend.app.core.validation import validate_session_id
+from backend.app.core.filler_words import aggregate_filler_report
 
 router = APIRouter()
 
@@ -53,6 +55,7 @@ def _safe_read_list(p: Path) -> List[dict]:
 
 @router.post("/aggregate/{session_id}")
 async def aggregate_scores(session_id: str, pass_threshold: float = DEFAULT_PASS_THRESHOLD):
+    validate_session_id(session_id)
     session_dir = _storage_dir() / session_id
     scores_dir  = _scores_dir(session_id)
 
@@ -239,9 +242,12 @@ async def aggregate_scores(session_id: str, pass_threshold: float = DEFAULT_PASS
 
         question_breakdown.append({
             "question":         q_text,
+            "question_id":      qid,
+            "answer":           ans.get("answer", ""),
             "answer_preview":   str(ans.get("answer", ""))[:120],
             "skill_target":     q_skill_l,
             "score":            q_score,
+            "question_type":    q_type,
             "type":             q_type,
             "followups":        0 if str(qid).startswith("followup") else followup_counts.get(q_skill_l, 0),
             # Fields from score file — None when score file missing
@@ -269,24 +275,27 @@ async def aggregate_scores(session_id: str, pass_threshold: float = DEFAULT_PASS
     }
 
     # Filler summary
-    filler_total = 0
-    filler_counter: Counter = Counter()
-    affected_answers = 0
-    for data in scores.values():
-        fs = data.get("filler_stats")
-        if not fs:
-            continue
-        total = int(fs.get("total_fillers", 0) or 0)
-        filler_total += total
-        if total > 0:
-            affected_answers += 1
-        for w, c in (fs.get("filler_frequency", {}) or {}).items():
-            filler_counter[str(w)] += int(c or 0)
-    filler_word_summary = {
-        "total_fillers": filler_total,
-        "top_fillers": [{"word": w, "count": c} for w, c in filler_counter.most_common(5)],
-        "affected_answers": affected_answers,
-    }
+    filler_reports = [
+        data.get("filler_stats")
+        for data in scores.values()
+        if isinstance(data.get("filler_stats"), dict)
+    ]
+    if filler_reports:
+        filler_word_summary = aggregate_filler_report(filler_reports)
+        filler_word_summary["affected_answers"] = sum(
+            1 for r in filler_reports if int(r.get("filler_count", 0) or 0) > 0
+        )
+    else:
+        filler_word_summary = {
+            "total_words": 0,
+            "total_fillers": 0,
+            "overall_ratio": 0.0,
+            "avg_fluency_score": 10.0,
+            "by_category": {},
+            "top_fillers": [],
+            "suggestions": [],
+            "affected_answers": 0,
+        }
 
     # Violations summary
     violations = _safe_read_list(session_dir / "violations.json")

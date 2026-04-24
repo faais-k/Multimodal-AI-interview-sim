@@ -5,11 +5,14 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
+from backend.app.core.storage import get_storage_dir
+from backend.app.core.validation import validate_session_id
+
 router = APIRouter()
 
 
 def _storage_dir() -> Path:
-    return Path(__file__).resolve().parents[4] / "storage"
+    return get_storage_dir()
 
 
 @router.post("/posture/report")
@@ -23,6 +26,7 @@ async def posture_report(payload: dict):
         metrics    = payload.get("metrics", {})
         if not session_id:
             raise HTTPException(status_code=400, detail="session_id required")
+        validate_session_id(session_id)
 
         session_dir = _storage_dir() / session_id
         if not session_dir.exists():

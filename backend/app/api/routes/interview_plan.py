@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 from fastapi import APIRouter, HTTPException
+from backend.app.core.validation import validate_session_id
 
 router = APIRouter()
 
@@ -258,8 +259,10 @@ def _wrapup_q(company):
 
 def _pregenerate_followups(questions: list, job_role: str, expertise_level: str) -> dict:
     try:
-        from backend.app.core.ml_models import get_llm_model, llm_generate
+        from backend.app.core.ml_models import get_llm_model, llm_generate, load_llm_model
         model, _ = get_llm_model()
+        if model is None:
+            model, _ = load_llm_model()
         if model is None:
             return {}
         cached = {}
@@ -292,6 +295,7 @@ Respond with ONLY the question."""
 
 @router.post("/interview/plan/{session_id}")
 async def create_interview_plan(session_id: str):
+    validate_session_id(session_id)
     sdir = _storage_dir() / session_id
     if not sdir.exists():
         raise HTTPException(status_code=404, detail="Session not found.")

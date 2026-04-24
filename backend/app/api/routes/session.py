@@ -4,10 +4,11 @@ import os
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from backend.app.core import interview_flow
+from backend.app.core.rate_limit import check_rate_limit
 from backend.app.core.validation import validate_session_id
 from backend.app.core.db_ops import create_session_record, update_session_status
 
@@ -25,7 +26,20 @@ class SessionCreateResponse(BaseModel):
 
 
 @router.post("/session/create", response_model=SessionCreateResponse)
-async def create_session():
+async def create_session(request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    allowed = await check_rate_limit(
+        client_ip,
+        "session_create",
+        max_requests=10,
+        window_seconds=3600,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many sessions from this IP. Try again in an hour.",
+        )
+
     sid = str(uuid.uuid4())
     session_dir = _storage_dir() / sid
     os.makedirs(session_dir, exist_ok=True)

@@ -10,6 +10,7 @@ from typing import List, Optional
 import docx2txt
 import pdfplumber
 from fastapi import APIRouter, HTTPException
+from backend.app.core.validation import validate_session_id
 
 router = APIRouter()
 
@@ -463,12 +464,17 @@ def build_parsed_schema(filename: str, raw_text: str) -> dict:
 
 @router.post("/parse/resume/{session_id}")
 async def parse_resume(session_id: str):
+    validate_session_id(session_id)
     resume_dir  = _storage_dir() / session_id / "resumes"
 
     if not resume_dir.exists():
         raise HTTPException(status_code=404, detail="Resume directory not found.")
 
-    files = [f for f in resume_dir.iterdir() if f.is_file()]
+    files = sorted(
+        [f for f in resume_dir.iterdir() if f.is_file()],
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
     if not files:
         raise HTTPException(status_code=404, detail="No resume file found. Upload a resume first.")
 

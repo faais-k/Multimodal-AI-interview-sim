@@ -3,13 +3,14 @@ from pathlib import Path
 import json
 from typing import Any, Dict
 
+from backend.app.core.storage import get_storage_dir
 from backend.app.core.validation import validate_session_id
 
 router = APIRouter()
 
 
 def _storage_dir() -> Path:
-    return Path(__file__).resolve().parents[4] / "storage"
+    return get_storage_dir()
 
 
 def _write_json(path: Path, data: Dict[str, Any]):

@@ -18,7 +18,13 @@ ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
 
 
 def _check_auth(x_admin_secret: str) -> None:
-    if ADMIN_SECRET and x_admin_secret != ADMIN_SECRET:
+    if not ADMIN_SECRET:
+        raise HTTPException(
+            status_code=503,
+            detail="Admin endpoints are disabled until ADMIN_SECRET is configured.",
+        )
+
+    if x_admin_secret != ADMIN_SECRET:
         raise HTTPException(status_code=403, detail="Invalid admin secret.")
 
 

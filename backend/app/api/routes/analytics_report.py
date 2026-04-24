@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, HTTPException
+from backend.app.core.validation import validate_session_id
 
 router = APIRouter()
 
@@ -124,6 +125,7 @@ Do not add any other text."""
 
 @router.post("/analytics/{session_id}")
 async def generate_analytics(session_id: str):
+    validate_session_id(session_id)
     session_dir = _storage_dir() / session_id
     if not session_dir.exists():
         raise HTTPException(status_code=404, detail="session not found")

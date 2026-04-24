@@ -15,9 +15,9 @@ headers and is not affected by this check.
 import os
 import shutil
 from datetime import datetime, timedelta
-from pathlib import Path
 
 from fastapi import APIRouter, Header, HTTPException
+from backend.app.core.storage import get_storage_dir
 
 router = APIRouter()
 
@@ -31,6 +31,7 @@ CLEANUP_SECRET = os.getenv("CLEANUP_SECRET", "")
 async def cleanup_old_sessions(
     max_age_hours: int = MAX_SESSION_AGE_HOURS,
     x_cleanup_secret: str = Header(default=""),
+    enforce_auth: bool = True,
 ):
     """Delete old completed or abandoned sessions.
 
@@ -39,10 +40,16 @@ async def cleanup_old_sessions(
     and bypasses the header check intentionally.
     """
     # BUG 6: Reject unauthorised callers when a secret is configured
-    if CLEANUP_SECRET and x_cleanup_secret != CLEANUP_SECRET:
+    if enforce_auth and not CLEANUP_SECRET:
+        raise HTTPException(
+            status_code=503,
+            detail="Cleanup endpoint is disabled until CLEANUP_SECRET is configured.",
+        )
+
+    if enforce_auth and x_cleanup_secret != CLEANUP_SECRET:
         raise HTTPException(status_code=403, detail="Invalid cleanup secret.")
 
-    storage = Path(__file__).resolve().parents[4] / "storage"
+    storage = get_storage_dir()
     if not storage.exists():
         return {"deleted": 0, "skipped": 0, "cutoff": None}
 

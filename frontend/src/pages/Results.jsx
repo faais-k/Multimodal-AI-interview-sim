@@ -85,7 +85,7 @@ export default function Results({ report, onRestart }) {
   const strengths = report.strengths || [];
   const weakAreas = report.weak_areas || [];
   const notAssessed = report.not_assessed || [];
-  const actionPlan  = reviewer.recommendation || [];
+  const actionPlan  = reviewer.recommendation || report.suggestions || [];
 
   // Sort questions by score ascending (weakest first)
   const sortedQs = [...questions].sort((a, b) => (a.score ?? 10) - (b.score ?? 10));
@@ -124,7 +124,7 @@ export default function Results({ report, onRestart }) {
           <div className="verdict-card" style={{background: vc.bg, borderColor: vc.border}}>
             <div style={{color: vc.text}}><VerdictIcon verdict={verdict} size={32}/></div>
             <div className="verdict-card__label" style={{color: vc.text}}>{verdict}</div>
-            <div className="verdict-card__sub">{readiness.level || ""}</div>
+            <div className="verdict-card__sub">{readiness.level || report.readiness_level || ""}</div>
             <div className="verdict-card__conf">Confidence: {fmtP(report.confidence)}</div>
           </div>
 
@@ -239,11 +239,11 @@ export default function Results({ report, onRestart }) {
                         <div className="qa-item__left">
                           <span className={`chip ${scoreChipClass(s)}`}>{fmt(s)}/10</span>
                           {item.skill_target && <span className="chip chip-stone qa-item__skill">{item.skill_target}</span>}
-                          {item.question_type && <span className="chip chip-stone qa-item__type">{item.question_type}</span>}
+                          {(item.question_type || item.type) && <span className="chip chip-stone qa-item__type">{item.question_type || item.type}</span>}
                         </div>
                       </div>
                       <div className="qa-item__question">Q: {item.question}</div>
-                      {item.answer && <div className="qa-item__answer">A: {item.answer}</div>}
+                      {(item.answer || item.answer_preview) && <div className="qa-item__answer">A: {item.answer || item.answer_preview}</div>}
                       {item.llm_evaluation?.what_was_missing && (
                         <div className="qa-item__missing">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
@@ -258,7 +258,7 @@ export default function Results({ report, onRestart }) {
           )}
 
           {/* Filler words */}
-          {fillers.total_words > 0 && (
+          {(fillers.total_words ?? 0) > 0 && (
             <Accordion title="Fluency Analysis">
               <div className="filler-summary">
                 <div className="filler-summary__stats">

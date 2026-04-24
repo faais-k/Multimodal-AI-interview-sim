@@ -3,6 +3,9 @@ from pathlib import Path
 import json
 from typing import Dict, Any, List
 
+from backend.app.core.storage import get_storage_dir
+from backend.app.core.validation import validate_session_id
+
 router = APIRouter()
 
 # -----------------------------
@@ -13,7 +16,7 @@ def _base_dir() -> Path:
     return Path(__file__).resolve().parents[4]
 
 def _storage_dir() -> Path:
-    return _base_dir() / "storage"
+    return get_storage_dir()
 
 def _read_json(path: Path) -> Dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -28,6 +31,7 @@ def _clamp(val: float, lo: float, hi: float):
 
 @router.post("/decision/{session_id}")
 async def final_decision(session_id: str):
+    validate_session_id(session_id)
     session_dir = _storage_dir() / session_id
 
     if not session_dir.exists():

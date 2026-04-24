@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, HTTPException
+from backend.app.core.validation import validate_session_id
 
 router = APIRouter()
 
@@ -29,6 +30,7 @@ def _safe_read(p: Path) -> Dict[str, Any]:
 
 @router.get("/report/{session_id}")
 async def get_full_report(session_id: str):
+    validate_session_id(session_id)
     sdir = _storage_dir() / session_id
     if not sdir.exists():
         raise HTTPException(status_code=404, detail="session not found")

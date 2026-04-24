@@ -208,6 +208,8 @@ def llm_generate(
     """
     model, tokenizer = get_llm_model()
     if model is None or tokenizer is None:
+        model, tokenizer = load_llm_model()
+    if model is None or tokenizer is None:
         return ""
 
     try:
