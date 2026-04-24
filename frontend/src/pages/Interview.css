@@ -252,10 +252,52 @@
 .iv-tips__list li { font-size: var(--text-xs); color: var(--text-secondary); line-height: 1.5; padding-left: var(--space-4); position: relative; }
 .iv-tips__list li::before { content: "·"; position: absolute; left: var(--space-1); color: var(--teal-500); font-weight: 700; }
 
+/* ── Responsive ─────────────────────────────────────────────── */
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .iv-layout { grid-template-columns: 1fr 240px; }
+  .iv-main { padding: var(--space-5) var(--space-6); }
+}
+
+/* Mobile */
 @media (max-width: 768px) {
-  .iv-layout { grid-template-columns: 1fr; }
-  .iv-sidebar { border-left: none; border-top: 1px solid var(--border); }
-  .iv-main { padding: var(--space-4); }
+  /* Stack sidebar below main */
+  .iv-layout { grid-template-columns: 1fr; overflow: visible; }
+  .iv-main { padding: var(--space-4); overflow: visible; }
+  .iv-sidebar {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    overflow: visible;
+    /* Sidebar items shown inline on mobile */
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    padding: var(--space-4);
+  }
+  .iv-posture-card { flex: 1; min-width: 200px; }
+  .iv-info-card, .iv-tips { flex: 1; min-width: 200px; }
+
+  /* Top bar: 2-col, hide center warning */
   .iv-bar { grid-template-columns: 1fr auto; }
   .iv-bar__center { display: none; }
+  .iv-bar__right { gap: var(--space-2); }
+  .iv-bar__level { display: none; }
+
+  /* Question text: smaller on phones */
+  .iv-question { font-size: var(--text-lg); padding: var(--space-4) var(--space-5); }
+
+  /* Mode tabs: full width */
+  .iv-mode-tabs { width: 100%; }
+  .iv-mode-tab { flex: 1; justify-content: center; }
+
+  /* Submit: full width on mobile */
+  .iv-submit-row { justify-content: stretch; }
+  .iv-submit { width: 100%; justify-content: center; }
+}
+
+/* Small phone */
+@media (max-width: 400px) {
+  .iv-bar__role, .iv-bar__name { display: none; }
+  .iv-question { font-size: var(--text-base); padding: var(--space-3) var(--space-4); }
 }

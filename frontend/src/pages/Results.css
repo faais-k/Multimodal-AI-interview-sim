@@ -197,10 +197,45 @@
   color: var(--teal-600); flex-shrink: 0; line-height: 1.2;
 }
 
+/* ── Responsive ─────────────────────────────────────────────── */
+
+/* Tablet */
+@media (max-width: 960px) {
+  .results-hero { grid-template-columns: auto 1fr; grid-template-rows: auto auto; }
+  .stats-grid { grid-column: 1 / -1; grid-template-columns: repeat(3, 1fr); }
+  .results-body { padding: var(--space-6) var(--space-4); }
+}
+
+/* Mobile */
 @media (max-width: 768px) {
+  /* Fully single-column hero */
   .results-hero { grid-template-columns: 1fr; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .skills-row { grid-template-columns: 1fr auto; }
+  /* Skills: hide progress bar, show name + score */
+  .skills-row { grid-template-columns: 1fr auto auto; }
   .skills-row__bar { display: none; }
+  /* Body padding */
   .results-body { padding: var(--space-5) var(--space-4); }
+  /* Accordion */
+  .results-accordion__header { padding: var(--space-4) var(--space-4); }
+  .results-accordion__body { padding: 0 var(--space-4) var(--space-4); }
+  /* Bar: wrap meta, hide chips on very small */
+  .results-bar { flex-wrap: wrap; height: auto; padding: var(--space-3) var(--space-4); }
+  .results-bar__meta { flex-wrap: wrap; }
+  .results-bar__restart { margin-left: 0; width: 100%; justify-content: center; }
+  /* Filler stats row: wrap */
+  .filler-summary__stats { flex-wrap: wrap; }
+  /* Posture summary: wrap */
+  .posture-summary { flex-wrap: wrap; }
+  /* Stats border fix for 2-col: remove left border on every other item start */
+  .stats-grid .stat-box:nth-child(2n+1) { border-left: none; }
+  .stats-grid .stat-box:nth-child(2) { border-left: 1px solid var(--border); }
+}
+
+/* Small phone */
+@media (max-width: 400px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .verdict-card { padding: var(--space-4); min-width: 0; }
+  .score-card__value { font-size: var(--text-3xl); }
+  .qa-item { padding: var(--space-3) var(--space-4); }
 }

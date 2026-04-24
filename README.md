@@ -25,7 +25,7 @@ A production-grade AI interview simulator for students and colleges. Practice re
 | ⛶ Anti-cheat proctoring | Fullscreen lock, tab-switch detection, violation logging |
 | 📊 Detailed scorecard | Skill breakdown, readiness index, personalised suggestions |
 | 🤖 LLM questions (optional) | Qwen2.5-7B via HuggingFace free API |
-| 🆓 100% free | Runs on Google Colab T4 GPU, zero cost |
+| 🆓 100% free | Deployed on Vercel + Hugging Face Docker Space, zero cost |
 
 ---
 

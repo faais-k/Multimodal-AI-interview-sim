@@ -109,7 +109,7 @@ export default function Landing({ onStart }) {
         <div className="l-hero__inner">
           <div className="l-hero__badge">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-            Open Source · Runs on Free Colab GPU
+            Open Source · Deployed on Vercel + Hugging Face
           </div>
 
           <h1 className="l-hero__title">
@@ -118,8 +118,8 @@ export default function Landing({ onStart }) {
           </h1>
 
           <p className="l-hero__sub">
-            Resume-aware questions, real-time posture feedback, voice recognition, and LLM scoring — 
-            all running on a free Colab T4 GPU.
+            Resume-aware questions, real-time posture feedback, semantic scoring, and adaptive follow-ups —
+            deployed on Vercel and Hugging Face. Free to use.
           </p>
 
           <div className="l-hero__actions">
@@ -141,7 +141,7 @@ export default function Landing({ onStart }) {
             <div className="l-hero__proof-divider" />
             <div className="l-hero__proof-item">
               <span className="l-hero__proof-num">Free</span>
-              <span className="l-hero__proof-label">Colab T4 GPU</span>
+              <span className="l-hero__proof-label">Public deployment</span>
             </div>
             <div className="l-hero__proof-divider" />
             <div className="l-hero__proof-item">
@@ -208,12 +208,12 @@ export default function Landing({ onStart }) {
             {[
               {name:"Qwen2.5-7B",role:"Answer scoring & follow-up generation"},
               {name:"Whisper",role:"Speech-to-text transcription"},
-              {name:"all-mpnet",role:"Semantic similarity (cosine fallback)"},
+              {name:"all-mpnet",role:"Semantic similarity scoring"},
               {name:"MediaPipe",role:"Real-time posture detection"},
               {name:"FastAPI",role:"Backend API (Python)"},
               {name:"React + Vite",role:"Frontend interface"},
-              {name:"Colab T4",role:"Free GPU runtime"},
-              {name:"ngrok",role:"Public URL tunnel"},
+              {name:"Hugging Face",role:"Docker Space backend hosting"},
+              {name:"Vercel",role:"Frontend deployment & CDN"},
             ].map((t,i) => (
               <div className="l-tech-item" key={i}>
                 <div className="l-tech-item__name">{t.name}</div>

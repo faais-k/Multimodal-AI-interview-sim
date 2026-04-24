@@ -1,8 +1,9 @@
 /**
  * API client.
  *
- * VITE_API_BASE — set in frontend/.env for Colab/ngrok.
- * Default: http://127.0.0.1:8000/api
+ * VITE_API_BASE — set in frontend/.env (local) or Vercel env vars (production).
+ * Production example: VITE_API_BASE=https://your-space.hf.space/api
+ * Default (local dev): http://127.0.0.1:8000/api
  *
  * All calls throw on non-ok responses so callers always catch errors.
  * scoreAudio derives extension from actual blob MIME type.

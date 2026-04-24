@@ -197,9 +197,36 @@
   border-top: 1px solid var(--border);
 }
 
+/* ── Responsive ─────────────────────────────────────────────── */
+
+/* Tablet */
+@media (max-width: 960px) {
+  .setup-body { grid-template-columns: 220px 1fr; gap: var(--space-6); padding: var(--space-6) var(--space-4); }
+  .level-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Mobile */
 @media (max-width: 768px) {
-  .setup-body { grid-template-columns: 1fr; padding: var(--space-5) var(--space-4); }
+  .setup-body { grid-template-columns: 1fr; padding: var(--space-5) var(--space-4); gap: var(--space-5); }
   .setup-aside { position: static; }
-  .setup-nav { flex-direction: row; }
-  .setup-row, .level-grid { grid-template-columns: 1fr; }
+  /* Horizontal nav with wrapping */
+  .setup-nav { flex-direction: row; flex-wrap: wrap; }
+  .setup-nav__item { flex: 1; min-width: 100px; justify-content: center; }
+  /* Collapse 2-col rows to 1 */
+  .setup-row { grid-template-columns: 1fr; }
+  /* Level grid: 2-col on tablet, 1-col on phone */
+  .level-grid { grid-template-columns: repeat(2, 1fr); }
+  /* Dropzone: less padding */
+  .dropzone { padding: var(--space-6) var(--space-4); }
+  /* Actions: stack buttons */
+  .setup-actions { flex-wrap: wrap; }
+  .setup-actions .btn-primary,
+  .setup-actions .btn-secondary { flex: 1; justify-content: center; }
+}
+
+/* Small phone */
+@media (max-width: 480px) {
+  .level-grid { grid-template-columns: 1fr; }
+  .setup-bar { padding: 0 var(--space-4); }
+  .setup-section__title { font-size: var(--text-xl); }
 }
