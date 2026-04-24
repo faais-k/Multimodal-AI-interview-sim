@@ -68,7 +68,7 @@ function ScoreBar({ value, max = 10, color }) {
   );
 }
 
-export default function Results({ report, onRestart }) {
+export default function Results({ report, caps, onRestart }) {
   if (!report) return null;
 
   const verdict   = report.decision || report.verdict || "BORDERLINE";
