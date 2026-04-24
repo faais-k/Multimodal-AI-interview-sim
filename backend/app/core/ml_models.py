@@ -260,64 +260,54 @@ def get_llm_model():
 
 
 def _hf_api_generate(prompt: str, max_new_tokens: int = 512, temperature: float = 0.0) -> str:
-    """Call HuggingFace Inference API for text generation.
+    """Call HuggingFace Inference API for text generation using InferenceClient.
 
-    Uses the chat completions endpoint for instruction-tuned models.
-    Retries once on 503 (model loading) with a 10s backoff.
+    Uses the chat completions endpoint via the official Python client.
     Returns empty string on any failure — never raises.
     """
-    import requests
+    if not _HF_TOKEN:
+        return ""
 
-    url = f"https://api-inference.huggingface.co/models/{_HF_API_MODEL}/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {_HF_TOKEN}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "model": _HF_API_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": max_new_tokens,
-        "temperature": max(temperature, 0.01),  # API requires > 0
-        "stream": False,
-    }
+    try:
+        from huggingface_hub import InferenceClient
+        from huggingface_hub.errors import HfHubHTTPError
 
-    for attempt in range(2):
-        try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=30)
-
-            if resp.status_code == 503:
-                # Model is loading on HF — wait and retry once
-                if attempt == 0:
+        # Use the official client. It auto-resolves the correct TGI/serverless endpoint.
+        client = InferenceClient(token=_HF_TOKEN)
+        
+        # Some models require temperature > 0
+        safe_temp = max(temperature, 0.01)
+        
+        for attempt in range(2):
+            try:
+                response = client.chat_completion(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=_HF_API_MODEL,
+                    max_tokens=max_new_tokens,
+                    temperature=safe_temp,
+                    stream=False,
+                )
+                return response.choices[0].message.content.strip()
+            except HfHubHTTPError as e:
+                # 503 means model is loading, retry once
+                if e.response.status_code == 503 and attempt == 0:
                     print("⏳ HF API model loading, retrying in 10s…")
+                    import time
                     time.sleep(10)
                     continue
+                print(f"⚠️  HF API error {e.response.status_code}: {e.server_message}")
                 return ""
-
-            if resp.status_code == 429:
-                print("⚠️  HF API rate limited. Falling back to cosine scoring.")
+            except Exception as e:
+                print(f"⚠️  HF API exception: {e}")
+                if attempt == 0:
+                    import time
+                    time.sleep(2)
+                    continue
                 return ""
-
-            if resp.status_code == 401:
-                print("⚠️  HF_TOKEN invalid. LLM API scoring disabled for this request.")
-                return ""
-
-            if resp.status_code != 200:
-                print(f"⚠️  HF API error {resp.status_code}: {resp.text[:200]}")
-                return ""
-
-            data = resp.json()
-            choices = data.get("choices", [])
-            if choices:
-                return choices[0].get("message", {}).get("content", "").strip()
-            return ""
-
-        except Exception as exc:
-            print(f"⚠️  HF API error: {exc}")
-            if attempt == 0:
-                continue
-            return ""
-
-    return ""
+                
+    except Exception as exc:
+        print(f"⚠️  HF API error: {exc}")
+        return ""
 
 
 def llm_generate(
