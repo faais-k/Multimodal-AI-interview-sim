@@ -83,7 +83,7 @@ def _project_info(raw_project: str, fallback_idx: int) -> Tuple[str, List[str]]:
     if not text:
         return (f"Project {fallback_idx}", [])
 
-    parts = [p.strip() for p in re.split(r"[-|:–—]", text, maxsplit=1)]
+    parts = [p.strip() for p in re.split(r"\s+[-|:–—]\s+", text, maxsplit=1)]
     candidate = parts[0] if parts and parts[0] else ""
 
     is_generic = (
