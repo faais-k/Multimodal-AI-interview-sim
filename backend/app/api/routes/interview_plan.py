@@ -98,10 +98,13 @@ def _project_info(raw_project: str, fallback_idx: int) -> Tuple[str, List[str]]:
     if is_generic:
         clean_text = re.sub(r"^[•\-\*#\s]+", "", text)
         words = clean_text.split()
-        if len(words) > 5:
-            candidate = " ".join(words[:5]).rstrip(".,;:") + "..."
+        if clean_text.lower().strip() in _GENERIC_NAMES or len(words) < 2:
+            candidate = f"Project {fallback_idx}"
         else:
-            candidate = clean_text
+            if len(words) > 5:
+                candidate = " ".join(words[:5]).rstrip(".,;:") + "..."
+            else:
+                candidate = clean_text
 
     candidate = candidate.lstrip("•-*# ").strip() or f"Project {fallback_idx}"
 
