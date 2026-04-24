@@ -25,6 +25,8 @@ score_obj fields:
 
 import asyncio
 import json
+import logging
+import os
 import re
 import traceback
 from pathlib import Path
@@ -32,6 +34,13 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 from fastapi import APIRouter, HTTPException
+
+# Configure module logger
+logger = logging.getLogger(__name__)
+
+# Configuration constants
+MAX_ANSWER_LENGTH = int(os.getenv("MAX_ANSWER_LENGTH", "10000"))  # ~2000 words
+MIN_ANSWER_LENGTH = int(os.getenv("MIN_ANSWER_LENGTH", "10"))     # Prevent spam submissions
 from sentence_transformers import util
 from sklearn.feature_extraction.text import TfidfVectorizer
 
@@ -274,23 +283,88 @@ Scoring guide for raw_score:
   3-4:  Surface-level, name-drops without understanding
   1-2:  Off-topic, incorrect, or no meaningful content"""
 
-    raw = llm_generate(prompt, max_new_tokens=350, temperature=0.0)
+    try:
+        raw = llm_generate(prompt, max_new_tokens=350, temperature=0.0)
+    except Exception as e:
+        logger.debug(f"LLM generation failed: {e}")
+        return None
+
+    if not raw or not raw.strip():
+        return None
 
     try:
-        match = re.search(r'\{[\s\S]*\}', raw)
-        if match:
-            result = json.loads(match.group(0))
-            required = [
-                "technical_depth", "specificity", "relevance", "structure",
-                "raw_score", "explanation", "what_was_missing", "strongest_point",
-            ]
-            if all(k in result for k in required):
-                for k in ["technical_depth", "specificity", "relevance", "structure", "raw_score"]:
-                    result[k] = max(1, min(10, int(result[k])))
-                return result
-    except Exception:
-        pass
-    return None
+        # Safer JSON extraction: find first { and last } on same depth level
+        # Use non-greedy match to prevent matching across multiple objects
+        start_idx = raw.find('{')
+        if start_idx == -1:
+            return None
+        
+        # Find matching closing brace by tracking depth
+        depth = 0
+        end_idx = -1
+        for i, char in enumerate(raw[start_idx:], start=start_idx):
+            if char == '{':
+                depth += 1
+            elif char == '}':
+                depth -= 1
+                if depth == 0:
+                    end_idx = i
+                    break
+        
+        if end_idx == -1:
+            logger.debug("Could not find matching closing brace in LLM output")
+            return None
+        
+        json_str = raw[start_idx:end_idx+1]
+        result = json.loads(json_str)
+        
+        # Validate schema with type checking
+        required = {
+            "technical_depth": int,
+            "specificity": int,
+            "relevance": int,
+            "structure": int,
+            "raw_score": (int, float),
+            "explanation": str,
+            "what_was_missing": str,
+            "strongest_point": str,
+        }
+        
+        missing_fields = [k for k in required if k not in result]
+        if missing_fields:
+            logger.debug(f"LLM result missing fields: {missing_fields}")
+            return None
+        
+        # Type validation and clamping
+        for field, expected_type in required.items():
+            value = result[field]
+            if field in ["technical_depth", "specificity", "relevance", "structure"]:
+                # Integer fields 1-10
+                try:
+                    result[field] = max(1, min(10, int(value)))
+                except (ValueError, TypeError):
+                    result[field] = 5  # Default to middle value
+            elif field == "raw_score":
+                # Numeric field
+                try:
+                    result[field] = float(value)
+                except (ValueError, TypeError):
+                    result[field] = 5.0
+            elif field in ["explanation", "what_was_missing", "strongest_point"]:
+                # String fields
+                if not isinstance(value, str):
+                    result[field] = str(value) if value is not None else ""
+                # Limit string lengths to prevent storage issues
+                result[field] = result[field][:500]  # Max 500 chars
+        
+        return result
+        
+    except json.JSONDecodeError as e:
+        logger.debug(f"Failed to parse LLM JSON: {e}. Raw output preview: {raw[:200]}...")
+        return None
+    except Exception as e:
+        logger.debug(f"LLM result validation failed: {e}")
+        return None
 
 
 # ── Main scoring route ────────────────────────────────────────────────────────
@@ -306,6 +380,19 @@ async def score_text_answer(payload: dict):
             raise HTTPException(400, "session_id and question_id are required")
         if not answer_text:
             raise HTTPException(400, "answer_text is empty")
+        
+        # Validate answer length to prevent abuse and control costs
+        answer_len = len(answer_text)
+        if answer_len < MIN_ANSWER_LENGTH:
+            raise HTTPException(
+                400, 
+                f"Answer too short. Minimum {MIN_ANSWER_LENGTH} characters required."
+            )
+        if answer_len > MAX_ANSWER_LENGTH:
+            raise HTTPException(
+                413,  # Payload Too Large
+                f"Answer too long. Maximum {MAX_ANSWER_LENGTH} characters allowed ({MAX_ANSWER_LENGTH // 5} words approximately)."
+            )
 
         # BUG 3: Validate session_id is a UUID4 before any file I/O
         validate_session_id(session_id)
@@ -380,15 +467,22 @@ async def score_text_answer(payload: dict):
                 "strongest_point":  "none",
             }
         else:
-            llm_result = await asyncio.to_thread(
-                _llm_evaluate_answer,
-                question_text,
-                answer_text,
-                skill_target,
-                qtype,
-                expertise_level,
-                sim,
-            )
+            try:
+                llm_result = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        _llm_evaluate_answer,
+                        question_text,
+                        answer_text,
+                        skill_target,
+                        qtype,
+                        expertise_level,
+                        sim,
+                    ),
+                    timeout=30.0,
+                )
+            except asyncio.TimeoutError:
+                logger.warning("LLM evaluation timed out. Using cosine fallback.")
+                llm_result = None
             if llm_result:
                 raw_score = float(llm_result["raw_score"])
 

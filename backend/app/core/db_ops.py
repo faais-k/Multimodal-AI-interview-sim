@@ -5,10 +5,49 @@ All functions are async and silently no-op when db_available() is False,
 so the system always falls back to flat-file mode without errors.
 """
 
+import logging
+import traceback
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from backend.app.core.database import db_available, get_db
+
+# Configure module-level logger
+logger = logging.getLogger(__name__)
+
+
+def _log_db_error(operation: str, session_id: str, exception: Exception) -> None:
+    """
+    Centralized error logging for database operations.
+    
+    Logs with appropriate severity based on exception type:
+    - Connection errors: ERROR (needs immediate attention)
+    - Auth errors: ERROR (configuration issue)
+    - Duplicate key: WARNING (business logic issue)
+    - Other errors: WARNING with full traceback
+    """
+    error_type = type(exception).__name__
+    error_msg = str(exception)
+    
+    # Determine severity based on error type
+    if "Connection" in error_type or "Network" in error_type or "Timeout" in error_type:
+        level = logging.ERROR
+        msg = f"MongoDB connection error in {operation} for session {session_id}: {error_msg}"
+    elif "Authentication" in error_type or "Auth" in error_type or "Credential" in error_type:
+        level = logging.ERROR
+        msg = f"MongoDB authentication error in {operation} for session {session_id}: {error_msg}"
+    elif "DuplicateKey" in error_type:
+        level = logging.WARNING
+        msg = f"MongoDB duplicate key in {operation} for session {session_id}: {error_msg}"
+    else:
+        level = logging.WARNING
+        msg = f"MongoDB error in {operation} for session {session_id}: {error_type}: {error_msg}"
+    
+    logger.log(level, msg)
+    
+    # Log full traceback for unexpected errors at DEBUG level
+    if level == logging.WARNING and "DuplicateKey" not in error_type:
+        logger.debug(f"Full traceback for {operation}: {traceback.format_exc()}")
 
 
 async def create_session_record(
@@ -32,7 +71,7 @@ async def create_session_record(
             "updated_at":      datetime.utcnow(),
         })
     except Exception as e:
-        print(f"⚠️  MongoDB create_session_record failed: {e}")
+        _log_db_error("create_session_record", session_id, e)
 
 
 async def update_session_status(
@@ -54,7 +93,7 @@ async def update_session_status(
             upsert=True,
         )
     except Exception as e:
-        print(f"⚠️  MongoDB update_session_status failed: {e}")
+        _log_db_error("update_session_status", session_id, e)
 
 
 async def save_final_report(
@@ -78,7 +117,7 @@ async def save_final_report(
             upsert=True,
         )
     except Exception as e:
-        print(f"⚠️  MongoDB save_final_report failed: {e}")
+        _log_db_error("save_final_report", session_id, e)
 
 
 async def log_violation_db(
@@ -96,7 +135,7 @@ async def log_violation_db(
             "logged_at":  datetime.utcnow(),
         })
     except Exception as e:
-        print(f"⚠️  MongoDB log_violation_db failed: {e}")
+        _log_db_error("log_violation_db", session_id, e)
 
 
 async def get_session_report(session_id: str) -> Optional[Dict[str, Any]]:
@@ -110,7 +149,7 @@ async def get_session_report(session_id: str) -> Optional[Dict[str, Any]]:
             doc.pop("_id", None)
         return doc
     except Exception as e:
-        print(f"⚠️  MongoDB get_session_report failed: {e}")
+        _log_db_error("get_session_report", session_id, e)
         return None
 
 
@@ -123,7 +162,7 @@ async def list_sessions(limit: int = 50) -> List[Dict[str, Any]]:
         cursor = db.sessions.find({}, {"_id": 0}).sort("created_at", -1).limit(limit)
         return await cursor.to_list(length=limit)
     except Exception as e:
-        print(f"⚠️  MongoDB list_sessions failed: {e}")
+        _log_db_error("list_sessions", "N/A", e)
         return []
 
 
@@ -139,5 +178,5 @@ async def get_session_violations(session_id: str) -> List[Dict[str, Any]]:
         ).sort("logged_at", 1)
         return await cursor.to_list(length=500)
     except Exception as e:
-        print(f"⚠️  MongoDB get_session_violations failed: {e}")
+        _log_db_error("get_session_violations", session_id, e)
         return []

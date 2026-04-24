@@ -67,6 +67,8 @@ def _safe_id(text: str) -> str:
 
 
 # ── State I/O ──────────────────────────────────────────────────────────────────
+import os
+import tempfile
 
 def read_state(storage_dir: Path, session_id: str) -> Dict[str, Any]:
     path = _state_path(storage_dir, session_id)
@@ -78,9 +80,38 @@ def read_state(storage_dir: Path, session_id: str) -> Dict[str, Any]:
 
 
 def write_state(storage_dir: Path, session_id: str, state: Dict[str, Any]) -> None:
-    _state_path(storage_dir, session_id).write_text(
-        json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8"
+    """
+    Atomically write state to disk using temp file + rename.
+    
+    This ensures that even if the process crashes during write,
+    the existing state file remains intact (or the temp file is cleaned up).
+    """
+    target_path = _state_path(storage_dir, session_id)
+    session_dir = _session_dir(storage_dir, session_id)
+    
+    # Ensure session directory exists
+    session_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create temp file in same directory for atomic rename
+    fd, temp_path = tempfile.mkstemp(
+        dir=session_dir,
+        prefix=f".interview_state_{session_id}_",
+        suffix=".tmp"
     )
+    try:
+        # Write to temp file
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            json.dump(state, f, indent=2, ensure_ascii=False)
+        
+        # Atomic rename (POSIX guarantees atomicity for rename within same filesystem)
+        os.replace(temp_path, target_path)
+    except Exception:
+        # Clean up temp file on error
+        try:
+            os.unlink(temp_path)
+        except OSError:
+            pass
+        raise
 
 
 def _last_candidate_turn(state: Dict[str, Any]) -> Optional[Dict[str, Any]]:

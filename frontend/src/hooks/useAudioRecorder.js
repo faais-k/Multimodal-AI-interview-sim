@@ -25,6 +25,14 @@ export function useAudioRecorder() {
 
   const start = useCallback(async () => {
     setMicError(null);
+    
+    // Clean up any previous recording to prevent memory leak
+    if (audioURL) {
+      URL.revokeObjectURL(audioURL);
+    }
+    setAudioBlob(null);
+    setAudioURL(null);
+    
     try {
       const stream   = await navigator.mediaDevices.getUserMedia({ audio: true });
       chunksRef.current = [];
@@ -35,17 +43,15 @@ export function useAudioRecorder() {
       mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: mimeType || "audio/webm" });
-        if (audioURL) URL.revokeObjectURL(audioURL);
         const newURL = URL.createObjectURL(blob);
         setAudioBlob(blob);
         setAudioURL(newURL);
         stream.getTracks().forEach(t => t.stop());
+        chunksRef.current = []; // Clear chunks after creating blob
       };
       mr.start();
       mediaRef.current = mr;
       setRecording(true);
-      setAudioBlob(null);
-      setAudioURL(null);
     } catch (e) {
       console.error("Mic access failed:", e);
       setMicError("Microphone access denied. Please allow microphone access and try again.");
@@ -61,11 +67,17 @@ export function useAudioRecorder() {
 
   const reset = useCallback(() => {
     if (audioURL) URL.revokeObjectURL(audioURL);
+    // Explicitly clear blob reference for garbage collection
+    if (audioBlob) {
+      // Blob will be garbage collected when no references remain
+      setAudioBlob(null);
+    }
     setAudioBlob(null);
     setAudioURL(null);
     setRecording(false);
     setMicError(null);
-  }, [audioURL]);
+    chunksRef.current = [];
+  }, [audioURL, audioBlob]);
 
   useEffect(() => {
     return () => {
