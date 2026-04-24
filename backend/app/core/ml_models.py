@@ -55,7 +55,7 @@ _ASR_MODEL_CPU = "openai/whisper-tiny"
 ASR_MODEL_NAME = _ASR_MODEL_GPU if GPU_AVAILABLE else _ASR_MODEL_CPU
 
 LLM_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
-_HF_API_MODEL = os.getenv("HF_API_MODEL", "mistralai/Mistral-7B-Instruct-v0.3")
+_HF_API_MODEL = os.getenv("HF_API_MODEL", "Qwen/Qwen2.5-72B-Instruct")
 _HF_TOKEN = os.getenv("HF_TOKEN", "")
 
 # Controls whether LLM is pre-warmed at startup (GPU mode only)

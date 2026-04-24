@@ -66,7 +66,7 @@ export default function App() {
     return <Processing error={iv.error} onRetry={iv.retryFinalize} />;
 
   if (iv.step === "results")
-    return <Results report={iv.report} onRestart={() => window.location.reload()} />;
+    return <Results report={iv.report} onRestart={iv.restart} />;
 
   return null;
 }

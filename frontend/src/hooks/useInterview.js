@@ -279,8 +279,17 @@ export function useInterview() {
     }
   }, [state.question, state.sessionId, fetchNext]);
 
+  // ── Restart interview ──────────────────────────────────────────────────────
+  const restart = useCallback(() => {
+    try { sessionStorage.removeItem(SESSION_KEY); } catch (_) {}
+    dispatch({ type: "SET_SESSION", v: null });
+    dispatch({ type: "SET_REPORT", v: null });
+    dispatch({ type: "CLEAR_QUESTION" });
+    dispatch({ type: "SET_STEP", v: "landing" });
+  }, []);
+
   return {
     ...state,
-    setup, startInterview, submitText, submitAudio, fetchNext, retryFinalize, setStep,
+    setup, startInterview, submitText, submitAudio, fetchNext, retryFinalize, setStep, restart,
   };
 }
