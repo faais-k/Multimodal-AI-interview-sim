@@ -1,3 +1,12 @@
+---
+title: Ascent Interview Backend
+emoji: 🤖
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
 # 🤖 Multimodal AI Interview Simulator
 
 A production-grade AI interview simulator for students and colleges. Practice real interviews with camera monitoring, speech recognition, semantic scoring, filler word detection, and detailed feedback.
