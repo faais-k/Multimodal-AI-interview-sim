@@ -33,13 +33,15 @@ STOPWORDS = {
 }
 
 _GENERIC_NAMES = {
-    "full stack","full-stack","fullstack","web development","web dev",
+    "full stack","full-stack","fullstack","full","stack",
+    "web development","web dev","web","dev","development",
     "backend","frontend","mobile app","mobile application","api","rest api",
     "web app","web application","website","app","application","platform",
     "system","project","software","tool","service","microservice",
     "database","dashboard","portal","admin","client","server",
     "machine learning","ml","ai","deep learning","data science",
     "internship","training","bootcamp","course","certification",
+    "technologies","tech","work","built","created","developed",
 }
 
 
@@ -89,6 +91,7 @@ def _project_info(raw_project: str, fallback_idx: int) -> Tuple[str, List[str]]:
     is_generic = (
         candidate.lower().strip() in _GENERIC_NAMES
         or len(candidate.split()) > 6
+        or len(candidate.split()) < 2   # single-word names are never useful project names
         or len(candidate) < 3
     )
 
@@ -154,6 +157,9 @@ def _intro(name, role):
         f"Hi {name}, tell me about yourself and what draws you to {role} specifically.",
         f"Welcome {name}! Walk me through your background and why you're pursuing {role}.",
         f"Hi {name}! Please introduce yourself — your key skills and what excites you about {role}.",
+        f"Good to meet you, {name}. Give me a quick overview of your journey so far and your interest in {role}.",
+        f"Thanks for joining, {name}! Start by telling me what got you into tech and why {role} appeals to you.",
+        f"Hi {name}. Before we dive into the technical side, tell me about your background and motivation for {role}.",
     ])
 
 
@@ -165,18 +171,27 @@ def _project_q(name, stack, role, level):
             f"Tell me about {name}{stk}. What was your role, what problem did it solve, and what did you learn?",
             f"Walk me through {name}{stk}. What was the biggest challenge and how did you overcome it?",
             f"Describe {name}{stk}. What were you personally responsible for, and what would you improve now?",
+            f"I'd like to hear about {name}{stk}. What motivated this project and what was the outcome?",
+            f"Explain {name}{stk} as if I'm evaluating it for production. What works well and what doesn't?",
+            f"You built {name}{stk}. If you had to start over, what would you change and why?",
         ])
     elif level == "intermediate":
         return random.choice([
             f"Tell me about {name}{stk}. What was the most technically challenging part{r}, and how did you approach it?",
             f"Walk me through a key technical decision you made in {name}{stk}. What options did you evaluate?",
             f"In {name}{stk}, what was the hardest design decision you faced{r}?",
+            f"Describe how you architected {name}{stk}. What trade-offs did you consider?",
+            f"What part of {name}{stk} are you most proud of technically? Walk me through the implementation.",
+            f"In {name}{stk}, how did you handle edge cases and error scenarios?",
         ])
     else:
         return random.choice([
             f"Walk me through the most technically challenging part of {name}{stk} — including trade-offs and measurable outcomes.",
             f"In {name}{stk}, describe a design decision you'd revisit today and why.",
             f"Tell me about a performance or scalability challenge in {name}{stk} and how you resolved it.",
+            f"How did you ensure reliability and observability in {name}{stk}? What monitoring did you set up?",
+            f"Describe the data model and access patterns in {name}{stk}. What drove those choices?",
+            f"What non-obvious technical debt accumulated during {name}{stk}, and how would you address it now?",
         ])
 
 
@@ -188,18 +203,29 @@ def _technical_q(skill, role, level):
             f"Can you explain the core concepts behind {skill} and where you've applied it?",
             f"What do you understand about {skill}? Walk me through how you've used or learned it.",
             f"How would you explain {skill} to someone new? Include a real example from your experience.",
+            f"When would you choose {skill} over an alternative? What are its main strengths?",
+            f"What common mistakes do beginners make with {skill}? Have you encountered any?",
+            f"Walk me through a small feature or task you implemented using {skill}.",
+            f"If you were starting a new project today, how would you set up {skill}? Walk me through the steps.",
         ])
     elif level == "intermediate":
         return random.choice([
             f"You've listed {skill} as a key skill. Describe a specific problem you solved using it{r}.",
             f"Walk me through a meaningful task where {skill} was central to your solution{r}.",
             f"What are the most important considerations when working with {skill}{r}? Give a concrete example.",
+            f"How do you handle testing and debugging in {skill}{r}? Share your workflow.",
+            f"Describe a time {skill} didn't work as expected. How did you troubleshoot it?",
+            f"Compare {skill} with an alternative you've considered. When would you pick one over the other{r}?",
+            f"What patterns or best practices do you follow when building with {skill}{r}?",
         ])
     else:
         return random.choice([
             f"You've worked with {skill} extensively. Describe a production-level architectural decision involving {skill}{r}, including trade-offs and outcomes.",
             f"Tell me about the most complex problem you've solved using {skill}{r}. What alternatives did you reject?",
             f"How have you optimised or scaled a system built with {skill}{r}? Walk me through specific bottlenecks.",
+            f"What's the most counterintuitive lesson you've learned working with {skill} at scale{r}?",
+            f"How do you evaluate whether {skill} is the right tool for a new project{r}? What's your decision framework?",
+            f"Describe how you've mentored others on {skill}{r}. What misconceptions did you have to correct?",
         ])
 
 
@@ -209,18 +235,29 @@ def _behavioral_q(level):
             "Tell me about a time you had to learn something new quickly for a project. How did you approach it?",
             "Describe a situation where you collaborated with someone with a different working style. How did you handle it?",
             "Tell me about a time a project didn't go as planned. What happened and what did you learn?",
+            "Have you ever received critical feedback on your code or work? How did you respond?",
+            "Tell me about a time you had to explain a technical concept to a non-technical person.",
+            "Describe a situation where you had to ask for help. What did you learn from it?",
+            "Tell me about a group project where responsibilities were unclear. How did you navigate it?",
         ])
     elif level == "intermediate":
         return random.choice([
             "Tell me about a time you had to adapt your communication style to work with a very different colleague on a technical task.",
             "Describe a situation where you disagreed with a technical decision your team made. How did you handle it?",
             "Tell me about a time you had to balance competing priorities under a tight deadline.",
+            "Describe a situation where you identified a process inefficiency and took action to fix it.",
+            "Tell me about a time you onboarded onto an unfamiliar codebase. What was your strategy?",
+            "Have you ever had to push back on a product requirement for technical reasons? How did you handle it?",
+            "Describe a time you made a mistake in production. What did you learn?",
         ])
     else:
         return random.choice([
             "Tell me about a time you had to influence a technical decision without direct authority. How did you build consensus?",
             "Describe a situation where you had to mentor a junior team member through a difficult technical problem.",
             "Tell me about a high-stakes technical decision you made with incomplete information. What was your process?",
+            "Describe a time you had to kill a feature or project you'd invested significant effort into. How did you handle it?",
+            "Tell me about a time organisational priorities shifted mid-sprint. How did you adapt your team's plan?",
+            "Describe a conflict between engineering quality and business deadline. How did you resolve it?",
         ])
 
 
@@ -231,18 +268,27 @@ def _critical_q(skill, role, level):
             f"An application built with {skill} is taking 10 seconds to load. How would you start investigating?",
             f"A bug is reported — users can't log in to a {skill} app. Walk me through your debugging process.",
             f"If you were deploying a small {skill} app to production for the first time, what steps would you take?",
+            f"A user reports that data they saved in your {skill} app is missing. How do you investigate?",
+            f"Your {skill} app works locally but fails after deployment. What do you check first?",
+            f"You need to add a new feature to an existing {skill} project but the code has no tests. What's your approach?",
         ])
     elif level == "intermediate":
         return random.choice([
             f"A feature using {skill} is causing slow response times in staging. Walk me through how you'd diagnose and fix it.",
             f"You inherit a {skill} codebase with no documentation and a critical production bug. What's your approach?",
             f"A {skill} service starts failing intermittently under load. How do you investigate and fix it?",
+            f"Your {skill} application has a memory leak that only manifests after 24 hours in production. How do you find it?",
+            f"Two microservices communicating via {skill} start returning inconsistent data. How do you debug this?",
+            f"A database migration for your {skill} service failed halfway through. What's your recovery plan?",
         ])
     else:
         return random.choice([
             f"You are the on-call {role_txt}. A {skill}-based service is causing cascading failures in production. Walk me through your response.",
             f"Your {skill} system needs to scale 10× in 3 months due to unexpected growth. What's your architectural approach?",
             f"A security vulnerability is discovered in a core {skill} dependency in production. How do you respond?",
+            f"Your {skill} service is processing stale data and downstream consumers haven't noticed. How do you detect, fix, and prevent this?",
+            f"A major cloud region goes down and your {skill} service has no cross-region failover. Design a remediation plan.",
+            f"Post-mortem reveals your {skill} system silently dropped 5%% of writes for a week. How do you recover and prevent recurrence?",
         ])
 
 
@@ -251,10 +297,12 @@ def _wrapup_q(company):
         return random.choice([
             f"Before we wrap up, what questions do you have about the role and engineering culture at {company}?",
             f"We're almost done — is there anything about the team or technical environment at {company} you'd like to know?",
+            f"As we finish up, is there anything about working at {company} that you'd like to understand better?",
         ])
     return random.choice([
         "Before we wrap up, what questions do you have for us about the role and team?",
         "We're almost done — is there anything you'd like to share or ask about this position?",
+        "As we finish up, is there anything else you'd like us to know, or any questions about the role?",
     ])
 
 
