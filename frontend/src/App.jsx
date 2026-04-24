@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { useInterview } from "./hooks/useInterview";
+import { api, AUDIO_OVERRIDE_OFF } from "./api/client";
 import Landing      from "./pages/Landing";
 import Setup        from "./pages/Setup";
 import PreInterview from "./pages/PreInterview";
@@ -8,6 +10,33 @@ import Results      from "./pages/Results";
 
 export default function App() {
   const iv = useInterview();
+
+  // ── Dynamic backend capability detection ─────────────────────────────────
+  const [backendCaps, setBackendCaps] = useState({
+    audioEnabled: false,   // conservative default until health check completes
+    mode: null,            // "gpu" | "cpu" | null (unknown)
+    llmMode: null,         // "local" | "api" | "disabled" | null
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    api.health()
+      .then(h => {
+        if (cancelled) return;
+        setBackendCaps({
+          audioEnabled: !AUDIO_OVERRIDE_OFF && h.audio_transcribe === "enabled",
+          mode: h.mode || null,
+          llmMode: h.llm_mode || null,
+        });
+      })
+      .catch(() => {
+        // Backend unreachable — keep defaults (audio off)
+        if (!cancelled) {
+          setBackendCaps(prev => ({ ...prev, audioEnabled: false }));
+        }
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   if (iv.step === "landing")
     return <Landing onStart={() => iv.setStep("setup")} />;
@@ -29,6 +58,7 @@ export default function App() {
         onSubmitText   = {iv.submitText}
         onSubmitAudio  = {iv.submitAudio}
         setupData      = {iv.setupData}
+        audioEnabled   = {backendCaps.audioEnabled}
       />
     );
 

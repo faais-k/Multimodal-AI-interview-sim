@@ -1,7 +1,7 @@
 """
 Simple in-memory per-session, per-endpoint rate limiter.
 
-Uses a sliding window approach. Safe for single-process deployments (Colab).
+Uses a sliding window approach. Safe for single-process deployments.
 Not shared across multiple uvicorn workers — acceptable for this use case.
 """
 

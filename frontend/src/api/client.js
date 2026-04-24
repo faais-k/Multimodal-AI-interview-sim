@@ -7,15 +7,25 @@
  *
  * All calls throw on non-ok responses so callers always catch errors.
  * scoreAudio derives extension from actual blob MIME type.
+ *
+ * Audio input:
+ *   VITE_ENABLE_AUDIO_INPUT — manual override. If "false", audio is always off.
+ *   If unset or "true", the frontend checks the backend /health endpoint at
+ *   startup to determine if ASR is actually available.
  */
 const API_BASE = (import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000/api").replace(/\/$/, "");
 
-export const AUDIO_INPUT_ENABLED =
-  String(import.meta.env.VITE_ENABLE_AUDIO_INPUT ?? "true").toLowerCase() !== "false";
+/**
+ * Manual override: if explicitly set to "false", audio is force-disabled
+ * regardless of backend capability. If unset or "true", the frontend will
+ * check the backend health endpoint dynamically.
+ */
+export const AUDIO_OVERRIDE_OFF =
+  String(import.meta.env.VITE_ENABLE_AUDIO_INPUT ?? "").toLowerCase() === "false";
 
 export const AUDIO_INPUT_HINT =
   import.meta.env.VITE_AUDIO_INPUT_HINT ||
-  "Audio transcription needs a GPU-backed backend. If this deployment is CPU-only, use text mode.";
+  "Audio mode uses Whisper for speech-to-text. Speak clearly for best results.";
 
 async function req(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {

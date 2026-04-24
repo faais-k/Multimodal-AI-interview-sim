@@ -17,8 +17,9 @@ You need:
 
 Important limitation:
 
-- Free Hugging Face CPU Spaces can run the backend and text-answer flow.
-- Audio transcription needs a GPU-backed backend, so for a free CPU Space you should disable audio input in the Vercel frontend.
+- Free Hugging Face CPU Spaces can run the backend and text-answer flow out of the box.
+- Audio transcription works on CPU using the lightweight `whisper-tiny` model.
+- LLM scoring on CPU requires setting the `HF_TOKEN` environment variable in your Space to use the Hugging Face Inference API. Without it, the backend will fallback to cosine similarity scoring.
 
 ## Part 1: Push your repo to GitHub
 
@@ -62,8 +63,8 @@ In the Hugging Face Space, open `Settings` and add these variables if needed:
 
 - `APP_STAGE=production`
 - `STORAGE_DIR=/tmp/ascent-storage`
-- `HF_TOKEN=...` only if you want Hugging Face hosted LLM calls that require it
-- `MONGODB_URL=...` only if you want external Mongo persistence
+- `HF_TOKEN=your_hf_access_token` (Required for LLM scoring on CPU Spaces)
+- `MONGODB_URL=...` (optional, for persistent storage)
 - `MONGODB_DB=ai_interview_sim` optional
 
 Notes:
@@ -86,7 +87,8 @@ Expected result:
 
 - JSON with `status: ok`
 - `gpu: unavailable` on free CPU hardware
-- `audio_transcribe: disabled (GPU required)` on free CPU hardware
+- `audio_transcribe: enabled` (uses CPU-optimized model)
+- `llm_mode: api` (if HF_TOKEN is set) or `disabled` (if no token)
 
 ### Copy your backend base URL
 
@@ -118,15 +120,18 @@ In the Vercel project settings, add:
 
 ```text
 VITE_API_BASE=https://YOUR_SPACE_NAME.hf.space/api
-VITE_ENABLE_AUDIO_INPUT=false
-VITE_AUDIO_INPUT_HINT=This public demo uses a free CPU backend, so text answers are enabled and audio answers are disabled.
 ```
 
-Why disable audio?
+(Optional) If you want to force-disable audio input:
+```text
+VITE_ENABLE_AUDIO_INPUT=false
+VITE_AUDIO_INPUT_HINT=Audio is disabled for this demo.
+```
 
-- The free Hugging Face CPU Space can host the backend well enough for a resume demo.
-- Whisper audio transcription in this project expects a GPU-backed backend.
-- Hiding the audio tab makes the public deployment feel intentional instead of broken.
+Why is VITE_ENABLE_AUDIO_INPUT optional now?
+- The frontend dynamically checks the backend's `/api/health` endpoint.
+- If the backend supports audio (it does now, even on CPU), audio mode is enabled automatically.
+- You only need `VITE_ENABLE_AUDIO_INPUT=false` if you want to manually hide the audio feature.
 
 ### Deploy
 

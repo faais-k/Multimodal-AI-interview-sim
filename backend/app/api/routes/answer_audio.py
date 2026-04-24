@@ -2,10 +2,11 @@
 Audio answer endpoint.
 Pipeline: save → rate-limit → Whisper ASR (thread pool, with timeout) → score_text.
 
-CPU MODE WARNING: Whisper large-v3-turbo is a large model. On CPU it can take
-5-20+ minutes for a short clip, or may time out entirely. When running on CPU,
-a clear error is returned immediately rather than hanging indefinitely.
-GPU (Colab T4) is strongly recommended for audio answers.
+Runtime-adaptive ASR:
+  GPU mode: whisper-large-v3-turbo — fast, high accuracy (~5–8s for a 60s clip).
+  CPU mode: whisper-tiny — lightweight, English-only (~2–8s for a 60s clip).
+
+Audio is always available regardless of GPU. The model tier adapts automatically.
 """
 
 import asyncio
@@ -24,10 +25,9 @@ from backend.app.api.routes.score_text import score_text_answer
 
 router = APIRouter()
 
-# On CPU, audio transcription will almost certainly time out or take unacceptably long.
-# We enforce a hard cap; on GPU (Colab T4) 9s of audio completes in ~5–8s.
-ASR_TIMEOUT_GPU = 120   # seconds — generous for Colab T4
-ASR_TIMEOUT_CPU = 30    # seconds — enough for tiny-model fallback; fails fast otherwise
+# Timeouts: GPU models are larger but run on accelerator; CPU uses tiny model.
+ASR_TIMEOUT_GPU = 120   # seconds — generous for large-v3-turbo on GPU
+ASR_TIMEOUT_CPU = 90    # seconds — whisper-tiny on CPU is fast but give headroom
 
 
 def _storage_dir() -> Path:
@@ -46,16 +46,7 @@ async def answer_audio(session_id: str, question_id: str, file: UploadFile = Fil
         if not session_dir.exists():
             raise HTTPException(status_code=404, detail="session_id not found")
 
-        # Check GPU availability early — give CPU users a fast, clear error
-        gpu_ok = is_gpu_available()
-        if not gpu_ok:
-            raise HTTPException(
-                status_code=503,
-                detail=(
-                    "Audio transcription requires a GPU-backed backend. This deployment is running on CPU. "
-                    "Please switch to text answer mode, or deploy the backend on GPU-enabled infrastructure."
-                ),
-            )
+        # No GPU check gate — ASR is available on both GPU and CPU now.
 
         answers_dir = session_dir / "audio"
         answers_dir.mkdir(parents=True, exist_ok=True)
@@ -68,6 +59,7 @@ async def answer_audio(session_id: str, question_id: str, file: UploadFile = Fil
         with dest_path.open("wb") as f:
             shutil.copyfileobj(file.file, f)
 
+        gpu_ok  = is_gpu_available()
         timeout = ASR_TIMEOUT_GPU if gpu_ok else ASR_TIMEOUT_CPU
         try:
             asr_result = await asyncio.wait_for(
