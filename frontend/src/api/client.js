@@ -15,14 +15,6 @@
  */
 const API_BASE = (import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000/api").replace(/\/$/, "");
 
-/**
- * Manual override: if explicitly set to "false", audio is force-disabled
- * regardless of backend capability. If unset or "true", the frontend will
- * check the backend health endpoint dynamically.
- */
-export const AUDIO_OVERRIDE_OFF =
-  String(import.meta.env.VITE_ENABLE_AUDIO_INPUT ?? "").toLowerCase() === "false";
-
 export const AUDIO_INPUT_HINT =
   import.meta.env.VITE_AUDIO_INPUT_HINT ||
   "Audio mode uses Whisper for speech-to-text. Speak clearly for best results.";

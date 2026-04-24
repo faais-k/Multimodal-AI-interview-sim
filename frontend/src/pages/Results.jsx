@@ -157,10 +157,36 @@ export default function Results({ report, onRestart }) {
         {/* ── Accordion sections ── */}
         <div className="results-sections">
 
+          {/* ── Inference Telemetry ── */}
+          <div className="telemetry-card card">
+            <h3 className="telemetry-card__title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+              Evaluation Telemetry
+            </h3>
+            <div className="telemetry-grid">
+              <div className="telemetry-item">
+                <span className="telemetry-label">Compute Engine</span>
+                <span className="telemetry-value" style={{textTransform:"uppercase"}}>{caps.mode || "CPU (Serverless)"}</span>
+              </div>
+              <div className="telemetry-item">
+                <span className="telemetry-label">LLM Evaluator</span>
+                <span className="telemetry-value">{caps.llmMode === "local" ? "Local GPU Inference" : caps.llmMode === "api" ? "Serverless API (Qwen)" : "Cosine Fallback"}</span>
+              </div>
+              <div className="telemetry-item">
+                <span className="telemetry-label">Speech Recognition</span>
+                <span className="telemetry-value">{caps.audioEnabled ? "Active (Whisper)" : "Disabled"}</span>
+              </div>
+            </div>
+          </div>
+
           {/* Decision reasons */}
           {(report.decision_reasons || []).length > 0 && (
-            <Accordion title="Decision Summary" defaultOpen={true} badge="Key factors" priority="high">
-              <ul className="reason-list">
+            <div className="card">
+              <div className="perf-col__title" style={{marginBottom: "0.75rem"}}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                Key Factors for Decision
+              </div>
+              <ul className="reason-list" style={{paddingTop: 0}}>
                 {(report.decision_reasons || []).map((r, i) => (
                   <li key={i} className="reason-list__item">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -168,7 +194,7 @@ export default function Results({ report, onRestart }) {
                   </li>
                 ))}
               </ul>
-            </Accordion>
+            </div>
           )}
 
           {/* Strengths & weak areas */}

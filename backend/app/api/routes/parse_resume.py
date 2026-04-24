@@ -147,37 +147,61 @@ def extract_skills(text: str, skills_section: str = "") -> List[str]:
 def extract_projects(text: str, projects_section: str = "") -> List[str]:
     blocks: List[str] = []
 
+    # Heuristic 1: Look for bullet points or project titles in the projects section
     if projects_section.strip():
-        proj_lines    = [l.strip() for l in projects_section.splitlines() if l.strip()]
-        current_block: List[str] = []
-        for line in proj_lines:
-            if re.match(r"^[A-Z]", line) and current_block and len(current_block) >= 2:
-                blocks.append(" ".join(current_block[:8]))
-                current_block = [line]
+        lines = [l.strip() for l in projects_section.splitlines() if l.strip()]
+        current_block = []
+        
+        for line in lines:
+            # Check if line starts with a bullet point
+            is_bullet = bool(re.match(r"^[\-\*\•\▪\>]\s*", line))
+            # Or if it looks like a standalone project title (short, mostly capitalized, no verbs)
+            is_title = len(line) < 60 and line.istitle() and not any(kw in line.lower() for kw in PROJECT_KEYWORDS)
+            
+            if (is_bullet or is_title) and current_block:
+                block_text = " ".join(current_block)
+                # Only keep blocks that actually describe something (longer than 30 chars, > 5 words)
+                if len(block_text) > 30 and len(block_text.split()) > 5:
+                    blocks.append(block_text)
+                
+                if is_title:
+                    current_block = [line]
+                else:
+                    current_block = [re.sub(r"^[\-\*\•\▪\>]\s*", "", line)]
             else:
+                if is_bullet:
+                    line = re.sub(r"^[\-\*\•\▪\>]\s*", "", line)
                 current_block.append(line)
+                
         if current_block:
-            blocks.append(" ".join(current_block[:8]))
+            block_text = " ".join(current_block)
+            if len(block_text) > 30 and len(block_text.split()) > 5:
+                blocks.append(block_text)
 
+    # Heuristic 2: Fallback to searching full text for project keywords
     if not blocks:
         lines = text.splitlines()
         for i, line in enumerate(lines):
-            if any(kw in line.lower() for kw in PROJECT_KEYWORDS):
-                start = max(0, i - 1)
-                end   = min(len(lines), i + 10)
+            line_lower = line.lower()
+            if any(kw in line_lower for kw in PROJECT_KEYWORDS) and len(line) > 20:
+                start = max(0, i)
+                end   = min(len(lines), i + 4)
                 block = " ".join(l.strip() for l in lines[start:end] if l.strip())
-                if len(block) > 30:
+                if len(block) > 40 and len(block.split()) > 5:
                     blocks.append(block)
                 if len(blocks) >= 6:
                     break
 
-    seen:   set          = set()
-    unique: List[str]    = []
+    # Deduplicate and clean up
+    seen: set = set()
+    unique: List[str] = []
     for b in blocks:
-        key = b[:60]
-        if key not in seen:
+        b = re.sub(r"\s+", " ", b).strip()
+        key = b[:40].lower()
+        if key not in seen and len(b) >= 40:
             seen.add(key)
-            unique.append(b[:300])
+            unique.append(b[:400])
+            
     return unique[:6]
 
 
@@ -192,14 +216,14 @@ def extract_education(text: str, edu_section: str = "") -> List[dict]:
 
     def _infer_institution(line: str) -> str:
         m = re.search(
-            r"\b([A-Za-z][A-Za-z\s&\.\-]{2,}(?:college|university|institute|school))\b",
+            r"\b([A-Za-z][A-Za-z\s&\.\-]{2,}(?:college|university|institute|school|academy|polytechnic))\b",
             line,
             re.IGNORECASE,
         )
         if m:
-            return m.group(1).strip().lower()
+            return m.group(1).strip().title()
         # fallback bucket so we still dedupe noisy lines
-        return line.strip().lower()[:80]
+        return line.strip().title()[:80]
 
     def _best_keyword(candidates: List[str]) -> str:
         # Prefer explicit forms over abbreviations (e.g., b.sc > ba, m.sc > ms).

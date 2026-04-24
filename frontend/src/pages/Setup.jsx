@@ -95,7 +95,7 @@ export default function Setup({ onSubmit, loading, error }) {
                     <input
                       value={form.name}
                       onChange={e => set("name", e.target.value)}
-                      placeholder="e.g. Faais K"
+                      placeholder="e.g. John Doe"
                       required
                     />
                   </div>
@@ -104,7 +104,7 @@ export default function Setup({ onSubmit, loading, error }) {
                     <input
                       value={form.jobRole}
                       onChange={e => set("jobRole", e.target.value)}
-                      placeholder="e.g. Machine Learning Engineer"
+                      placeholder="e.g. Full Stack Developer"
                       required
                     />
                   </div>

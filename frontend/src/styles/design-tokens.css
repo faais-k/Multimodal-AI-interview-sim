@@ -1,6 +1,6 @@
 /* ============================================================
    ASCENT — Design Tokens
-   Warm cream/ivory base · Teal-emerald accent · Amber highlights
+   Warm Ivory base · Deep Stone primary · Terracotta accent
    Typography: Fraunces (display) + DM Sans (body)
    ============================================================ */
 
@@ -8,16 +8,16 @@
 
 :root {
   /* ── Core Palette ── */
-  --cream-50:  #FDFCF8;
-  --cream-100: #F8F5EE;
-  --cream-200: #F0EAD9;
-  --cream-300: #E4D9C3;
-  --stone-400: #C4B99E;
-  --stone-500: #9E9178;
-  --stone-600: #6E624E;
-  --stone-700: #4A4035;
-  --stone-800: #2D2620;
-  --stone-900: #1A1510;
+  --cream-50:  #FFFCF9;
+  --cream-100: #F7F3EA;
+  --cream-200: #EDE6D6;
+  --cream-300: #E0D4BE;
+  --stone-400: #B8A992;
+  --stone-500: #94826B;
+  --stone-600: #73614B;
+  --stone-700: #544432;
+  --stone-800: #3D3123;
+  --stone-900: #292117;
 
   /* ── Surfaces ── */
   --bg-base:     var(--cream-50);
@@ -26,25 +26,25 @@
   --bg-sunken:   var(--cream-200);
   --bg-input:    #FFFFFF;
 
-  /* ── Brand: Teal (Primary) ── */
-  --teal-400:   #2DD4BF;
-  --teal-500:   #14B8A6;
-  --teal-600:   #0D9488;
-  --teal-700:   #0F766E;
-  --teal-glow:  rgba(20, 184, 166, 0.12);
-  --teal-glow-strong: rgba(20, 184, 166, 0.22);
+  /* ── Brand: Deep Stone (Primary) ── */
+  --teal-400:   var(--stone-600);
+  --teal-500:   var(--stone-800);
+  --teal-600:   var(--stone-900);
+  --teal-700:   #1A140F;
+  --teal-glow:  rgba(61, 49, 35, 0.08);
+  --teal-glow-strong: rgba(61, 49, 35, 0.15);
 
-  --primary:       var(--teal-500);
-  --primary-light: var(--teal-400);
-  --primary-dark:  var(--teal-700);
+  --primary:       var(--stone-800);
+  --primary-light: var(--stone-600);
+  --primary-dark:  var(--stone-900);
   --primary-glow:  var(--teal-glow);
   --primary-glow-strong: var(--teal-glow-strong);
 
-  /* ── Brand: Amber (Accent) ── */
-  --amber-400:  #FBBF24;
-  --amber-500:  #F59E0B;
-  --amber-600:  #D97706;
-  --amber-glow: rgba(245, 158, 11, 0.12);
+  /* ── Brand: Terracotta (Accent) ── */
+  --amber-400:  #F97316;
+  --amber-500:  #EA580C;
+  --amber-600:  #C2410C;
+  --amber-glow: rgba(234, 88, 12, 0.12);
 
   --accent:       var(--amber-500);
   --accent-light: var(--amber-400);
@@ -57,10 +57,10 @@
   --success-dark:  #065F46;
   --success-glow:  rgba(5, 150, 105, 0.10);
 
-  --warning:       #D97706;
-  --warning-light: #F59E0B;
-  --warning-dark:  #92400E;
-  --warning-glow:  rgba(217, 119, 6, 0.10);
+  --warning:       #EA580C;
+  --warning-light: #F97316;
+  --warning-dark:  #9A3412;
+  --warning-glow:  rgba(234, 88, 12, 0.10);
 
   --danger:       #DC2626;
   --danger-light: #EF4444;
@@ -68,11 +68,11 @@
   --danger-glow:  rgba(220, 38, 38, 0.10);
 
   /* ── Borders ── */
-  --border:         rgba(78, 64, 53, 0.10);
-  --border-medium:  rgba(78, 64, 53, 0.16);
-  --border-strong:  rgba(78, 64, 53, 0.24);
-  --border-hover:   rgba(20, 184, 166, 0.30);
-  --border-focus:   rgba(20, 184, 166, 0.60);
+  --border:         rgba(61, 49, 35, 0.12);
+  --border-medium:  rgba(61, 49, 35, 0.20);
+  --border-strong:  rgba(61, 49, 35, 0.30);
+  --border-hover:   rgba(61, 49, 35, 0.40);
+  --border-focus:   rgba(61, 49, 35, 0.70);
 
   /* ── Text ── */
   --text-primary:   var(--stone-900);
@@ -127,12 +127,12 @@
   --dur-slow: 380ms;
 
   /* ── Gradients ── */
-  --gradient-hero:    linear-gradient(135deg, #F8F5EE 0%, #EDF5F3 50%, #F5F0E8 100%);
-  --gradient-teal:    linear-gradient(135deg, #14B8A6, #0D9488);
-  --gradient-amber:   linear-gradient(135deg, #F59E0B, #D97706);
-  --gradient-warm:    linear-gradient(135deg, #FBBF24, #14B8A6);
-  --gradient-text:    linear-gradient(135deg, #0D9488, #D97706);
-  --gradient-surface: linear-gradient(160deg, #FFFFFF 0%, #F8F5EE 100%);
+  --gradient-hero:    linear-gradient(135deg, #F7F3EA 0%, #F1EAD8 50%, #E6DCC3 100%);
+  --gradient-teal:    linear-gradient(135deg, var(--stone-800), var(--stone-900));
+  --gradient-amber:   linear-gradient(135deg, #EA580C, #C2410C);
+  --gradient-warm:    linear-gradient(135deg, #F97316, var(--stone-700));
+  --gradient-text:    linear-gradient(135deg, var(--stone-800), var(--stone-600));
+  --gradient-surface: linear-gradient(160deg, #FFFFFF 0%, #F7F3EA 100%);
 
   /* ── Z-Index ── */
   --z-base:    0; --z-sticky: 10; --z-nav: 50;

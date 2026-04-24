@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useInterview } from "./hooks/useInterview";
-import { api, AUDIO_OVERRIDE_OFF } from "./api/client";
+import { api } from "./api/client";
 import Landing      from "./pages/Landing";
 import Setup        from "./pages/Setup";
 import PreInterview from "./pages/PreInterview";
@@ -20,21 +20,29 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    api.health()
-      .then(h => {
+    let attempts = 0;
+
+    const checkHealth = async () => {
+      try {
+        const h = await api.health();
         if (cancelled) return;
         setBackendCaps({
-          audioEnabled: !AUDIO_OVERRIDE_OFF && h.audio_transcribe === "enabled",
+          audioEnabled: h.audio_transcribe === "enabled",
           mode: h.mode || null,
           llmMode: h.llm_mode || null,
         });
-      })
-      .catch(() => {
-        // Backend unreachable — keep defaults (audio off)
-        if (!cancelled) {
+      } catch (err) {
+        if (cancelled) return;
+        attempts++;
+        if (attempts < 10) {
+          setTimeout(checkHealth, 3000);
+        } else {
           setBackendCaps(prev => ({ ...prev, audioEnabled: false }));
         }
-      });
+      }
+    };
+
+    checkHealth();
     return () => { cancelled = true; };
   }, []);
 
@@ -66,7 +74,7 @@ export default function App() {
     return <Processing error={iv.error} onRetry={iv.retryFinalize} />;
 
   if (iv.step === "results")
-    return <Results report={iv.report} onRestart={iv.restart} />;
+    return <Results report={iv.report} caps={backendCaps} onRestart={iv.restart} />;
 
   return null;
 }
