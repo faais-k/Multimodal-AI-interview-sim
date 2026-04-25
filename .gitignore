@@ -58,4 +58,6 @@ backend/secrets/
 
 # Agent Planning & Graphs
 .planning/
+.graphifyignore
+
 
