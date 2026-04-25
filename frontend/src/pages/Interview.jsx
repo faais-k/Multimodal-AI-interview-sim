@@ -150,9 +150,16 @@ export default function Interview({
   const handleAudioSubmit = async () => {
     if (!audioBlob || submitting || loading || evaluating) return;
     setSub(true);
-    await onSubmitAudio(audioBlob);
-    setSub(false);
+    try {
+      await onSubmitAudio(audioBlob);
+    } catch (e) {
+      console.error("Audio submission failed:", e);
+    } finally {
+      setSub(false);
+    }
   };
+
+  const isAudioProcessing = !recording && !audioBlob && mediaRef.current && mediaRef.current.state === "inactive";
 
   const handleSpeakQuestion = () => {
     if ('speechSynthesis' in window && question?.question) {
@@ -210,6 +217,12 @@ export default function Interview({
         </div>
         
         <div className="flex items-center gap-3">
+          {micError && (
+            <div className="flex items-center gap-2 text-xs text-semantic-error animate-pulse">
+              <AlertTriangle size={14} />
+              {micError}
+            </div>
+          )}
           {antiCheat?.warningMessage && (
             <div className="flex items-center gap-2 text-xs text-semantic-warning">
               <AlertTriangle size={14} />
@@ -384,7 +397,7 @@ export default function Interview({
 
               {/* Text Input */}
               {mode === "text" && (
-                <div className="space-y-4">
+                <div className="space-y-4 animate-in">
                   <textarea
                     ref={textareaRef}
                     value={answer}
@@ -410,18 +423,11 @@ export default function Interview({
                       <Button 
                         onClick={handleTextSubmit}
                         disabled={!canSubmitText || busy}
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-2 px-8"
                       >
                         {busy ? (
                           <>
-                            <motion.div
-                              animate={{ rotate: 360 }}
-                              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                            >
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <circle cx="12" cy="12" r="10" strokeDasharray="60" strokeDashoffset="20" />
-                              </svg>
-                            </motion.div>
+                            <span className="spinner" style={{width:16,height:16,borderWidth:2,borderColor:"white"}} />
                             Processing...
                           </>
                         ) : (
@@ -436,67 +442,102 @@ export default function Interview({
                 </div>
               )}
 
-              {/* Voice Input Controls */}
+              {/* Voice - Idle */}
               {mode === "voice" && !recording && !audioBlob && (
-                <div className="flex flex-col items-center gap-6">
+                <div className="flex flex-col items-center gap-6 animate-in">
                   <Button 
                     onClick={startRec}
                     disabled={busy}
                     size="lg"
-                    className="flex items-center gap-2 px-8"
+                    className="flex items-center gap-2 px-12 py-6 text-lg"
                   >
-                    <Mic size={20} />
+                    <Mic size={24} />
                     Start Recording
                   </Button>
-                  <Button variant="outline" onClick={onSkip} disabled={busy}>
+                  <Button variant="ghost" onClick={onSkip} disabled={busy}>
                     Skip Question
                   </Button>
                 </div>
               )}
 
-              {/* Voice - Recording Complete */}
-              {mode === "voice" && audioBlob && !recording && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 p-4 bg-veridian-subtle/30 border border-veridian/30 rounded-sm">
-                    <div className="w-10 h-10 bg-veridian rounded-sm flex items-center justify-center">
-                      <Activity size={20} className="text-white" />
+              {/* Voice - Recording */}
+              {mode === "voice" && recording && (
+                <div className="flex flex-col items-center gap-8 animate-in">
+                  <div className="relative">
+                    <div className="w-24 h-24 rounded-full border-4 border-veridian/20 flex items-center justify-center">
+                      <div 
+                        className="w-20 h-20 rounded-full bg-veridian flex items-center justify-center transition-transform duration-75"
+                        style={{ transform: `scale(${1 + volume * 0.5})` }}
+                      >
+                        <Mic size={32} className="text-white" />
+                      </div>
+                    </div>
+                    <div className="absolute -inset-4 rounded-full border border-veridian/30 animate-ping opacity-20" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-text-primary mb-1">Recording in progress...</p>
+                    <p className="text-xs text-text-secondary">Click stop when you're finished answering</p>
+                  </div>
+                  <Button 
+                    variant="destructive"
+                    onClick={stopRec}
+                    size="lg"
+                    className="px-10"
+                  >
+                    <Square size={18} fill="currentColor" />
+                    Stop Recording
+                  </Button>
+                </div>
+              )}
+
+              {/* Voice - Recording Complete / Processing */}
+              {mode === "voice" && (audioBlob || isAudioProcessing) && !recording && (
+                <div className="space-y-6 animate-in">
+                  <div className="flex items-center gap-4 p-5 bg-veridian-subtle/30 border border-veridian/30 rounded-sm">
+                    <div className="w-12 h-12 bg-veridian rounded-sm flex items-center justify-center">
+                      <Activity size={24} className="text-white" />
                     </div>
                     <div className="flex-1">
-                      <p className="font-medium text-text-primary">Recording ready</p>
-                      <p className="text-sm text-text-secondary">Review your answer before submitting</p>
+                      <p className="font-medium text-text-primary">
+                        {isAudioProcessing ? "Processing audio..." : "Recording ready"}
+                      </p>
+                      <p className="text-sm text-text-secondary">
+                        {isAudioProcessing ? "Finalizing your answer..." : "Review your answer before submitting"}
+                      </p>
                     </div>
-                    <Button variant="outline" onClick={resetRec} disabled={busy} size="sm">
-                      Re-record
-                    </Button>
+                    {!isAudioProcessing && (
+                      <Button variant="outline" onClick={resetRec} disabled={busy} size="sm">
+                        Re-record
+                      </Button>
+                    )}
                   </div>
+
                   {audioURL && (
-                    <audio controls src={audioURL} className="w-full" />
+                    <div className="p-2 bg-surface-overlay rounded-sm">
+                      <audio controls src={audioURL} className="w-full" />
+                    </div>
                   )}
-                  <div className="flex items-center justify-between">
-                    <Button variant="outline" onClick={onSkip} disabled={busy}>
+
+                  <div className="flex items-center justify-between pt-4">
+                    <Button variant="ghost" onClick={onSkip} disabled={busy}>
                       Skip
                     </Button>
                     <Button 
                       onClick={handleAudioSubmit}
-                      disabled={!canSubmitAudio || busy}
-                      className="flex items-center gap-2"
+                      disabled={!audioBlob || busy || isAudioProcessing}
+                      className="flex items-center gap-2 px-12"
                     >
                       {busy ? (
                         <>
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <circle cx="12" cy="12" r="10" strokeDasharray="60" strokeDashoffset="20" />
-                            </svg>
-                          </motion.div>
-                          Processing...
+                          <span className="spinner" style={{width:16,height:16,borderWidth:2,borderColor:"white"}} />
+                          Evaluating...
                         </>
+                      ) : isAudioProcessing ? (
+                        "Processing..."
                       ) : (
                         <>
                           Submit Answer
-                          <Activity size={16} />
+                          <Send size={18} />
                         </>
                       )}
                     </Button>

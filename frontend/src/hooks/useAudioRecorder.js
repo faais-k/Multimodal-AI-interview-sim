@@ -71,23 +71,43 @@ export function useAudioRecorder() {
         analyserRef.current.fftSize = 256;
       }
 
-      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      mr.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: mimeType || "audio/webm" });
-        const newURL = URL.createObjectURL(blob);
-        setAudioBlob(blob);
-        setAudioURL(newURL);
-        stream.getTracks().forEach(t => t.stop());
-        chunksRef.current = [];
-        
-        if (rafRef.current) cancelAnimationFrame(rafRef.current);
-        if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-          audioCtxRef.current.close().catch(() => {});
+      mr.ondataavailable = e => { 
+        if (e.data && e.data.size > 0) {
+          chunksRef.current.push(e.data); 
         }
-        setVolume(0);
+      };
+
+      mr.onstop = () => {
+        try {
+          if (chunksRef.current.length === 0) {
+            console.warn("No audio chunks collected.");
+            setMicError("No audio was captured. Please speak into the microphone.");
+            setRecording(false);
+            return;
+          }
+
+          const blob = new Blob(chunksRef.current, { type: mimeType || "audio/webm" });
+          const newURL = URL.createObjectURL(blob);
+          setAudioBlob(blob);
+          setAudioURL(newURL);
+        } catch (err) {
+          console.error("Error creating audio blob:", err);
+          setMicError("Failed to process audio recording.");
+        } finally {
+          stream.getTracks().forEach(t => t.stop());
+          chunksRef.current = [];
+          
+          if (rafRef.current) cancelAnimationFrame(rafRef.current);
+          if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+            audioCtxRef.current.close().catch(() => {});
+          }
+          setVolume(0);
+          setRecording(false);
+        }
       };
       
-      mr.start();
+      // Start recording with 1s timeslice to ensure data is periodically pushed
+      mr.start(1000);
       mediaRef.current = mr;
       setRecording(true);
     } catch (e) {
@@ -131,5 +151,15 @@ export function useAudioRecorder() {
     };
   }, [audioURL]);
 
-  return { recording, audioBlob, audioURL, micError, volume, start, stop, reset };
+  return { 
+    recording, 
+    audioBlob, 
+    audioURL, 
+    micError, 
+    volume, 
+    startRecording: start, 
+    stopRecording: stop, 
+    reset,
+    mediaRef
+  };
 }
