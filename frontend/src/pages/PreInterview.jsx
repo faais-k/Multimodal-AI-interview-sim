@@ -342,7 +342,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
                       autoPlay 
                       playsInline 
                       muted 
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover scale-x-[-1]"
                     />
                   )}
                   <div className="absolute top-3 right-3 flex items-center gap-2">

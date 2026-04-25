@@ -112,7 +112,7 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
         const extracted = parseRes.extracted;
         
         // Attempt to extract latest role if jobRole is empty
-        let defaultRole = prev.jobRole;
+        let defaultRole = form.jobRole;
         if (extracted.current_role) defaultRole = extracted.current_role;
         else if (extracted.target_role) defaultRole = extracted.target_role;
         
@@ -294,11 +294,17 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
                         {showDetails === 'projects' && (
                           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                             <div className="mt-3 space-y-2 p-3 bg-white/50 rounded-sm text-xs max-h-48 overflow-y-auto">
-                              {parsedData.extracted.projects.map((p, i) => (
-                                <div key={i} className="p-2 bg-surface-base border border-border rounded-sm">
-                                  {p}
+                              {Array.isArray(parsedData.extracted.projects) ? (
+                                parsedData.extracted.projects.map((p, i) => (
+                                  <div key={i} className="p-2 bg-surface-base border border-border rounded-sm">
+                                    {typeof p === 'string' ? p : (p.title || p.description || JSON.stringify(p))}
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="p-2 bg-surface-base border border-border rounded-sm text-text-muted italic">
+                                  No specific projects identified
                                 </div>
-                              ))}
+                              )}
                             </div>
                           </motion.div>
                         )}

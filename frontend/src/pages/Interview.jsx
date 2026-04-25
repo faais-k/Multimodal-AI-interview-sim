@@ -132,14 +132,10 @@ export default function Interview({
     }
   }, [audioEnabled, mode]);
 
-  // Auto-listen when in voice mode and not recording
+  // Sync isListening with recording state
   useEffect(() => {
-    if (mode === "voice" && !recording && !audioBlob && !evaluating && !loading) {
-      setIsListening(true);
-    } else {
-      setIsListening(false);
-    }
-  }, [mode, recording, audioBlob, evaluating, loading]);
+    setIsListening(recording);
+  }, [recording]);
 
   const handleTextSubmit = async () => {
     if (!answer.trim() || submitting || loading || evaluating) return;

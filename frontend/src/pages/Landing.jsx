@@ -75,7 +75,6 @@ export default function Landing({ onStart, onGuestLogin }) {
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-veridian/10 blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-900/10 blur-[150px]" />
         <div className="absolute top-[40%] right-[20%] w-[30%] h-[30%] rounded-full bg-indigo-900/10 blur-[100px]" />
-        <div className="absolute inset-0 bg-[url('/noise.png')] opacity-20 mix-blend-overlay" />
       </div>
 
       {/* Navigation */}
@@ -91,7 +90,7 @@ export default function Landing({ onStart, onGuestLogin }) {
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/60">
             <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="#how-it-works" className="hover:text-white transition-colors">How it works</a>
+            <a href="#features" className="hover:text-white transition-colors">How it works</a>
             <button onClick={handleGuest} className="hover:text-white transition-colors">Guest Login</button>
           </div>
           <div className="flex items-center gap-4">
@@ -148,7 +147,7 @@ export default function Landing({ onStart, onGuestLogin }) {
           </motion.div>
 
           <motion.div variants={itemVariants} className="mt-20 pt-10 border-t border-white/5 flex flex-wrap justify-center gap-8 sm:gap-16 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
-            <div className="flex items-center gap-2"><span className="font-bold text-xl">Llama 3</span></div>
+            <div className="flex items-center gap-2"><span className="font-bold text-xl">Gemini API</span></div>
             <div className="flex items-center gap-2"><span className="font-bold text-xl">MediaPipe</span></div>
             <div className="flex items-center gap-2"><span className="font-bold text-xl">Whisper ASR</span></div>
             <div className="flex items-center gap-2"><span className="font-bold text-xl">React Flow</span></div>
