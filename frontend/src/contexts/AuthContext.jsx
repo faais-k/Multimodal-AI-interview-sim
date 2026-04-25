@@ -77,6 +77,7 @@ export function AuthProvider({ children }) {
     currentUser,
     loginWithGoogle,
     logout,
+    loading,
     error
   };
 
