@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import './Landing.css';
+import { useAuth } from '../contexts/AuthContext';
 
 const Logo = () => (
   <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <rect width="36" height="36" rx="10" fill="url(#logo-bg)"/>
-    {/* Mountain/ascent path */}
     <path d="M8 26 L18 10 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" fill="none" opacity="0.4"/>
     <path d="M8 26 L14 18 L18 22 L22 14 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
     <defs>
@@ -80,8 +80,13 @@ const STEPS = [
   { n:"04", title:"Review Report", desc:"Get a comprehensive scorecard: skill analysis, posture trends, fluency, and a personalised action plan." },
 ];
 
-export default function Landing({ onStart }) {
-  const [nav, setNav] = useState(false);
+export default function Landing({ onStart, onGuestLogin }) {
+  const { loginAsGuest } = useAuth();
+
+  const handleGuest = () => {
+    loginAsGuest();
+    onGuestLogin();
+  };
 
   return (
     <div className="landing">
@@ -95,7 +100,7 @@ export default function Landing({ onStart }) {
           <div className="l-nav__links">
             <a href="#features" className="l-nav__link">Features</a>
             <a href="#how-it-works" className="l-nav__link">How it works</a>
-            <a href="#stack" className="l-nav__link">Technology</a>
+            <button onClick={handleGuest} className="l-nav__link" style={{background:'none', border:'none', cursor:'pointer'}}>Guest Login</button>
           </div>
           <button className="btn-primary l-nav__cta" onClick={onStart}>
             Start Free
@@ -119,7 +124,7 @@ export default function Landing({ onStart }) {
 
           <p className="l-hero__sub">
             Resume-aware questions, real-time posture feedback, semantic scoring, and adaptive follow-ups —
-            deployed on Vercel and Hugging Face. Free to use.
+            tailored to your career level.
           </p>
 
           <div className="l-hero__actions">
@@ -127,10 +132,10 @@ export default function Landing({ onStart }) {
               Start Mock Interview
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             </button>
-            <a className="btn-secondary" href="https://github.com/FaaizBinKasim/Multimodal-AI-interview-sim" target="_blank" rel="noopener noreferrer">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
-              View Source
-            </a>
+            <button className="btn-secondary" onClick={handleGuest}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Continue as Guest
+            </button>
           </div>
 
           <div className="l-hero__social-proof">
@@ -140,18 +145,12 @@ export default function Landing({ onStart }) {
             </div>
             <div className="l-hero__proof-divider" />
             <div className="l-hero__proof-item">
-              <span className="l-hero__proof-num">Free</span>
-              <span className="l-hero__proof-label">Public deployment</span>
-            </div>
-            <div className="l-hero__proof-divider" />
-            <div className="l-hero__proof-item">
               <span className="l-hero__proof-num">Real-time</span>
               <span className="l-hero__proof-label">posture analysis</span>
             </div>
           </div>
         </div>
 
-        {/* Decorative warm gradient orbs */}
         <div className="l-hero__orb l-hero__orb--teal" aria-hidden="true"/>
         <div className="l-hero__orb l-hero__orb--amber" aria-hidden="true"/>
       </section>
@@ -162,7 +161,6 @@ export default function Landing({ onStart }) {
           <div className="l-section__header">
             <span className="chip chip-teal">Features</span>
             <h2 className="l-section__title">Everything for a real interview experience</h2>
-            <p className="l-section__sub">Not just Q&A — a complete practice environment with multimodal feedback.</p>
           </div>
           <div className="l-features-grid">
             {FEATURES.map((f, i) => (
@@ -176,59 +174,10 @@ export default function Landing({ onStart }) {
         </div>
       </section>
 
-      {/* ── How it works ── */}
-      <section className="l-section l-section--alt" id="how-it-works">
-        <div className="l-section__inner">
-          <div className="l-section__header">
-            <span className="chip chip-amber">Process</span>
-            <h2 className="l-section__title">Up and running in four steps</h2>
-          </div>
-          <div className="l-steps">
-            {STEPS.map((s, i) => (
-              <div className="l-step" key={i}>
-                <div className="l-step__num">{s.n}</div>
-                <div>
-                  <div className="l-step__title">{s.title}</div>
-                  <div className="l-step__desc">{s.desc}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Tech stack ── */}
-      <section className="l-section" id="stack">
-        <div className="l-section__inner">
-          <div className="l-section__header">
-            <span className="chip chip-stone">Stack</span>
-            <h2 className="l-section__title">Built on solid foundations</h2>
-          </div>
-          <div className="l-tech-grid">
-            {[
-              {name:"Qwen2.5-7B",role:"Answer scoring & follow-up generation"},
-              {name:"Whisper",role:"Speech-to-text transcription"},
-              {name:"all-mpnet",role:"Semantic similarity scoring"},
-              {name:"MediaPipe",role:"Real-time posture detection"},
-              {name:"FastAPI",role:"Backend API (Python)"},
-              {name:"React + Vite",role:"Frontend interface"},
-              {name:"Hugging Face",role:"Docker Space backend hosting"},
-              {name:"Vercel",role:"Frontend deployment & CDN"},
-            ].map((t,i) => (
-              <div className="l-tech-item" key={i}>
-                <div className="l-tech-item__name">{t.name}</div>
-                <div className="l-tech-item__role">{t.role}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ── CTA Banner ── */}
       <section className="l-cta-banner">
         <div className="l-cta-banner__inner">
           <h2 className="l-cta-banner__title">Ready to sharpen your edge?</h2>
-          <p className="l-cta-banner__sub">Upload your resume and start a tailored mock interview in 60 seconds.</p>
           <button className="btn-primary" onClick={onStart} style={{fontSize:"var(--text-md)", padding:"var(--space-4) var(--space-8)"}}>
             Start Your Interview
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -236,14 +185,13 @@ export default function Landing({ onStart }) {
         </div>
       </section>
 
-      {/* ── Footer ── */}
       <footer className="l-footer">
         <div className="l-footer__inner">
           <div className="l-footer__brand">
             <Logo />
             <span>Ascent</span>
           </div>
-          <div className="l-footer__note">Open source · MIT License · No data stored on our servers</div>
+          <div className="l-footer__note">Open source · MIT License</div>
         </div>
       </footer>
     </div>
