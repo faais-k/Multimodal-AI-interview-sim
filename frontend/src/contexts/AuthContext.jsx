@@ -59,26 +59,47 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
-    // Restore Guest Session if exists
-    const savedGuest = localStorage.getItem("ascent_guest_user");
-    if (savedGuest) {
-      setCurrentUser(JSON.parse(savedGuest));
-      setIsGuest(true);
-      setLoading(false);
-      return;
-    }
+    let unsubscribe = () => {};
+    
+    const initAuth = async () => {
+      try {
+        // Restore Guest Session if exists
+        const savedGuest = localStorage.getItem("ascent_guest_user");
+        if (savedGuest) {
+          setCurrentUser(JSON.parse(savedGuest));
+          setIsGuest(true);
+          setLoading(false);
+          return;
+        }
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user);
-      if (user) {
-        const token = await user.getIdToken();
-        localStorage.setItem("firebaseToken", token);
-        setIsGuest(false);
+        if (!auth) {
+          console.warn("Firebase Auth not initialized. Falling back to guest mode.");
+          setLoading(false);
+          return;
+        }
+
+        unsubscribe = onAuthStateChanged(auth, async (user) => {
+          try {
+            setCurrentUser(user);
+            if (user) {
+              const token = await user.getIdToken();
+              localStorage.setItem("firebaseToken", token);
+              setIsGuest(false);
+            }
+          } catch (err) {
+            console.error("Auth State Callback Error:", err);
+          } finally {
+            setLoading(false);
+          }
+        });
+      } catch (err) {
+        console.error("AuthProvider Init Error:", err);
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    };
 
-    return unsubscribe;
+    initAuth();
+    return () => unsubscribe();
   }, []);
 
   const value = {

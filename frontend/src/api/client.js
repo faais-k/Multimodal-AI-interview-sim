@@ -66,7 +66,7 @@ function audioExtFromMime(mimeType) {
 }
 
 export const api = {
-  health:        ()         => req("/health"),
+  getHealth:     ()         => req("/health"),
   createSession: ()         => req("/session/create", { method: "POST" }),
 
   uploadResume: (sid, file) => {

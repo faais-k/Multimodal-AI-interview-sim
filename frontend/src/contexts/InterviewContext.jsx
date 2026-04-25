@@ -15,7 +15,7 @@ const SESSION_KEY = "ai_interview_session_id";
 
 const INIT = {
   sessionId:      null,
-  step:           "landing",
+  step:           "landing", // landing | dashboard | setup | pre-interview | interview | processing | results
   question:       null,
   questionNumber: 0,
   loading:        false,
@@ -46,28 +46,68 @@ export function InterviewProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, INIT);
 
   const setLoading    = v => dispatch({ type: "SET_LOADING",    v });
+  const setEvaluating = v => dispatch({ type: "SET_EVALUATING", v });
   const setError      = v => dispatch({ type: "SET_ERROR",      v });
   const setStep       = v => dispatch({ type: "SET_STEP",       v });
   const setReport     = v => dispatch({ type: "SET_REPORT",     v });
+  const setSession    = v => dispatch({ type: "SET_SESSION",    v });
 
+  // Load session from storage on mount
   useEffect(() => {
     const sid = sessionStorage.getItem(SESSION_KEY);
-    if (sid) dispatch({ type: "SET_SESSION", v: sid });
+    if (sid) setSession(sid);
   }, []);
 
-  const setup = useCallback(async (data) => {
+  const startInterview = useCallback(async () => {
+    if (!state.sessionId) return;
     setLoading(true);
     try {
-      const { session_id } = await api.createSession();
-      sessionStorage.setItem(SESSION_KEY, session_id);
-      dispatch({ type: "SET_SESSION", v: session_id });
-      dispatch({ type: "SAVE_SETUP", v: data });
-      setStep("pre-interview");
-      setLoading(false);
+      await api.startInterview(state.sessionId);
+      const res = await api.nextQuestion(state.sessionId);
+      dispatch({ type: "SET_QUESTION", v: res.question });
+      setStep("interview");
     } catch (e) {
-      setError(e.message || "Setup failed.");
+      setError(e.message || "Could not start interview.");
     }
-  }, []);
+  }, [state.sessionId]);
+
+  const submitText = useCallback(async (text) => {
+    if (!state.sessionId || !state.question) return;
+    setEvaluating(true);
+    try {
+      const res = await api.scoreText({
+        session_id: state.sessionId,
+        question_id: state.question.id,
+        answer: text
+      });
+      
+      if (res.is_final) {
+        setStep("processing");
+      } else {
+        const next = await api.nextQuestion(state.sessionId);
+        dispatch({ type: "SET_QUESTION", v: next.question });
+      }
+    } catch (e) {
+      setError(e.message || "Evaluation failed.");
+    }
+  }, [state.sessionId, state.question]);
+
+  const submitAudio = useCallback(async (blob) => {
+    if (!state.sessionId || !state.question) return;
+    setEvaluating(true);
+    try {
+      const res = await api.scoreAudio(state.sessionId, state.question.id, blob);
+      
+      if (res.is_final) {
+        setStep("processing");
+      } else {
+        const next = await api.nextQuestion(state.sessionId);
+        dispatch({ type: "SET_QUESTION", v: next.question });
+      }
+    } catch (e) {
+      setError(e.message || "Audio evaluation failed.");
+    }
+  }, [state.sessionId, state.question]);
 
   const restart = useCallback(() => {
     sessionStorage.removeItem(SESSION_KEY);
@@ -76,11 +116,15 @@ export function InterviewProvider({ children }) {
 
   const value = {
     ...state,
-    setup,
-    restart,
     setStep,
     setReport,
-    setError
+    setSession,
+    setError,
+    startInterview,
+    submitText,
+    submitAudio,
+    restart,
+    saveSetup: (data) => dispatch({ type: "SAVE_SETUP", v: data })
   };
 
   return (

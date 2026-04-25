@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback } from "react";
+import { useInterview } from "../contexts/InterviewContext";
 import { api } from "../api/client";
 import "./Setup.css";
 
@@ -18,7 +19,8 @@ const LEVEL_DESC = {
   experienced:  "Architecture, leadership & production decisions",
 };
 
-export default function Setup({ onSubmit, loading, error, onBack }) {
+export default function Setup({ onSubmit, loading: outerLoading, error: outerError, onBack }) {
+  const iv = useInterview();
   const [form, setForm] = useState({
     name: "",
     jobRole: "",
@@ -50,6 +52,7 @@ export default function Setup({ onSubmit, loading, error, onBack }) {
       // Create session first
       const sessionRes = await api.createSession();
       const sessionId = sessionRes.session_id;
+      iv.setSession(sessionId);
 
       // Parse and extract
       const parseRes = await api.parseAndExtract(sessionId, selectedFile);
@@ -122,7 +125,7 @@ export default function Setup({ onSubmit, loading, error, onBack }) {
           <form
             onSubmit={e => { 
               e.preventDefault(); 
-              if (canSubmit && !loading) {
+              if (canSubmit && !outerLoading) {
                 onSubmit({ ...form, resumeFile: file, parsedData });
               }
             }}
@@ -288,10 +291,10 @@ export default function Setup({ onSubmit, loading, error, onBack }) {
                 />
               </div>
 
-              {error && (
+              {outerError && (
                 <div className="setup-error">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" /></svg>
-                  {error}
+                  {outerError}
                 </div>
               )}
 
@@ -299,9 +302,9 @@ export default function Setup({ onSubmit, loading, error, onBack }) {
                 <button
                   type="submit"
                   className="btn-primary btn-primary--large"
-                  disabled={!canSubmit || loading}
+                  disabled={!canSubmit || outerLoading}
                 >
-                  {loading ? (
+                  {outerLoading ? (
                     <><span className="spinner" />&nbsp;Creating Session…</>
                   ) : (
                     <>Continue to Setup<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg></>

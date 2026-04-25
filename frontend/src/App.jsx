@@ -16,14 +16,14 @@ function App() {
   const { currentUser, loading: authLoading, loginWithGoogle } = useAuth();
   const [caps, setCaps] = useState({ mode: "CPU", llmMode: "api", audioEnabled: true });
 
-  // Route Guard: Auto-transition to dashboard if user is known
+  // 1. Route Guard: Auto-transition to dashboard if user is known
   useEffect(() => {
     if (!authLoading && currentUser && iv.step === "landing") {
       iv.setStep("dashboard");
     }
   }, [currentUser, authLoading, iv.step]);
 
-  // Fetch server capabilities once
+  // 2. Fetch server capabilities once
   useEffect(() => {
     api.getHealth().then(res => {
       setCaps({
@@ -77,26 +77,83 @@ function App() {
     );
   }
 
-  // FLOW: Interview Pipeline
-  if (iv.step === "setup") return <Setup onReady={() => iv.setStep("pre-interview")} />;
-  if (iv.step === "pre-interview") return <PreInterview onStart={() => iv.setStep("interview")} />;
-  if (iv.step === "interview") return <Interview onComplete={() => iv.setStep("processing")} />;
-  if (iv.step === "interview-processing" || iv.step === "processing") return <Processing onDone={() => iv.setStep("results")} />;
+  // FLOW: Setup
+  if (iv.step === "setup") {
+    return (
+      <Setup 
+        onSubmit={(data) => {
+          iv.setReport(null);
+          iv.saveSetup(data);
+          iv.setStep("pre-interview");
+        }} 
+        onBack={() => iv.setStep("dashboard")}
+      />
+    );
+  }
+
+  // FLOW: Pre-Interview (Equipment Check & Question Gen)
+  if (iv.step === "pre-interview") {
+    return (
+      <PreInterview 
+        sessionId={iv.sessionId}
+        setupData={iv.setupData}
+        onBegin={() => iv.startInterview()} 
+      />
+    );
+  }
+
+  // FLOW: Active Interview
+  if (iv.step === "interview") {
+    return (
+      <Interview 
+        sessionId={iv.sessionId}
+        question={iv.question}
+        questionNumber={iv.questionNumber}
+        loading={iv.loading}
+        evaluating={iv.evaluating}
+        setupData={iv.setupData}
+        audioEnabled={caps.audioEnabled}
+        onSubmitText={iv.submitText}
+        onSubmitAudio={iv.submitAudio}
+      />
+    );
+  }
+
+  // FLOW: Final Evaluation Processing
+  if (iv.step === "processing") {
+    return (
+      <Processing 
+        sessionId={iv.sessionId}
+        onDone={(report) => {
+          iv.setReport(report);
+          iv.setStep("results");
+        }} 
+      />
+    );
+  }
   
+  // FLOW: Results & Feedback
   if (iv.step === "results") {
     return (
       <Results 
         report={iv.report} 
         caps={caps}
-        onRestart={() => {
-          iv.restart(); 
-          iv.setStep("dashboard");
-        }} 
+        onRestart={() => iv.restart()} 
       />
     );
   }
 
-  return <div className="error-screen">Unknown Step: {iv.step}</div>;
+  return (
+    <div className="error-screen">
+      <div className="card card-sm" style={{textAlign:"center"}}>
+        <h3>Unknown Application State</h3>
+        <p>Current Step: {iv.step}</p>
+        <button className="btn-primary" onClick={() => iv.setStep("landing")} style={{marginTop: "1rem"}}>
+          Return to Landing
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default App;
