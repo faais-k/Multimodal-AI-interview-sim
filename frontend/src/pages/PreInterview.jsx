@@ -66,14 +66,27 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
             setQuestionsReady(true);
             setGenerating(false);
           } else {
-            setGenError("Failed to generate questions");
-            setGenerating(false);
+            // Unexpected status but not an exception
+            throw new Error("Generation failed");
           }
         }
       } catch (e) {
+        console.warn("Dynamic generation failed, falling back to static:", e);
         if (!cancelled) {
-          setGenError(e.message || "Failed to generate questions");
-          setGenerating(false);
+          try {
+            // FALLBACK: Generate static plan if dynamic fails
+            const fallback = await api.generatePlan(sessionId);
+            if (fallback.status === "ok") {
+              setQuestionsReady(true);
+              setGenError("Using standard questions (dynamic research failed)");
+            } else {
+              setGenError("Could not generate questions. Please try restarting.");
+            }
+          } catch (err) {
+            setGenError(err.message || "Failed to generate questions");
+          } finally {
+            setGenerating(false);
+          }
         }
       }
     };

@@ -17,17 +17,23 @@ export function AuthProvider({ children }) {
 
   // 1. Google Login Path
   async function loginWithGoogle() {
+    setError(null);
     try {
-      setError(null);
+      // PRO TIP: Do NOT await any async logic before this line
+      // to ensure Chrome treats this as a trusted user gesture.
       const result = await signInWithPopup(auth, googleProvider);
       setIsGuest(false);
       return result;
     } catch (err) {
       console.error("Login Error:", err);
       if (err.code === "auth/popup-blocked") {
-        alert("Popup blocked! Please allow popups for this site.");
+        const msg = "Popup blocked! Please allow popups for this site or check your browser security settings (COOP).";
+        alert(msg);
+        setError(msg);
+      } else {
+        setError(err.message);
       }
-      setError(err.message);
+      throw err; // Re-throw so callers know it failed
     }
   }
 

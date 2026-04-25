@@ -93,6 +93,13 @@ async def lifespan(app: FastAPI):
     logger.info("Database connection established (or running in flat-file mode).")
     
     init_firebase()
+    
+    # ── Diagnostic Route Logging ──────────────────────────────────────────
+    logger.info("Listing all registered routes:")
+    for route in app.routes:
+        methods = getattr(route, "methods", ["GET"])
+        logger.info(f"Route: {route.path} | Methods: {list(methods)}")
+    # ──────────────────────────────────────────────────────────────────────
 
     try:
         from backend.app.api.routes.cleanup import cleanup_old_sessions

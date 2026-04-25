@@ -66,6 +66,14 @@ async def start_interview(session_id: str):
             detail="parsed_resume.json not found. Call /api/parse/resume first.",
         )
 
+    # SAFETY NET: Ensure interview_plan.json exists. If dynamic generation failed,
+    # we generate a static one here to prevent the interview from being "unstartable".
+    plan_path = STORAGE_DIR / session_id / "interview_plan.json"
+    if not plan_path.exists():
+        from backend.app.api.routes.interview_plan import create_interview_plan
+        # Generate static plan as fallback
+        await create_interview_plan(session_id)
+
     parsed = json.loads(parsed_path.read_text(encoding="utf-8"))
 
     # LOGIC-1 FIX: Lock the check-and-init to prevent race conditions from

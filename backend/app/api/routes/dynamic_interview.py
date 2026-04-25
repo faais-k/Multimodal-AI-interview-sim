@@ -279,149 +279,154 @@ async def generate_dynamic_interview(session_id: str):
     This is called during the permissions page (background generation)
     while the user is setting up camera/mic permissions.
     """
-    validate_session_id(session_id)
-    sdir = _storage_dir() / session_id
-    
-    if not sdir.exists():
-        raise HTTPException(status_code=404, detail="Session not found.")
-    
-    # Load parsed data
-    parsed_p = sdir / "parsed_resume.json"
-    if not parsed_p.exists():
-        raise HTTPException(status_code=404, detail="Resume not parsed. Upload resume first.")
-    
-    parsed = _read_json(parsed_p)
-    
-    # Load profile data
-    prof = _read_json(sdir / "candidate_profile.json") if (sdir / "candidate_profile.json").exists() else {}
-    jd = _read_json(sdir / "job_description.json") if (sdir / "job_description.json").exists() else {}
-    
-    # Extract context
-    company = (jd.get("company") or prof.get("company") or "").strip()
-    job_role = (prof.get("job_role") or jd.get("job_role") or "Software Engineer").strip()
-    job_desc = (jd.get("job_description") or "").strip()
-    expertise = (prof.get("expertise_level") or "fresher").lower()
-    
-    # Get candidate info
-    skills = parsed.get("skills", [])
-    projects = parsed.get("projects", [])
-    name = parsed.get("name") or prof.get("name") or "Candidate"
-    
-    # Research company
-    company_research = await _research_company(company, job_role)
-    
-    # Build generation context
-    context = {
-        "name": name,
-        "job_role": job_role,
-        "company": company,
-        "experience_years": parsed.get("experience_years", 0),
-        "skills": skills,
-        "projects": [{"name": p[:50], "description": p[:200]} for p in projects[:3]],
-        "education_summary": parsed.get("education_summary", ""),
-    }
-    
-    questions = []
-    
-    # 1. Self Introduction
-    intro_result = await _generate_dynamic_question("intro", context, expertise, company_research)
-    questions.append({
-        "id": "intro_1",
-        "type": "self_intro",
-        "question": intro_result["question"],
-        "skill_target": "self_intro",
-        "source": "llm_dynamic"
-    })
-    
-    # 2. Project Questions (up to 2)
-    for i, proj in enumerate(projects[:2]):
-        proj_context = {
-            **context,
-            "current_project": proj[:100],
-            "project_tech": re.findall(r"\b(Python|JavaScript|React|Node|MongoDB|SQL|AWS|Docker|Kubernetes)\b", proj, re.I)
+    try:
+        validate_session_id(session_id)
+        sdir = _storage_dir() / session_id
+        
+        if not sdir.exists():
+            raise HTTPException(status_code=404, detail="Session not found.")
+        
+        # Load parsed data
+        parsed_p = sdir / "parsed_resume.json"
+        if not parsed_p.exists():
+            raise HTTPException(status_code=404, detail="Resume not parsed. Upload resume first.")
+        
+        parsed = _read_json(parsed_p)
+        
+        # Load profile data
+        prof = _read_json(sdir / "candidate_profile.json") if (sdir / "candidate_profile.json").exists() else {}
+        jd = _read_json(sdir / "job_description.json") if (sdir / "job_description.json").exists() else {}
+        
+        # Extract context
+        company = (jd.get("company") or prof.get("company") or "").strip()
+        job_role = (prof.get("job_role") or jd.get("job_role") or "Software Engineer").strip()
+        expertise = (prof.get("expertise_level") or "fresher").lower()
+        
+        # Get candidate info
+        skills = parsed.get("skills", [])
+        projects = parsed.get("projects", [])
+        name = parsed.get("name") or prof.get("name") or "Candidate"
+        
+        # Research company
+        company_research = await _research_company(company, job_role)
+        
+        # Build generation context
+        context = {
+            "name": name,
+            "job_role": job_role,
+            "company": company,
+            "experience_years": parsed.get("experience_years", 0),
+            "skills": skills,
+            "projects": [{"name": str(p)[:50], "description": str(p)[:200]} for p in projects[:3]],
+            "education_summary": parsed.get("education_summary", ""),
         }
-        proj_result = await _generate_dynamic_question("project", proj_context, expertise, company_research)
+        
+        questions = []
+        
+        # 1. Self Introduction
+        intro_result = await _generate_dynamic_question("intro", context, expertise, company_research)
         questions.append({
-            "id": f"project_{i+1}",
-            "type": "project",
-            "question": proj_result["question"],
-            "skill_target": proj[:50],
+            "id": "intro_1",
+            "type": "self_intro",
+            "question": intro_result["question"],
+            "skill_target": "self_intro",
             "source": "llm_dynamic"
         })
-    
-    # 3. Technical Questions (2-3 based on skills and job)
-    tech_skills = skills[:3] if skills else ["programming"]
-    for i, skill in enumerate(tech_skills):
-        tech_context = {
-            **context,
-            "target_skill": skill
-        }
-        tech_result = await _generate_dynamic_question("technical", tech_context, expertise, company_research)
+        
+        # 2. Project Questions (up to 2)
+        for i, proj in enumerate(projects[:2]):
+            proj_context = {
+                **context,
+                "current_project": str(proj)[:100],
+                "project_tech": re.findall(r"\b(Python|JavaScript|React|Node|MongoDB|SQL|AWS|Docker|Kubernetes)\b", str(proj), re.I)
+            }
+            proj_result = await _generate_dynamic_question("project", proj_context, expertise, company_research)
+            questions.append({
+                "id": f"project_{i+1}",
+                "type": "project",
+                "question": proj_result["question"],
+                "skill_target": str(proj)[:50],
+                "source": "llm_dynamic"
+            })
+        
+        # 3. Technical Questions (2-3 based on skills and job)
+        tech_skills = skills[:3] if skills else ["programming"]
+        for i, skill in enumerate(tech_skills):
+            tech_context = {
+                **context,
+                "target_skill": skill
+            }
+            tech_result = await _generate_dynamic_question("technical", tech_context, expertise, company_research)
+            questions.append({
+                "id": f"technical_{i+1}",
+                "type": "technical",
+                "question": tech_result["question"],
+                "skill_target": skill,
+                "source": "llm_dynamic"
+            })
+        
+        # 4. Behavioral Question
+        behav_result = await _generate_dynamic_question("behavioral", context, expertise, company_research)
         questions.append({
-            "id": f"technical_{i+1}",
-            "type": "technical",
-            "question": tech_result["question"],
-            "skill_target": skill,
+            "id": "behavioral_1",
+            "type": "behavioral",
+            "question": behav_result["question"],
+            "skill_target": "collaboration",
             "source": "llm_dynamic"
         })
-    
-    # 4. Behavioral Question
-    behav_result = await _generate_dynamic_question("behavioral", context, expertise, company_research)
-    questions.append({
-        "id": "behavioral_1",
-        "type": "behavioral",
-        "question": behav_result["question"],
-        "skill_target": "collaboration",
-        "source": "llm_dynamic"
-    })
-    
-    # 5. Critical Thinking
-    critical_skill = tech_skills[0] if tech_skills else "system"
-    critical_context = {
-        **context,
-        "target_skill": critical_skill
-    }
-    critical_result = await _generate_dynamic_question("critical", critical_context, expertise, company_research)
-    questions.append({
-        "id": "critical_1",
-        "type": "critical",
-        "question": critical_result["question"],
-        "skill_target": critical_skill,
-        "source": "llm_dynamic"
-    })
-    
-    # 6. Wrap-up
-    wrapup_result = await _generate_dynamic_question("wrapup", context, expertise, company_research)
-    questions.append({
-        "id": "wrapup_1",
-        "type": "wrapup",
-        "question": wrapup_result["question"],
-        "skill_target": "wrapup",
-        "source": "llm_dynamic"
-    })
-    
-    # Save the plan
-    plan = {
-        "session_id": session_id,
-        "candidate": name,
-        "job_role": job_role,
-        "company": company,
-        "expertise_level": expertise,
-        "total_questions": len(questions),
-        "used_llm": True,
-        "llm_generated": True,
-        "company_research": company_research,
-        "questions": questions,
-        "generated_at": str(asyncio.get_event_loop().time())
-    }
-    
-    _write_json(sdir / "interview_plan.json", plan)
-    
-    return {
-        "status": "ok",
-        "session_id": session_id,
-        "total_questions": len(questions),
-        "expertise_level": expertise,
-        "company_researched": bool(company),
-        "questions_preview": [{"id": q["id"], "type": q["type"]} for q in questions]
-    }
+        
+        # 5. Critical Thinking
+        critical_skill = tech_skills[0] if tech_skills else "system"
+        critical_context = {
+            **context,
+            "target_skill": critical_skill
+        }
+        critical_result = await _generate_dynamic_question("critical", critical_context, expertise, company_research)
+        questions.append({
+            "id": "critical_1",
+            "type": "critical",
+            "question": critical_result["question"],
+            "skill_target": critical_skill,
+            "source": "llm_dynamic"
+        })
+        
+        # 6. Wrap-up
+        wrapup_result = await _generate_dynamic_question("wrapup", context, expertise, company_research)
+        questions.append({
+            "id": "wrapup_1",
+            "type": "wrapup",
+            "question": wrapup_result["question"],
+            "skill_target": "wrapup",
+            "source": "llm_dynamic"
+        })
+        
+        # Save the plan
+        plan = {
+            "session_id": session_id,
+            "candidate": name,
+            "job_role": job_role,
+            "company": company,
+            "expertise_level": expertise,
+            "total_questions": len(questions),
+            "used_llm": True,
+            "llm_generated": True,
+            "company_research": company_research,
+            "questions": questions,
+            "generated_at": str(asyncio.get_event_loop().time())
+        }
+        
+        _write_json(sdir / "interview_plan.json", plan)
+        
+        return {
+            "status": "ok",
+            "session_id": session_id,
+            "total_questions": len(questions),
+            "expertise_level": expertise,
+            "company_researched": bool(company),
+            "questions_preview": [{"id": q["id"], "type": q["type"]} for q in questions]
+        }
+    except Exception as e:
+        import logging
+        logging.exception(f"Error in dynamic generation for session {session_id}: {e}")
+        # Preserve HTTP 500 so frontend knows it failed and can fallback
+        raise HTTPException(status_code=500, detail=f"Dynamic interview generation failed: {str(e)}")
