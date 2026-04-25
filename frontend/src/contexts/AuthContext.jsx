@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { auth } from "../firebase";
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth";
+import { onAuthStateChanged, signInWithRedirect, GoogleAuthProvider, signOut, getRedirectResult } from "firebase/auth";
 import { googleProvider } from "../firebase";
 
 const AuthContext = createContext();
@@ -12,13 +12,21 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   async function loginWithGoogle() {
     if (!auth) {
-      alert("Authentication is currently unavailable. Please check configuration.");
+      const msg = "Firebase not initialized. Check Vercel environment variables.";
+      console.error(msg);
+      alert(msg);
       return;
     }
-    return signInWithPopup(auth, googleProvider);
+    try {
+      return await signInWithRedirect(auth, googleProvider);
+    } catch (err) {
+      console.error("Login Error:", err);
+      setError(err.message);
+    }
   }
 
   function logout() {
@@ -31,6 +39,12 @@ export function AuthProvider({ children }) {
       setLoading(false);
       return;
     }
+
+    // Check for redirect result on mount
+    getRedirectResult(auth).catch((err) => {
+      console.error("Redirect Result Error:", err);
+      setError(err.message);
+    });
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
@@ -52,7 +66,8 @@ export function AuthProvider({ children }) {
   const value = {
     currentUser,
     loginWithGoogle,
-    logout
+    logout,
+    error
   };
 
   return (
