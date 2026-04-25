@@ -49,6 +49,17 @@ export default function Login({ onLoginSuccess }) {
             />
             {loading ? "Signing in..." : "Continue with Google"}
           </button>
+
+          <div className="login-divider">
+            <span>OR</span>
+          </div>
+
+          <button 
+            className="guest-login-btn" 
+            onClick={() => onLoginSuccess && onLoginSuccess()}
+          >
+            🚀 Continue as Guest
+          </button>
         </div>
 
         <div className="login-footer">
