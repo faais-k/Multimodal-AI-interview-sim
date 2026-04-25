@@ -37,6 +37,8 @@ export function AuthProvider({ children }) {
 
   function logout() {
     if (!auth) return;
+    localStorage.removeItem("firebaseToken");
+    localStorage.removeItem("cachedUser");
     return signOut(auth);
   }
 
@@ -61,13 +63,28 @@ export function AuthProvider({ children }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log("👤 Auth State Changed:", user ? `Logged in: ${user.email}` : "Logged out");
-      setCurrentUser(user);
       
       if (user) {
+        setCurrentUser(user);
         const token = await user.getIdToken();
         localStorage.setItem("firebaseToken", token);
+        localStorage.setItem("cachedUser", JSON.stringify({
+          email: user.email,
+          uid: user.uid,
+          displayName: user.displayName,
+          photoURL: user.photoURL
+        }));
       } else {
-        localStorage.removeItem("firebaseToken");
+        // RESCUE: If Firebase says "Logged out" but we have a token, 
+        // it might be an AdBlocker issue. Keep the user logged in if they have a cached profile.
+        const cached = localStorage.getItem("cachedUser");
+        if (cached) {
+          console.log("🛡️ AdBlocker/Cookie block detected. Using cached session.");
+          setCurrentUser(JSON.parse(cached));
+        } else {
+          setCurrentUser(null);
+          localStorage.removeItem("firebaseToken");
+        }
       }
       
       setLoading(false);

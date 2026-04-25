@@ -58,6 +58,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Security(
             "name": decoded_token.get("name"),
             "picture": decoded_token.get("picture")
         }
+        print(f"🔑 API Request from: {user_info['email']}")
         return user_info
     except Exception as e:
         raise HTTPException(
