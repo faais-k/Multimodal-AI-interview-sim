@@ -10,36 +10,51 @@ export function useAuth() {
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
+  const [isGuest, setIsGuest] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // ROOT FIX: Check for guest session immediately
+  useEffect(() => {
+    const guestStatus = localStorage.getItem("isGuestSession") === "true";
+    if (guestStatus) {
+      console.log("🚀 Restoring Guest Session...");
+      setIsGuest(true);
+    }
+  }, []);
 
   async function loginWithGoogle() {
     try {
       setError(null);
-      // 1. TRIGGER POPUP IMMEDIATELY (Zero delay for browser trust)
-      console.log("🚀 Attempting Popup Login...");
+      setIsGuest(false);
+      localStorage.removeItem("isGuestSession");
+      
+      console.log("🚀 Attempting First-Party Auth...");
+      // This will now use the Vercel Proxy because of the firebase.js fix
       const result = await signInWithPopup(auth, googleProvider);
-      console.log("✅ Popup success!");
       return result;
     } catch (err) {
       console.error("❌ Auth Error:", err);
-      
-      // 2. FALLBACK: If popup is blocked, use Redirect
       if (err.code === "auth/popup-blocked" || err.code === "auth/cancelled-popup-request") {
-        console.log("⚠️ Popup blocked/interrupted, falling back to redirect...");
-        alert("Popup was blocked or closed. Switching to Redirect login...");
         return signInWithRedirect(auth, googleProvider);
       }
-      
       setError(err.message);
     }
   }
 
+  function loginAsGuest() {
+    console.log("👤 Continuing as Guest...");
+    setIsGuest(true);
+    localStorage.setItem("isGuestSession", "true");
+    setError(null);
+  }
+
   function logout() {
-    if (!auth) return;
     localStorage.removeItem("firebaseToken");
     localStorage.removeItem("cachedUser");
-    return signOut(auth);
+    localStorage.removeItem("isGuestSession");
+    setIsGuest(false);
+    if (auth) signOut(auth);
   }
 
   useEffect(() => {
@@ -48,54 +63,44 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    // RESCUE LOGIC: Check if we just returned from a redirect
-    console.log("🕒 AuthProvider checking for redirect results...");
     getRedirectResult(auth)
       .then((result) => {
         if (result) {
-          console.log("🎯 Redirect Recovery Success! User:", result.user.email);
           setCurrentUser(result.user);
         }
       })
-      .catch((err) => {
-        console.error("❌ Redirect Recovery Error:", err);
-      });
+      .catch((err) => console.error("Redirect Result Error:", err));
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log("👤 Auth State Changed:", user ? `Logged in: ${user.email}` : "Logged out");
-      
       if (user) {
         setCurrentUser(user);
+        setIsGuest(false);
         const token = await user.getIdToken();
         localStorage.setItem("firebaseToken", token);
         localStorage.setItem("cachedUser", JSON.stringify({
           email: user.email,
           uid: user.uid,
-          displayName: user.displayName,
-          photoURL: user.photoURL
+          displayName: user.displayName
         }));
       } else {
-        // RESCUE: If Firebase says "Logged out" but we have a token, 
-        // it might be an AdBlocker issue. Keep the user logged in if they have a cached profile.
         const cached = localStorage.getItem("cachedUser");
-        if (cached) {
-          console.log("🛡️ AdBlocker/Cookie block detected. Using cached session.");
+        if (cached && !isGuest) {
           setCurrentUser(JSON.parse(cached));
         } else {
           setCurrentUser(null);
-          localStorage.removeItem("firebaseToken");
         }
       }
-      
       setLoading(false);
     });
 
     return unsubscribe;
-  }, []);
+  }, [isGuest]);
 
   const value = {
     currentUser,
+    isGuest,
     loginWithGoogle,
+    loginAsGuest,
     logout,
     loading,
     error
@@ -103,7 +108,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }

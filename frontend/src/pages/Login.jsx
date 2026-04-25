@@ -1,24 +1,18 @@
-import React, { useState } from "react";
+import React from "react";
 import { useAuth } from "../contexts/AuthContext";
 import "./Login.css";
 
 export default function Login({ onLoginSuccess }) {
-  const { loginWithGoogle } = useAuth();
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const { loginWithGoogle, loginAsGuest, loading, error } = useAuth();
 
   const handleGoogleLogin = async () => {
-    try {
-      setError("");
-      setLoading(true);
-      await loginWithGoogle();
-      if (onLoginSuccess) onLoginSuccess();
-    } catch (err) {
-      setError("Failed to sign in with Google. Please try again.");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    await loginWithGoogle();
+    // Redirect logic is handled by App.jsx useEffect
+  };
+
+  const handleGuestLogin = () => {
+    loginAsGuest();
+    if (onLoginSuccess) onLoginSuccess();
   };
 
   return (
@@ -56,7 +50,7 @@ export default function Login({ onLoginSuccess }) {
 
           <button 
             className="guest-login-btn" 
-            onClick={() => onLoginSuccess && onLoginSuccess()}
+            onClick={handleGuestLogin}
           >
             🚀 Continue as Guest
           </button>
@@ -66,7 +60,7 @@ export default function Login({ onLoginSuccess }) {
           <p>By continuing, you agree to our Terms of Service and Privacy Policy.</p>
         </div>
       </div>
-      
+
       <div className="login-visual">
         <div className="visual-circle circle-1"></div>
         <div className="visual-circle circle-2"></div>

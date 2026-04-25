@@ -4,7 +4,10 @@ import { getAuth, GoogleAuthProvider, browserLocalPersistence, setPersistence } 
 // Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  // ROOT FIX: Use our own domain as the auth domain to bypass adblockers
+  authDomain: window.location.hostname.includes('vercel.app') 
+    ? window.location.hostname 
+    : import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
