@@ -55,14 +55,25 @@ export default function App() {
 
   // Auto-transition to dashboard if logged in and on landing/login
   useEffect(() => {
-    if (!authLoading && currentUser && (iv.step === "landing" || iv.step === "login")) {
-      iv.setStep("dashboard");
+    if (!authLoading) {
+      console.log("🚦 App Routing Check:", { 
+        step: iv.step, 
+        hasUser: !!currentUser, 
+        authLoading 
+      });
+      
+      if (currentUser && (iv.step === "landing" || iv.step === "login")) {
+        console.log("➡️ Auto-forwarding to Dashboard...");
+        iv.setStep("dashboard");
+      }
     }
   }, [currentUser, authLoading, iv.step]);
 
   // STEP: Landing (Entry Point)
   if (iv.step === "landing") {
+    console.log("📍 Rendering Landing Page");
     return <Landing onStart={() => {
+      console.log("🖱️ Landing Start Clicked. User status:", !!currentUser);
       if (currentUser) iv.setStep("dashboard");
       else iv.setStep("login");
     }} />;
@@ -70,16 +81,23 @@ export default function App() {
 
   // STEP: Login
   if (iv.step === "login") {
+    console.log("📍 Rendering Login Page");
     if (currentUser) {
+      console.log("➡️ Logged in user detected on Login page, moving to dashboard");
       iv.setStep("dashboard");
       return null;
     }
-    return <Login onLoginSuccess={() => iv.setStep("dashboard")} />;
+    return <Login onLoginSuccess={() => {
+      console.log("🎉 Login success callback triggered");
+      iv.setStep("dashboard");
+    }} />;
   }
 
   // STEP: Dashboard (Home for logged in users)
   if (iv.step === "dashboard") {
+    console.log("📍 Rendering Dashboard");
     if (!currentUser) {
+      console.log("🚫 Logged out user detected on Dashboard, moving to landing");
       iv.setStep("landing");
       return null;
     }

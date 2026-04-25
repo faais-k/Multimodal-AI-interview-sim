@@ -36,20 +36,29 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!auth) {
+      console.warn("⚠️ Auth context initialized without Firebase Auth object.");
       setLoading(false);
       return;
     }
 
-    // Check for redirect result on mount
-    getRedirectResult(auth).catch((err) => {
-      console.error("Redirect Result Error:", err);
-      setError(err.message);
-    });
+    console.log("🕒 AuthProvider checking for redirect result...");
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result) {
+          console.log("🎯 Redirect result found! User logged in:", result.user.email);
+        } else {
+          console.log("ℹ️ No redirect result found (normal page load).");
+        }
+      })
+      .catch((err) => {
+        console.error("❌ Redirect Result Error:", err);
+        setError(err.message);
+      });
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log("👤 Auth State Changed:", user ? `Logged in as ${user.email}` : "Logged out");
       setCurrentUser(user);
       
-      // If user is logged in, grab their JWT so we can attach it to API requests
       if (user) {
         const token = await user.getIdToken();
         localStorage.setItem("firebaseToken", token);
@@ -58,6 +67,7 @@ export function AuthProvider({ children }) {
       }
       
       setLoading(false);
+      console.log("🏁 Auth loading finished.");
     });
 
     return unsubscribe;
