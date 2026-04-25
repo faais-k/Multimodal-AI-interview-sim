@@ -14,14 +14,24 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   async function loginWithGoogle() {
+    if (!auth) {
+      alert("Authentication is currently unavailable. Please check configuration.");
+      return;
+    }
     return signInWithPopup(auth, googleProvider);
   }
 
   function logout() {
+    if (!auth) return;
     return signOut(auth);
   }
 
   useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       
