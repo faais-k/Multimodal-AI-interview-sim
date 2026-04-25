@@ -55,6 +55,7 @@ export default function App() {
 
   // Auto-transition to dashboard if logged in and on landing/login
   useEffect(() => {
+    console.log("🌍 Current Hostname:", window.location.hostname);
     if (!authLoading) {
       console.log("🚦 App Routing Check:", { 
         step: iv.step, 

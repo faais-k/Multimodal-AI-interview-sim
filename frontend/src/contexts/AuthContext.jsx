@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { auth } from "../firebase";
-import { onAuthStateChanged, signInWithRedirect, GoogleAuthProvider, signOut, getRedirectResult } from "firebase/auth";
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth";
 import { googleProvider } from "../firebase";
 
 const AuthContext = createContext();
@@ -16,16 +16,31 @@ export function AuthProvider({ children }) {
 
   async function loginWithGoogle() {
     if (!auth) {
-      const msg = "Firebase not initialized. Check Vercel environment variables.";
-      console.error(msg);
+      const msg = "Firebase not initialized. Check your Vercel env vars.";
+      setError(msg);
       alert(msg);
       return;
     }
+
     try {
-      return await signInWithRedirect(auth, googleProvider);
+      setError(null);
+      console.log("🚀 Initiating Google Sign-In Popup...");
+      const result = await signInWithPopup(auth, googleProvider);
+      console.log("✅ Popup success! User:", result.user.email);
+      return result;
     } catch (err) {
-      console.error("Login Error:", err);
-      setError(err.message);
+      console.error("❌ Login Error:", err);
+      if (err.code === "auth/popup-blocked") {
+        const msg = "Popup blocked! Please allow popups for this site in your browser settings.";
+        setError(msg);
+        alert(msg);
+      } else if (err.code === "auth/unauthorized-domain") {
+        const msg = `This domain (${window.location.hostname}) is not authorized in Firebase Console.`;
+        setError(msg);
+        alert(msg);
+      } else {
+        setError(err.message);
+      }
     }
   }
 
@@ -36,27 +51,14 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!auth) {
-      console.warn("⚠️ Auth context initialized without Firebase Auth object.");
+      console.warn("⚠️ Auth context initialized without Firebase Auth.");
       setLoading(false);
       return;
     }
 
-    console.log("🕒 AuthProvider checking for redirect result...");
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result) {
-          console.log("🎯 Redirect result found! User logged in:", result.user.email);
-        } else {
-          console.log("ℹ️ No redirect result found (normal page load).");
-        }
-      })
-      .catch((err) => {
-        console.error("❌ Redirect Result Error:", err);
-        setError(err.message);
-      });
-
+    console.log("🕒 AuthProvider starting listener...");
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log("👤 Auth State Changed:", user ? `Logged in as ${user.email}` : "Logged out");
+      console.log("👤 Auth State Changed:", user ? `Logged in: ${user.email}` : "Logged out");
       setCurrentUser(user);
       
       if (user) {
