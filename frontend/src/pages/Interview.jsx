@@ -66,17 +66,29 @@ export default function Interview({
     audioURL, 
     micError, 
     volume,
-    start: startRec, 
-    stop: stopRec, 
+    startRecording, 
+    stopRecording, 
     reset: resetRec 
   } = useAudioRecorder();
   
-  const startRecRef = useRef(startRec);
+  // Wrap startRecording to cancel speech synthesis
+  const handleStartRecording = () => {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    startRecording();
+  };
+
+  const startRecRef = useRef(handleStartRecording);
   useEffect(() => {
-    startRecRef.current = startRec;
-  }, [startRec]);
+    startRecRef.current = handleStartRecording;
+  }, [handleStartRecording]);
 
   const antiCheat = useAntiCheat(sessionId, true);
+
+  // Helper to skip with TTS cancellation
+  const handleSkip = () => {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    onSkip();
+  };
 
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
@@ -417,7 +429,7 @@ export default function Interview({
                       {answer.trim().split(/\s+/).filter(Boolean).length} / 50 words minimum
                     </span>
                     <div className="flex items-center gap-3">
-                      <Button variant="outline" onClick={onSkip} disabled={busy}>
+                      <Button variant="outline" onClick={handleSkip} disabled={busy}>
                         Skip
                       </Button>
                       <Button 
@@ -446,7 +458,7 @@ export default function Interview({
               {mode === "voice" && !recording && !audioBlob && (
                 <div className="flex flex-col items-center gap-6 animate-in">
                   <Button 
-                    onClick={startRec}
+                    onClick={handleStartRecording}
                     disabled={busy}
                     size="lg"
                     className="flex items-center gap-2 px-12 py-6 text-lg"
@@ -454,7 +466,7 @@ export default function Interview({
                     <Mic size={24} />
                     Start Recording
                   </Button>
-                  <Button variant="ghost" onClick={onSkip} disabled={busy}>
+                  <Button variant="ghost" onClick={handleSkip} disabled={busy}>
                     Skip Question
                   </Button>
                 </div>
@@ -480,7 +492,7 @@ export default function Interview({
                   </div>
                   <Button 
                     variant="destructive"
-                    onClick={stopRec}
+                    onClick={stopRecording}
                     size="lg"
                     className="px-10"
                   >
@@ -519,7 +531,7 @@ export default function Interview({
                   )}
 
                   <div className="flex items-center justify-between pt-4">
-                    <Button variant="ghost" onClick={onSkip} disabled={busy}>
+                    <Button variant="ghost" onClick={handleSkip} disabled={busy}>
                       Skip
                     </Button>
                     <Button 

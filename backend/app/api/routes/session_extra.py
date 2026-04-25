@@ -149,68 +149,89 @@ async def get_session_status(session_id: str):
 async def skip_question(session_id: str, question_id: str = None):
     """
     Formally skip a question and advance the interview state.
+    Safe even if interview_state.json is missing (returns 400 instead of 500).
     """
     validate_session_id(session_id)
     sdir = _require_session(session_id)
     
     from backend.app.core.interview_flow import read_state, write_state, get_state_lock
     
-    async with get_state_lock(session_id):
-        # Load state
-        state = read_state(sdir, session_id)
-        
-        # Get question_id to skip (defaults to the latest asked question if not provided)
-        if not question_id:
-            questions_asked = state.get("questions_asked", [])
-            if questions_asked:
-                question_id = questions_asked[-1].get("id")
-        
-        if not question_id:
-            raise HTTPException(status_code=400, detail="No active question to skip")
-        
-        # Record the skip in answers (DICT) — use setdefault to avoid KeyError
-        # if the state was initialized without these keys
-        answers = state.setdefault("answers", {})
-        skip_record = {
-            "question": next((q["question"] for q in state.get("questions_asked", []) if q["id"] == question_id), "N/A"),
-            "answer": "[SKIPPED BY USER]",
-            "score": None,
-            "skipped": True,
-            "time": __import__('datetime').datetime.utcnow().isoformat() + "Z"
-        }
-        
-        answers[question_id] = skip_record
-        
-        # VERY IMPORTANT: Advance the last_question_id cursor so follow-up logic knows we're done
-        cursor = state.setdefault("cursor", {"stage": "intro"})
-        cursor["last_question_id"] = question_id
-        
-        # Advance the stage so we don't get stuck in intro
-        if not question_id.startswith("followup"):
-            if cursor.get("stage") == "intro":
-                cursor["stage"] = "project"
-            elif cursor.get("stage") == "project":
-                cursor["stage"] = "dynamic"
-        
-        # Check if this was a wrapup/final question
-        is_final = False
-        for q in state.get("questions_asked", []):
-            if q.get("id") == question_id and q.get("is_final"):
-                is_final = True
-                break
-        
-        if is_final or question_id.startswith("wrapup"):
-            state["completed"] = True
+    try:
+        async with get_state_lock(session_id):
+            # Load state
+            try:
+                state = read_state(sdir, session_id)
+            except FileNotFoundError:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Interview has not been started yet. Call /api/session/start_interview first."
+                )
             
-        write_state(sdir, session_id, state)
-    
-    # Now call next_question to get the next question
-    from backend.app.api.routes.session import next_question
-    next_q = await next_question(session_id)
-    
-    return {
-        "status": "skipped",
-        "skipped_question_id": question_id,
-        "next_question": next_q.get("question"),
-        "total_questions": next_q.get("total_questions", 0)
-    }
+            # Get question_id to skip (defaults to the latest asked question if not provided)
+            if not question_id:
+                questions_asked = state.get("questions_asked", [])
+                if questions_asked:
+                    question_id = questions_asked[-1].get("id")
+            
+            if not question_id:
+                raise HTTPException(status_code=400, detail="No active question to skip")
+            
+            # Record the skip in answers (DICT)
+            answers = state.setdefault("answers", {})
+            
+            # Find the question text
+            q_text = "N/A"
+            for q in state.get("questions_asked", []):
+                if q.get("id") == question_id:
+                    q_text = q.get("question", "N/A")
+                    break
+
+            skip_record = {
+                "question": q_text,
+                "answer": "[SKIPPED BY USER]",
+                "score": 0.0, # Zero score for skipped
+                "skipped": True,
+                "time": __import__('datetime').datetime.utcnow().isoformat() + "Z"
+            }
+            
+            answers[question_id] = skip_record
+            
+            # Advance cursor
+            cursor = state.setdefault("cursor", {"stage": "intro"})
+            cursor["last_question_id"] = question_id
+            
+            # Advance stage logic
+            if not question_id.startswith("followup"):
+                if cursor.get("stage") == "intro":
+                    cursor["stage"] = "project"
+                elif cursor.get("stage") == "project":
+                    cursor["stage"] = "dynamic"
+            
+            # Completion check
+            is_final = False
+            for q in state.get("questions_asked", []):
+                if q.get("id") == question_id and q.get("is_final"):
+                    is_final = True
+                    break
+            
+            if is_final or question_id.startswith("wrapup"):
+                state["completed"] = True
+                
+            write_state(sdir, session_id, state)
+            
+        # Now call next_question to get the next question
+        from backend.app.api.routes.session import next_question
+        next_q_res = await next_question(session_id)
+        
+        return {
+            "status": "skipped",
+            "skipped_question_id": question_id,
+            "next_question": next_q_res.get("question"),
+            "total_questions": next_q_res.get("total_questions", 0)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logging.error(f"Error skipping question for session {session_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal error during skip: {str(e)}")
