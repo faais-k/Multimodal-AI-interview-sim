@@ -142,9 +142,18 @@ Backend (FastAPI)
 ```env
 # Frontend (.env in frontend/)
 VITE_API_BASE=http://127.0.0.1:8000/api   # change for production
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
 
-# Backend (optional)
-HF_TOKEN=hf_...   # HuggingFace token for LLM question generation
+# Backend
+MONGODB_URL=...                            # MongoDB Atlas URI
+FIREBASE_SERVICE_ACCOUNT='{"type": ...}'  # Firebase service account JSON string
+HF_TOKEN=hf_...                           # HuggingFace token for 72B LLM fallback
+ALLOWED_ORIGINS=https://your-app.vercel.app
 ```
 
 ---

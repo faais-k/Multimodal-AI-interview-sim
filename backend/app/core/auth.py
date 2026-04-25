@@ -17,16 +17,30 @@ security = HTTPBearer()
 def init_firebase():
     # Only initialize if not already initialized
     if not firebase_admin._apps:
+        # Priority 1: Environment variable (JSON string)
+        service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT")
+        if service_account_json:
+            try:
+                import json
+                cred_dict = json.loads(service_account_json)
+                cred = credentials.Certificate(cred_dict)
+                firebase_admin.initialize_app(cred)
+                print("✅ Firebase Admin initialized via environment variable.")
+                return
+            except Exception as e:
+                print(f"⚠️ Failed to initialize Firebase Admin from env var: {e}")
+
+        # Priority 2: File path
         cred_path = os.getenv("FIREBASE_CREDENTIALS", "backend/secrets/firebase-admin.json")
         try:
             if os.path.exists(cred_path):
                 cred = credentials.Certificate(cred_path)
                 firebase_admin.initialize_app(cred)
-                print("✅ Firebase Admin initialized.")
+                print("✅ Firebase Admin initialized via file.")
             else:
-                print(f"⚠️ Firebase Admin credentials not found at {cred_path}. Authentication will fail.")
+                print(f"⚠️ Firebase Admin credentials not found at {cred_path} and FIREBASE_SERVICE_ACCOUNT is unset. Authentication will fail.")
         except Exception as e:
-            print(f"⚠️ Failed to initialize Firebase Admin: {e}")
+            print(f"⚠️ Failed to initialize Firebase Admin from file: {e}")
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Security(security)) -> dict:
     """
