@@ -40,7 +40,12 @@ async def connect_db() -> None:
 
     try:
         from motor.motor_asyncio import AsyncIOMotorClient
-        _client = AsyncIOMotorClient(MONGODB_URL, serverSelectionTimeoutMS=5000)
+        _client = AsyncIOMotorClient(
+            MONGODB_URL,
+            serverSelectionTimeoutMS=5000,
+            maxPoolSize=10,
+            minPoolSize=1,
+        )
         # Ping to verify connection before declaring success
         await _client.admin.command("ping")
         _db = _client[DB_NAME]

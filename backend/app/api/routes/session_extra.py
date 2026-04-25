@@ -88,6 +88,20 @@ async def get_session_status(session_id: str):
     validate_session_id(session_id)
     sdir = _require_session(session_id)
     
+    # FUNC-2: Check for expired sessions (older than 24 hours)
+    state_file = sdir / "interview_state.json"
+    if state_file.exists():
+        import time
+        last_modified = state_file.stat().st_mtime
+        if time.time() - last_modified > 3600 * 24:  # 24 hours
+            return {
+                "status": "expired",
+                "session_id": session_id,
+                "has_active_question": False,
+                "is_completed": False,
+                "message": "Session expired after 24 hours of inactivity"
+            }
+    
     # Load interview state
     state = _read_json(sdir / "interview_state.json")
     plan = _read_json(sdir / "interview_plan.json")
@@ -154,7 +168,9 @@ async def skip_question(session_id: str, question_id: str = None):
         if not question_id:
             raise HTTPException(status_code=400, detail="No active question to skip")
         
-        # Record the skip in answers (DICT)
+        # Record the skip in answers (DICT) — use setdefault to avoid KeyError
+        # if the state was initialized without these keys
+        answers = state.setdefault("answers", {})
         skip_record = {
             "question": next((q["question"] for q in state.get("questions_asked", []) if q["id"] == question_id), "N/A"),
             "answer": "[SKIPPED BY USER]",
@@ -163,10 +179,11 @@ async def skip_question(session_id: str, question_id: str = None):
             "time": __import__('datetime').datetime.utcnow().isoformat() + "Z"
         }
         
-        state["answers"][question_id] = skip_record
+        answers[question_id] = skip_record
         
         # VERY IMPORTANT: Advance the last_question_id cursor so follow-up logic knows we're done
-        state["cursor"]["last_question_id"] = question_id
+        cursor = state.setdefault("cursor", {})
+        cursor["last_question_id"] = question_id
         
         # Check if this was a wrapup/final question
         is_final = False

@@ -32,8 +32,11 @@ async function req(path, options = {}) {
     headers,
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `API error ${res.status}`);
+    const data = await res.json().catch(() => ({}));
+    const error = new Error(data.detail || data.message || `API error ${res.status}`);
+    error.status = res.status;
+    error.data = data;
+    throw error;
   }
   return res.json();
 }
@@ -50,8 +53,11 @@ async function reqMultipart(url, body) {
     headers
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `API error ${res.status}`);
+    const data = await res.json().catch(() => ({}));
+    const error = new Error(data.detail || data.message || `API error ${res.status}`);
+    error.status = res.status;
+    error.data = data;
+    throw error;
   }
   return res.json();
 }

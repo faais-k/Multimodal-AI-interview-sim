@@ -401,6 +401,16 @@ async def score_text_answer(payload: dict):
         if not await check_rate_limit(session_id, "score_text", max_requests=60, window_seconds=60):
             raise HTTPException(status_code=429, detail="Too many scoring requests. Please slow down.")
 
+        # ── FUNC-3 FIX: Dedup — if already scored, return cached result ──────
+        safe_qid_check = re.sub(r"[^a-zA-Z0-9_\-]", "_", question_id)[:80]
+        cached_score_path = _storage_dir() / session_id / "scores" / f"{safe_qid_check}.json"
+        if cached_score_path.exists():
+            try:
+                cached = _load_json(cached_score_path)
+                return {"status": "ok", "cached": True, **cached}
+            except Exception:
+                pass  # Corrupt cache — fall through and re-score
+
         # Load resume (file read, outside lock — doesn't touch interview state)
         try:
             parsed_resume = _load_parsed_resume(session_id)

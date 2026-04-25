@@ -59,5 +59,8 @@ backend/secrets/
 # Agent Planning & Graphs
 .planning/
 .graphifyignore
-
-
+graphify-out/
+graphify_help*.txt
+.agents/
+AUDIT_REPORT.md
+README_NEW.md

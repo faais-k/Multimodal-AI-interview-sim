@@ -68,19 +68,23 @@ async def start_interview(session_id: str):
 
     parsed = json.loads(parsed_path.read_text(encoding="utf-8"))
 
-    # Guard: do not reinitialise if interview already has questions asked OR answers
-    state_path = STORAGE_DIR / session_id / "interview_state.json"
-    if state_path.exists():
-        try:
-            existing      = json.loads(state_path.read_text(encoding="utf-8"))
-            has_answers   = bool(existing.get("answers"))
-            has_questions = bool(existing.get("questions_asked"))
-            if has_answers or has_questions:
-                return {"status": "ok", "message": "interview already in progress"}
-        except Exception:
-            pass  # corrupt state file — fall through and reinitialise
+    # LOGIC-1 FIX: Lock the check-and-init to prevent race conditions from
+    # double-clicks. Without this, two requests can both pass the exists()
+    # check before either writes, corrupting state.
+    async with interview_flow.get_state_lock(session_id):
+        state_path = STORAGE_DIR / session_id / "interview_state.json"
+        if state_path.exists():
+            try:
+                existing      = json.loads(state_path.read_text(encoding="utf-8"))
+                has_answers   = bool(existing.get("answers"))
+                has_questions = bool(existing.get("questions_asked"))
+                if has_answers or has_questions:
+                    return {"status": "ok", "message": "interview already in progress"}
+            except Exception:
+                pass  # corrupt state file — fall through and reinitialise
 
-    interview_flow.init_interview_state(STORAGE_DIR, session_id, parsed)
+        interview_flow.init_interview_state(STORAGE_DIR, session_id, parsed)
+
     await update_session_status(session_id, "active")
     return {"status": "ok", "message": "interview started"}
 

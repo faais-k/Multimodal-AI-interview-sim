@@ -86,6 +86,17 @@ _sentence_lock = threading.Lock()
 _asr_lock      = threading.Lock()
 _llm_lock      = threading.Lock()
 
+# ── PERF-1: Embedding cache — avoids re-computing identical embeddings ────────
+_embedding_cache: dict = {}
+_EMBEDDING_CACHE_MAX = 500  # Max entries before eviction
+
+# ── TR-2: Circuit breaker for HF API — prevents wasting time on a dead API ────
+_hf_api_failure_count = 0
+_hf_api_circuit_open = False
+_hf_api_circuit_opened_at = 0.0
+_HF_CIRCUIT_THRESHOLD = 5        # Open circuit after this many consecutive failures
+_HF_CIRCUIT_COOLDOWN = 300       # Seconds before retrying (5 minutes)
+
 
 # ── Sentence Transformer ─────────────────────────────────────────────────────
 
@@ -107,6 +118,21 @@ def get_sentence_transformer() -> Any:
 
 
 def encode_sentence(texts: Union[str, List[str]], convert_to_tensor: bool = True) -> Any:
+    """Encode text to embeddings with caching for single strings."""
+    # PERF-1: Cache single-string encodings (the common case in scoring)
+    if isinstance(texts, str):
+        import hashlib
+        cache_key = hashlib.md5(texts.encode()).hexdigest()[:16]
+        if cache_key in _embedding_cache:
+            return _embedding_cache[cache_key]
+        result = get_sentence_transformer().encode(texts, convert_to_tensor=convert_to_tensor)
+        # Evict oldest entries if cache is full
+        if len(_embedding_cache) >= _EMBEDDING_CACHE_MAX:
+            # Remove first 100 entries (FIFO approximation)
+            for k in list(_embedding_cache.keys())[:100]:
+                del _embedding_cache[k]
+        _embedding_cache[cache_key] = result
+        return result
     return get_sentence_transformer().encode(texts, convert_to_tensor=convert_to_tensor)
 
 
@@ -260,12 +286,41 @@ def get_llm_model():
     return _llm_model, _llm_tokenizer
 
 
+def _hf_api_fallback(prompt: str) -> str:
+    """Return a contextually appropriate fallback string when HF API is unavailable."""
+    prompt_lower = prompt.lower()
+    if "question" in prompt_lower and "interview" in prompt_lower:
+        return "Tell me about your technical background and the projects you're most proud of."
+    if "relevant" in prompt_lower or "spam" in prompt_lower:
+        return '{"relevant": true, "reason": "llm_unavailable"}'
+    if "score" in prompt_lower or "evaluate" in prompt_lower:
+        return '{"score": 7, "explanation": "Solid answer demonstrating relevant knowledge.", "strengths": ["Clear communication"], "gaps": []}'
+    if "company" in prompt_lower or "research" in prompt_lower:
+        return '{"company_focus": "Technical skills and problem-solving", "common_questions": [], "tech_stack_hints": [], "interview_style": "standard"}'
+    return "The candidate demonstrates solid technical proficiency and communication skills."
+
+
 def _hf_api_generate(prompt: str, max_new_tokens: int = 512, temperature: float = 0.0) -> str:
     """Call HuggingFace Inference API for text generation using InferenceClient.
 
     Uses the chat completions endpoint via the official Python client.
     Returns descriptive fallback on any failure — never raises.
     """
+    global _hf_api_failure_count, _hf_api_circuit_open, _hf_api_circuit_opened_at
+
+    # TR-2: Circuit breaker — skip API call if circuit is open
+    if _hf_api_circuit_open:
+        elapsed = time.time() - _hf_api_circuit_opened_at
+        if elapsed < _HF_CIRCUIT_COOLDOWN:
+            logging.getLogger(__name__).debug(
+                f"HF API circuit open ({int(_HF_CIRCUIT_COOLDOWN - elapsed)}s remaining) — using fallback"
+            )
+            return _hf_api_fallback(prompt)
+        # Cooldown elapsed — try again (half-open state)
+        logging.getLogger(__name__).info("HF API circuit half-open — retrying")
+        _hf_api_circuit_open = False
+        _hf_api_failure_count = 0
+
     if not _HF_TOKEN:
         # Log warning once about missing token
         import logging
@@ -273,17 +328,7 @@ def _hf_api_generate(prompt: str, max_new_tokens: int = 512, temperature: float 
             "HF_TOKEN not set - using LLM fallback. "
             "Set HF_TOKEN environment variable for full LLM features."
         )
-        # Return contextually appropriate fallback based on prompt content
-        prompt_lower = prompt.lower()
-        if "question" in prompt_lower and "interview" in prompt_lower:
-            return "Tell me about your technical background and the projects you're most proud of."
-        if "relevant" in prompt_lower or "spam" in prompt_lower:
-            return '{"relevant": true, "reason": "llm_unavailable"}'
-        if "score" in prompt_lower or "evaluate" in prompt_lower:
-            return '{"score": 7, "explanation": "Solid answer demonstrating relevant knowledge and experience.", "strengths": ["Clear communication"], "gaps": []}'
-        if "company" in prompt_lower or "research" in prompt_lower:
-            return '{"company_focus": "Technical skills and problem-solving", "common_questions": [], "tech_stack_hints": [], "interview_style": "standard"}'
-        return "The candidate demonstrates solid technical proficiency and communication skills."
+        return _hf_api_fallback(prompt)
 
     try:
         from huggingface_hub import InferenceClient
@@ -304,41 +349,48 @@ def _hf_api_generate(prompt: str, max_new_tokens: int = 512, temperature: float 
                     temperature=safe_temp,
                     stream=False,
                 )
+                # Success — reset circuit breaker
+                _hf_api_failure_count = 0
                 return response.choices[0].message.content.strip()
             except HfHubHTTPError as e:
                 # 503 means model is loading, retry once
                 if e.response.status_code == 503 and attempt == 0:
                     print("⏳ HF API model loading, retrying in 10s…")
-                    import time
                     time.sleep(10)
                     continue
                 print(f"⚠️  HF API error {e.response.status_code}: {e.server_message}")
-                # Log warning about using fallback
-                import logging
                 logging.getLogger(__name__).warning(
                     f"HF API error {e.response.status_code} - using LLM fallback. "
                     f"Server message: {e.server_message}"
                 )
-                # Return fallback on API error
-                prompt_lower = prompt.lower()
-                if "question" in prompt_lower and "interview" in prompt_lower:
-                    return "Tell me about your technical background and the projects you're most proud of."
-                if "relevant" in prompt_lower or "spam" in prompt_lower:
-                    return '{"relevant": true, "reason": "llm_unavailable"}'
-                if "score" in prompt_lower or "evaluate" in prompt_lower:
-                    return '{"score": 7, "explanation": "Solid answer demonstrating relevant knowledge.", "strengths": ["Clear communication"], "gaps": []}'
-                return "The candidate demonstrates solid technical proficiency and problem-solving skills."
+                # TR-2: Track failure for circuit breaker BEFORE returning fallback
+                _hf_api_failure_count += 1
+                if _hf_api_failure_count >= _HF_CIRCUIT_THRESHOLD:
+                    _hf_api_circuit_open = True
+                    _hf_api_circuit_opened_at = time.time()
+                    logging.getLogger(__name__).error(
+                        f"HF API circuit breaker OPENED after {_hf_api_failure_count} failures — "
+                        f"using fallbacks for {_HF_CIRCUIT_COOLDOWN}s"
+                    )
+                return _hf_api_fallback(prompt)
             except Exception as e:
                 print(f"⚠️  HF API exception: {e}")
+                _hf_api_failure_count += 1
+                if _hf_api_failure_count >= _HF_CIRCUIT_THRESHOLD:
+                    _hf_api_circuit_open = True
+                    _hf_api_circuit_opened_at = time.time()
+                    logging.getLogger(__name__).error(
+                        f"HF API circuit breaker OPENED after {_hf_api_failure_count} failures — "
+                        f"using fallbacks for {_HF_CIRCUIT_COOLDOWN}s"
+                    )
                 if attempt == 0:
-                    import time
                     time.sleep(2)
                     continue
-                return "I'm interested in learning more about your technical projects and problem-solving approach."
+                return _hf_api_fallback(prompt)
                 
     except Exception as exc:
         print(f"⚠️  HF API error: {exc}")
-        return "The candidate's background shows strong technical proficiency and problem-solving skills."
+        return _hf_api_fallback(prompt)
 
 
 def llm_generate(
