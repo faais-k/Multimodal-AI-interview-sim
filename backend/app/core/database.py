@@ -47,9 +47,12 @@ async def connect_db() -> None:
 
         # Create indexes (idempotent — safe to run on every startup)
         await _db.sessions.create_index("session_id", unique=True)
+        await _db.sessions.create_index("user_id")
         await _db.sessions.create_index("created_at")
         await _db.reports.create_index("session_id", unique=True)
+        await _db.reports.create_index("user_id")
         await _db.violations.create_index("session_id")
+        await _db.violations.create_index("user_id")
         await _db.violations.create_index("logged_at")
 
         print(f"✅ MongoDB connected: {MONGODB_URL[:40]}… / {DB_NAME}")

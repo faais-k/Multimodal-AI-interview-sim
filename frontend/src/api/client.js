@@ -20,9 +20,16 @@ export const AUDIO_INPUT_HINT =
   "Audio mode uses Whisper for speech-to-text. Speak clearly for best results.";
 
 async function req(path, options = {}) {
+  const token = localStorage.getItem("firebaseToken");
+  const headers = { 
+    "Content-Type": "application/json", 
+    ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+    ...(options.headers || {}) 
+  };
+  
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
+    headers,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -32,7 +39,16 @@ async function req(path, options = {}) {
 }
 
 async function reqMultipart(url, body) {
-  const res = await fetch(url, { method: "POST", body });
+  const token = localStorage.getItem("firebaseToken");
+  const headers = { 
+    ...(token ? { "Authorization": `Bearer ${token}` } : {})
+  };
+
+  const res = await fetch(url, { 
+    method: "POST", 
+    body,
+    headers
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || `API error ${res.status}`);
@@ -98,4 +114,5 @@ export const api = {
   analytics:    (sid)     => req(`/analytics/${sid}`,  { method: "POST" }),
   decision:     (sid)     => req(`/decision/${sid}`,   { method: "POST" }),
   getReport:    (sid)     => req(`/report/${sid}`),
+  getUserHistory: ()      => req("/user/history"),
 };

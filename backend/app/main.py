@@ -23,8 +23,10 @@ from backend.app.api.routes.violation import router as violation_router
 from backend.app.api.routes.report import router as report_router
 from backend.app.api.routes.cleanup import router as cleanup_router
 from backend.app.api.routes.admin import router as admin_router
+from backend.app.api.routes.user import router as user_router
 from backend.app.core.ml_models import load_models
 from backend.app.core.database import connect_db, disconnect_db
+from backend.app.core.auth import init_firebase
 
 # ── Logging Configuration ─────────────────────────────────────────────────────
 def _setup_logging():
@@ -108,6 +110,8 @@ async def lifespan(app: FastAPI):
     
     await connect_db()
     logger.info("Database connection established (or running in flat-file mode).")
+    
+    init_firebase()
 
     try:
         from backend.app.api.routes.cleanup import cleanup_old_sessions
@@ -167,6 +171,7 @@ app.include_router(violation_router, prefix="/api")
 app.include_router(report_router, prefix="/api")
 app.include_router(cleanup_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
+app.include_router(user_router, prefix="/api/user", tags=["User"])
 
 
 @app.get("/")

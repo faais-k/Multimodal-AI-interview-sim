@@ -18,7 +18,7 @@ const LEVEL_DESC = {
   experienced:  "Architecture, leadership & production decisions",
 };
 
-export default function Setup({ onSubmit, loading, error }) {
+export default function Setup({ onSubmit, loading, error, onBack }) {
   const [form, setForm] = useState({
     name: "",
     jobRole: "",
@@ -94,9 +94,16 @@ export default function Setup({ onSubmit, loading, error }) {
   return (
     <div className="setup-shell">
       <header className="setup-bar">
-        <a href="#" className="setup-bar__brand" onClick={e => { e.preventDefault(); window.location.reload(); }}>
-          <Logo /><span>Ascent</span>
-        </a>
+        <div className="setup-bar__left">
+          {onBack && (
+            <button className="setup-back-btn" onClick={onBack} title="Back to Dashboard">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
+            </button>
+          )}
+          <a href="#" className="setup-bar__brand" onClick={e => { e.preventDefault(); window.location.reload(); }}>
+            <Logo /><span>Ascent</span>
+          </a>
+        </div>
         <span className="setup-bar__step">Setup · Step 1 of 3</span>
       </header>
 

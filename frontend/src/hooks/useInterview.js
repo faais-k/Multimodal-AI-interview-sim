@@ -287,11 +287,25 @@ export function useInterview() {
     dispatch({ type: "SET_SESSION", v: null });
     dispatch({ type: "SET_REPORT", v: null });
     dispatch({ type: "CLEAR_QUESTION" });
-    dispatch({ type: "SET_STEP", v: "landing" });
+    dispatch({ type: "SET_STEP", v: "dashboard" }); // Default to dashboard on restart if logged in
+  }, []);
+
+  const viewReport = useCallback(async (sid) => {
+    setLoading(true);
+    try {
+      const report = await api.getReport(sid);
+      dispatch({ type: "SET_SESSION", v: sid });
+      dispatch({ type: "SET_REPORT", v: report });
+      dispatch({ type: "SET_STEP", v: "results" });
+    } catch (e) {
+      setError("Failed to load report history.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   return {
     ...state,
-    setup, startInterview, submitText, submitAudio, fetchNext, retryFinalize, setStep, restart,
+    setup, startInterview, submitText, submitAudio, fetchNext, retryFinalize, setStep, restart, viewReport
   };
 }

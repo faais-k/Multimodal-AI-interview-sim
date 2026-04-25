@@ -4,8 +4,9 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from backend.app.core.db_ops import save_final_report, update_session_status
+from backend.app.core.auth import get_optional_user
 
 from backend.app.core.scoring_config import QUESTION_TYPE_WEIGHTS
 from backend.app.core.validation import validate_session_id
@@ -54,7 +55,11 @@ def _safe_read_list(p: Path) -> List[dict]:
 
 
 @router.post("/aggregate/{session_id}")
-async def aggregate_scores(session_id: str, pass_threshold: float = DEFAULT_PASS_THRESHOLD):
+async def aggregate_scores(
+    session_id: str, 
+    pass_threshold: float = DEFAULT_PASS_THRESHOLD,
+    user: dict = Depends(get_optional_user)
+):
     validate_session_id(session_id)
     session_dir = _storage_dir() / session_id
     scores_dir  = _scores_dir(session_id)
@@ -342,7 +347,8 @@ async def aggregate_scores(session_id: str, pass_threshold: float = DEFAULT_PASS
         analytics_doc = {}
         if analytics_p.exists():
             analytics_doc = json.loads(analytics_p.read_text(encoding="utf-8"))
-        await save_final_report(session_id, report, analytics_doc)
+        uid = user.get("uid") if user else None
+        await save_final_report(session_id, report, analytics_doc, user_id=uid)
         await update_session_status(
             session_id, "completed",
             {"final_score": report.get("final_score")},

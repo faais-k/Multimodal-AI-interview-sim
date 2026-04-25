@@ -52,6 +52,7 @@ def _log_db_error(operation: str, session_id: str, exception: Exception) -> None
 
 async def create_session_record(
     session_id: str,
+    user_id: str = None,
     candidate_name: str = "",
     job_role: str = "",
     expertise_level: str = "fresher",
@@ -63,6 +64,7 @@ async def create_session_record(
         db = get_db()
         await db.sessions.insert_one({
             "session_id":      session_id,
+            "user_id":         user_id,
             "candidate_name":  candidate_name,
             "job_role":        job_role,
             "expertise_level": expertise_level,
@@ -100,6 +102,7 @@ async def save_final_report(
     session_id: str,
     report: Dict[str, Any],
     analytics: Dict[str, Any] = None,
+    user_id: str = None,
 ) -> None:
     """Persist the final report + analytics to MongoDB on interview completion."""
     if not db_available():
@@ -110,6 +113,7 @@ async def save_final_report(
             {"session_id": session_id},
             {"$set": {
                 "session_id": session_id,
+                "user_id":    user_id,
                 "report":     report,
                 "analytics":  analytics or {},
                 "saved_at":   datetime.utcnow(),
@@ -123,6 +127,7 @@ async def save_final_report(
 async def log_violation_db(
     session_id: str,
     violation: Dict[str, Any],
+    user_id: str = None,
 ) -> None:
     """Append a violation event to the violations collection."""
     if not db_available():
@@ -131,6 +136,7 @@ async def log_violation_db(
         db = get_db()
         await db.violations.insert_one({
             "session_id": session_id,
+            "user_id":    user_id,
             "event":      violation,
             "logged_at":  datetime.utcnow(),
         })

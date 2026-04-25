@@ -6,17 +6,45 @@
 }
 
 .setup-bar {
-  height: 56px;
+  height: 64px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-6);
-  background: var(--bg-elevated);
+  padding: 0 2rem;
+  background: rgba(10, 10, 10, 0.8);
+  backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
-  z-index: var(--z-nav);
+  z-index: 100;
 }
+
+.setup-bar__left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.setup-back-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.setup-back-btn:hover {
+  background: var(--surface);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
 .setup-bar__brand {
   display: flex; align-items: center; gap: var(--space-2);
   font-family: var(--font-display); font-weight: 600; font-size: var(--text-lg);

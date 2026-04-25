@@ -4,13 +4,14 @@ import os
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
 
 from backend.app.core import interview_flow
 from backend.app.core.rate_limit import check_rate_limit
 from backend.app.core.validation import validate_session_id
 from backend.app.core.db_ops import create_session_record, update_session_status
+from backend.app.core.auth import get_optional_user
 
 router = APIRouter(tags=["Session"])
 
@@ -26,7 +27,7 @@ class SessionCreateResponse(BaseModel):
 
 
 @router.post("/session/create", response_model=SessionCreateResponse)
-async def create_session(request: Request):
+async def create_session(request: Request, user: dict = Depends(get_optional_user)):
     client_ip = request.client.host if request.client else "unknown"
     allowed = await check_rate_limit(
         client_ip,
@@ -46,7 +47,9 @@ async def create_session(request: Request):
     (session_dir / "resumes").mkdir(exist_ok=True)
     (session_dir / "audio").mkdir(exist_ok=True)
     (session_dir / "text_answers").mkdir(exist_ok=True)
-    await create_session_record(sid)
+    
+    uid = user.get("uid") if user else None
+    await create_session_record(sid, user_id=uid)
     return {"session_id": sid, "storage_path": str(session_dir)}
 
 

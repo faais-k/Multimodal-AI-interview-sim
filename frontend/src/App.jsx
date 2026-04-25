@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { useInterview } from "./hooks/useInterview";
+import { useAuth } from "./contexts/AuthContext";
 import { api } from "./api/client";
 import Landing      from "./pages/Landing";
+import Login        from "./pages/Login";
+import Dashboard    from "./pages/Dashboard";
 import Setup        from "./pages/Setup";
 import PreInterview from "./pages/PreInterview";
 import Interview    from "./pages/Interview";
@@ -10,6 +13,7 @@ import Results      from "./pages/Results";
 
 export default function App() {
   const iv = useInterview();
+  const { currentUser, loading: authLoading } = useAuth();
 
   // ── Dynamic backend capability detection ─────────────────────────────────
   const [backendCaps, setBackendCaps] = useState({
@@ -46,11 +50,43 @@ export default function App() {
     return () => { cancelled = true; };
   }, []);
 
-  if (iv.step === "landing")
-    return <Landing onStart={() => iv.setStep("setup")} />;
+  // Show nothing while checking auth session on refresh
+  if (authLoading) return <div className="app-loader"><div className="spinner"></div></div>;
 
+  // STEP: Landing (Entry Point)
+  if (iv.step === "landing") {
+    return <Landing onStart={() => {
+      if (currentUser) iv.setStep("dashboard");
+      else iv.setStep("login");
+    }} />;
+  }
+
+  // STEP: Login
+  if (iv.step === "login") {
+    if (currentUser) {
+      iv.setStep("dashboard");
+      return null;
+    }
+    return <Login onLoginSuccess={() => iv.setStep("dashboard")} />;
+  }
+
+  // STEP: Dashboard (Home for logged in users)
+  if (iv.step === "dashboard") {
+    if (!currentUser) {
+      iv.setStep("landing");
+      return null;
+    }
+    return (
+      <Dashboard 
+        onStartNew={() => iv.setStep("setup")} 
+        onViewResults={(sid) => iv.viewReport(sid)}
+      />
+    );
+  }
+
+  // STEP: Setup
   if (iv.step === "setup")
-    return <Setup onSubmit={iv.setup} loading={iv.loading} error={iv.error} />;
+    return <Setup onSubmit={iv.setup} loading={iv.loading} error={iv.error} onBack={() => iv.setStep("dashboard")} />;
 
   if (iv.step === "preinterview")
     return <PreInterview onBegin={iv.startInterview} setupData={iv.setupData} sessionId={iv.sessionId} />;

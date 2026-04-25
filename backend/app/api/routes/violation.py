@@ -8,13 +8,13 @@ Each violation is timestamped and stored in violations.json.
 """
 import json
 import asyncio
-from backend.app.core.db_ops import log_violation_db
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
-from fastapi import APIRouter, HTTPException
-
+from fastapi import APIRouter, HTTPException, Depends
+from backend.app.core.auth import get_optional_user
+from backend.app.core.db_ops import log_violation_db
 from backend.app.core.storage import get_storage_dir
 from backend.app.core.validation import validate_session_id
 
@@ -39,7 +39,7 @@ def _now() -> str:
 
 
 @router.post("/session/violation")
-async def log_violation(payload: Dict[str, Any]):
+async def log_violation(payload: Dict[str, Any], user: dict = Depends(get_optional_user)):
     """
     body: {
       "session_id": "...",
@@ -74,7 +74,8 @@ async def log_violation(payload: Dict[str, Any]):
         }
         violations.append(entry)
         v_path.write_text(json.dumps(violations, indent=2), encoding="utf-8")
-        await log_violation_db(session_id, entry)
+        uid = user.get("uid") if user else None
+        await log_violation_db(session_id, entry, user_id=uid)
 
         return {
             "status":           "ok",

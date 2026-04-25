@@ -53,3 +53,5 @@ intrv-sim/
 # frontend
 node_modules/
 dist/
+
+backend/secrets/
