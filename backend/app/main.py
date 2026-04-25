@@ -79,24 +79,6 @@ def get_cors_origins() -> list:
     return ["*"]
 
 
-def _verify_spacy_model():
-    """Verify that the required spacy model is available for resume parsing."""
-    try:
-        import spacy
-        try:
-            spacy.load("en_core_web_sm")
-            logger.info("Spacy model 'en_core_web_sm' verified.")
-            return True
-        except OSError:
-            logger.warning(
-                "Spacy model 'en_core_web_sm' not found. "
-                "Resume parsing will have reduced accuracy. "
-                "Install with: python -m spacy download en_core_web_sm"
-            )
-            return False
-    except ImportError:
-        logger.warning("Spacy not installed. Resume parsing will fail.")
-        return False
 
 
 @asynccontextmanager
@@ -105,8 +87,6 @@ async def lifespan(app: FastAPI):
     load_models()
     logger.info("ML models ready.")
     
-    # Verify spacy model for resume parsing
-    _verify_spacy_model()
     
     await connect_db()
     logger.info("Database connection established (or running in flat-file mode).")

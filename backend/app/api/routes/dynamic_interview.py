@@ -228,6 +228,16 @@ Requirements:
     
     prompt = prompts.get(q_type, prompts["technical"])
     
+    # Template fallbacks when LLM is unavailable or fails
+    template_fallbacks = {
+        "intro": f"Tell me about yourself and what motivated you to apply for this {context.get('job_role', 'Software Engineer')} role.",
+        "project": f"Describe a challenging project you worked on using {context.get('target_skill', 'your tech stack')}. What was your specific contribution?",
+        "technical": f"Explain how you would approach a technical problem involving {context.get('target_skill', 'your core skills')}. Walk me through your thought process.",
+        "behavioral": "Tell me about a time when you had to work with a difficult team member. How did you handle the situation?",
+        "critical": f"You're debugging a production issue in {context.get('target_skill', 'a critical system')}. What steps would you take to identify and fix the problem?",
+        "wrapup": "What questions do you have for me about the team or the company?"
+    }
+    
     try:
         question = await asyncio.to_thread(llm_generate, prompt, max_new_tokens=200, temperature=0.7)
         question = question.strip().strip('"').strip("'")
@@ -236,15 +246,28 @@ Requirements:
         if question.startswith("Question:"):
             question = question[9:].strip()
         
+        # Validate question is not empty and is meaningful
+        if not question or len(question) < 20 or question.lower().startswith("tell me about") and len(question) < 30:
+            # Use template fallback if LLM returned something too short or empty
+            question = template_fallbacks.get(q_type, template_fallbacks["technical"])
+            return {
+                "question": question,
+                "generated": True,
+                "used_fallback": True
+            }
+        
         return {
             "question": question,
             "generated": True
         }
     except Exception as e:
+        # Return template fallback on any error
+        question = template_fallbacks.get(q_type, f"Tell me about your experience with {context.get('target_skill', 'technology')}.")
         return {
-            "question": f"Tell me about your experience with {context.get('target_skill', 'technology')}.",
+            "question": question,
             "generated": False,
-            "error": str(e)
+            "error": str(e),
+            "used_fallback": True
         }
 
 

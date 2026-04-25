@@ -115,4 +115,8 @@ export const api = {
   decision:     (sid)     => req(`/decision/${sid}`,   { method: "POST" }),
   getReport:    (sid)     => req(`/report/${sid}`),
   getUserHistory: ()      => req("/user/history"),
+  
+  // Session state recovery and skip support
+  getSessionStatus: (sid)  => req(`/session/status/${encodeURIComponent(sid)}`),
+  skipQuestion: (sid, qid) => req(`/session/skip/${encodeURIComponent(sid)}?question_id=${encodeURIComponent(qid || "")}`, { method: "POST" }),
 };

@@ -85,6 +85,30 @@ async def start_interview(session_id: str):
     return {"status": "ok", "message": "interview started"}
 
 
+def _question_was_answered(state: dict, question_id: str) -> bool:
+    """Check if a question has been answered or formally skipped."""
+    if not question_id:
+        return True
+    answers = state.get("answers", {})
+    return question_id in answers
+
+
+def _get_current_question(state: dict) -> dict:
+    """Get the latest asked question if it hasn't been answered yet."""
+    questions_asked = state.get("questions_asked", [])
+    if not questions_asked:
+        return None
+    
+    # Check the very last question that was served to the user
+    last_asked = questions_asked[-1]
+    last_id = last_asked.get("id")
+    
+    if not _question_was_answered(state, last_id):
+        return last_asked
+    
+    return None
+
+
 @router.post("/session/next_question")
 async def next_question(session_id: str):
     # BUG 3: Validate session_id is a UUID4 before any file I/O
@@ -98,6 +122,20 @@ async def next_question(session_id: str):
             detail="interview_plan.json not found. Call /api/interview/plan first.",
         )
     plan = json.loads(plan_path.read_text(encoding="utf-8"))
+
+    # ── IDEMPOTENCY FIX: Check if current question was answered ─────────────
+    # If current question is unanswered, return it again (don't advance)
+    state = interview_flow.read_state(STORAGE_DIR, session_id)
+    current_q = _get_current_question(state)
+    if current_q:
+        # Return current question again - don't advance
+        return {
+            "status": "ok",
+            "question": current_q,
+            "total_questions": plan.get("total_questions", 0),
+            "idempotent": True  # Flag that we're returning existing question
+        }
+    # ── END IDEMPOTENCY FIX ───────────────────────────────────────────────
 
     # BUG 2 fix: split lock into two narrow scopes with LLM generation outside.
 
@@ -137,4 +175,4 @@ async def next_question(session_id: str):
             STORAGE_DIR, session_id, plan, decision, resolved_q_text
         )
 
-    return {"status": "ok", "question": q}
+    return {"status": "ok", "question": q, "total_questions": plan.get("total_questions", 0)}
