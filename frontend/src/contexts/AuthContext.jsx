@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { auth } from "../firebase";
-import { onAuthStateChanged, signInWithRedirect, GoogleAuthProvider, signOut, getRedirectResult } from "firebase/auth";
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth";
 import { googleProvider } from "../firebase";
 
 const AuthContext = createContext();
@@ -24,12 +24,20 @@ export function AuthProvider({ children }) {
 
     try {
       setError(null);
-      console.log("🚀 Initiating Google Sign-In Redirect...");
-      // No await needed here as it redirects the whole page
-      signInWithRedirect(auth, googleProvider);
+      // INSTANT POPUP to avoid browser blockers
+      console.log("🚀 Opening Google Login Popup...");
+      const result = await signInWithPopup(auth, googleProvider);
+      console.log("✅ Popup success! User:", result.user.email);
+      return result;
     } catch (err) {
       console.error("❌ Login Error:", err);
-      setError(err.message);
+      if (err.code === "auth/popup-blocked") {
+        const msg = "Popup blocked! Please allow popups for this site (check your address bar).";
+        setError(msg);
+        alert(msg);
+      } else {
+        setError(err.message);
+      }
     }
   }
 
@@ -45,19 +53,7 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    // Check if we just returned from a redirect
-    console.log("🕒 AuthProvider checking for redirect result...");
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result) {
-          console.log("🎯 Redirect result found! User:", result.user.email);
-        }
-      })
-      .catch((err) => {
-        console.error("❌ Redirect Result Error:", err);
-        setError(err.message);
-      });
-
+    console.log("🕒 AuthProvider starting listener...");
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log("👤 Auth State Changed:", user ? `Logged in: ${user.email}` : "Logged out");
       setCurrentUser(user);
