@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { auth } from "../firebase";
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth";
-import { googleProvider } from "../firebase";
+import { auth, googleProvider } from "../firebase";
+import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from "firebase/auth";
 
 const AuthContext = createContext();
 
@@ -15,26 +14,24 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState(null);
 
   async function loginWithGoogle() {
-    // TRIGGER INSTANTLY to bypass browser popup blockers
-    // Don't do any awaits or logic before this line
     try {
       setError(null);
+      // 1. TRIGGER POPUP IMMEDIATELY (Zero delay for browser trust)
+      console.log("🚀 Attempting Popup Login...");
       const result = await signInWithPopup(auth, googleProvider);
-      console.log("✅ Popup success! User:", result.user.email);
+      console.log("✅ Popup success!");
       return result;
     } catch (err) {
-      console.error("❌ Login Error:", err);
-      if (err.code === "auth/popup-blocked") {
-        const msg = "Popup blocked! Please allow popups for this site in your browser settings.";
-        setError(msg);
-        alert(msg);
-      } else if (err.code === "auth/unauthorized-domain") {
-        const msg = `This domain (${window.location.hostname}) is not authorized in Firebase Console.`;
-        setError(msg);
-        alert(msg);
-      } else {
-        setError(err.message);
+      console.error("❌ Auth Error:", err);
+      
+      // 2. FALLBACK: If popup is blocked, use Redirect
+      if (err.code === "auth/popup-blocked" || err.code === "auth/cancelled-popup-request") {
+        console.log("⚠️ Popup blocked/interrupted, falling back to redirect...");
+        alert("Popup was blocked or closed. Switching to Redirect login...");
+        return signInWithRedirect(auth, googleProvider);
       }
+      
+      setError(err.message);
     }
   }
 
@@ -45,12 +42,23 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!auth) {
-      console.warn("⚠️ Auth context initialized without Firebase Auth.");
       setLoading(false);
       return;
     }
 
-    console.log("🕒 AuthProvider starting listener...");
+    // RESCUE LOGIC: Check if we just returned from a redirect
+    console.log("🕒 AuthProvider checking for redirect results...");
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result) {
+          console.log("🎯 Redirect Recovery Success! User:", result.user.email);
+          setCurrentUser(result.user);
+        }
+      })
+      .catch((err) => {
+        console.error("❌ Redirect Recovery Error:", err);
+      });
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log("👤 Auth State Changed:", user ? `Logged in: ${user.email}` : "Logged out");
       setCurrentUser(user);
@@ -63,7 +71,6 @@ export function AuthProvider({ children }) {
       }
       
       setLoading(false);
-      console.log("🏁 Auth loading finished.");
     });
 
     return unsubscribe;
