@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import "./App.css";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import Setup from "./pages/Setup";
@@ -109,12 +108,14 @@ function App() {
         sessionId={iv.sessionId}
         question={iv.question}
         questionNumber={iv.questionNumber}
+        totalQuestions={iv.totalQuestions}
         loading={iv.loading}
         evaluating={iv.evaluating}
         setupData={iv.setupData}
         audioEnabled={caps.audioEnabled}
         onSubmitText={iv.submitText}
         onSubmitAudio={iv.submitAudio}
+        onSkip={() => iv.skipQuestion && iv.skipQuestion()}
       />
     );
   }

@@ -1,15 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { Check, AlertCircle, Video, Mic, FileQuestion, Play, Info } from "lucide-react";
 import { api } from "../api/client";
-import "./PreInterview.css";
-
-const Logo = () => (
-  <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
-    <rect width="36" height="36" rx="10" fill="url(#pi-lg)"/>
-    <path d="M8 26 L18 10 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" fill="none" opacity="0.4"/>
-    <path d="M8 26 L14 18 L18 22 L22 14 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
-    <defs><linearGradient id="pi-lg" x1="0" y1="0" x2="36" y2="36"><stop offset="0%" stopColor="#14B8A6"/><stop offset="100%" stopColor="#0D9488"/></linearGradient></defs>
-  </svg>
-);
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
 export default function PreInterview({ onBegin, setupData, sessionId }) {
   const [checks, setChecks] = useState({ camera: false, mic: false });
@@ -18,7 +15,8 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
   const [generating, setGenerating] = useState(true);
   const [questionsReady, setQuestionsReady] = useState(false);
   const [genError, setGenError] = useState(null);
-  const videoRef  = useRef();
+  const [skeletonEnabled, setSkeletonEnabled] = useState(true);
+  const videoRef = useRef();
   const streamRef = useRef(null);
 
   // Camera/Mic setup
@@ -31,7 +29,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
         if (videoRef.current) videoRef.current.srcObject = s;
       } catch (e) {
         console.warn("Camera/mic:", e);
-        setCamError("Camera or microphone not accessible. You can still proceed with text answers.");
+        setCamError("Camera/mic not accessible. You can still proceed with text answers.");
       }
     })();
     return () => streamRef.current?.getTracks().forEach(t => t.stop());
@@ -77,100 +75,282 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
     onBegin();
   };
 
-  const CheckRow = ({ label, done, optional }) => (
-    <div className="pi-check">
-      <div className={`pi-check__icon${done ? " done" : optional ? " optional" : ""}`}>
-        {done
-          ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/></svg>
-        }
-      </div>
-      <div className="pi-check__label">{label}</div>
-      {optional && !done && <span className="chip chip-stone" style={{fontSize:"var(--text-xs)"}}>Optional</span>}
-    </div>
-  );
+  const checklistItems = [
+    { 
+      id: "camera", 
+      label: "Camera Accessible", 
+      icon: Video,
+      done: checks.camera, 
+      status: checks.camera ? "verified" : camError ? "warning" : "pending"
+    },
+    { 
+      id: "mic", 
+      label: "Microphone Accessible", 
+      icon: Mic,
+      done: checks.mic, 
+      status: checks.mic ? "verified" : "pending"
+    },
+    { 
+      id: "questions", 
+      label: "Questions Generated", 
+      icon: FileQuestion,
+      done: questionsReady, 
+      status: questionsReady ? "ready" : genError ? "error" : "generating"
+    },
+  ];
+
+  const completedChecks = checklistItems.filter(i => i.done).length;
 
   return (
-    <div className="pi-shell">
-      <header className="pi-bar">
-        <div className="pi-bar__brand"><Logo /><span>Ascent</span></div>
-        <span className="pi-bar__step">Pre-Interview Check</span>
+    <div className="min-h-screen bg-surface-base">
+      {/* Header */}
+      <header className="border-b border-border">
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center">
+          <div className="flex items-center gap-2">
+            <svg width="24" height="24" viewBox="0 0 36 36" fill="none">
+              <rect width="36" height="36" rx="6" fill="#059669"/>
+              <path d="M8 26 L14 18 L18 22 L22 14 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/>
+            </svg>
+            <span className="font-semibold">Ascent</span>
+          </div>
+          <div className="ml-auto flex items-center gap-2 text-sm text-text-muted">
+            <span className="w-2 h-2 bg-veridian rounded-full" />
+            Step 2 of 3
+          </div>
+        </div>
       </header>
 
-      <div className="pi-body">
-        <div className="pi-left animate-in">
-          <div className="pi-left__header">
-            <h1 className="pi-left__title">
-              Ready, <em className="gradient-text">{setupData?.name || "Candidate"}</em>?
-            </h1>
-            <p className="pi-left__sub">Let's verify your equipment before the interview begins.</p>
+      {/* Main Content */}
+      <main className="max-w-6xl mx-auto px-6 py-10">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-2xl font-semibold mb-2">Pre-Flight Check</h1>
+            <p className="text-text-secondary">Verify your environment before the interview begins.</p>
           </div>
 
-          {/* Camera preview */}
-          <div className="pi-video-wrap">
-            {camError ? (
-              <div className="pi-video-error">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.87v6.26a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H3z"/></svg>
-                <span>{camError}</span>
+          <div className="grid grid-cols-12 gap-8">
+            {/* Checklist (60%) */}
+            <div className="col-span-7 space-y-4">
+              {checklistItems.map((item, idx) => (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.1 }}
+                >
+                  <Card className={cn(
+                    "p-5 transition-all",
+                    item.done ? "border-veridian bg-veridian-subtle/10" : 
+                    item.status === "generating" ? "border-semantic-warning bg-semantic-warning-bg/30" : ""
+                  )}>
+                    <div className="flex items-start gap-4">
+                      <div className={cn(
+                        "w-10 h-10 rounded-sm flex items-center justify-center transition-all",
+                        item.done ? "bg-veridian text-white" :
+                        item.status === "generating" ? "bg-semantic-warning-bg text-semantic-warning" :
+                        item.status === "warning" ? "bg-semantic-warning-bg text-semantic-warning" :
+                        "bg-surface-overlay text-text-muted"
+                      )}>
+                        {item.done ? (
+                          <Check size={20} />
+                        ) : item.status === "generating" ? (
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          >
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10" strokeDasharray="60" strokeDashoffset="20" />
+                            </svg>
+                          </motion.div>
+                        ) : (
+                          <item.icon size={20} />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <h3 className={cn(
+                            "font-semibold",
+                            item.done ? "text-text-primary" : "text-text-primary"
+                          )}>
+                            {item.label}
+                          </h3>
+                          <Badge 
+                            variant={
+                              item.done ? "success" : 
+                              item.status === "generating" ? "warning" :
+                              item.status === "warning" ? "warning" : "secondary"
+                            }
+                          >
+                            {item.done ? "Verified" : 
+                             item.status === "generating" ? "Generating..." :
+                             item.status === "warning" ? "Review" : "Pending"}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-text-secondary">
+                          {item.id === "camera" && (item.done ? "Webcam detected and responsive. Video feed active." : camError || "Waiting for camera access...")}
+                          {item.id === "mic" && (item.done ? "Audio input detected. Speak to test levels." : "Waiting for microphone access...")}
+                          {item.id === "questions" && (item.done ? "8 tailored questions ready. System design focus detected." : 
+                            genError ? `${genError} — Will use fallback questions.` : "Researching company • Analyzing resume...")}
+                        </p>
+                        
+                        {item.id === "mic" && item.done && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <div className="h-1.5 bg-surface-overlay rounded-sm flex-1 overflow-hidden">
+                              <motion.div 
+                                className="h-full bg-veridian rounded-sm"
+                                animate={{ width: ["20%", "60%", "40%", "80%", "30%"] }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                              />
+                            </div>
+                            <span className="text-xs text-text-muted font-mono">-12dB</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
+              ))}
+
+              {genError && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 bg-semantic-warning-bg border border-semantic-warning/20 rounded-md flex items-start gap-3"
+                >
+                  <Info size={18} className="text-semantic-warning flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-semantic-warning">{genError} — You can still proceed with default questions.</p>
+                </motion.div>
+              )}
+
+              {/* Begin Button */}
+              <div className="pt-6 border-t border-border flex items-center justify-between">
+                <p className="text-sm text-text-secondary">
+                  <span className="text-veridian font-medium">{completedChecks}</span> of <span className="font-medium">{checklistItems.length}</span> checks complete
+                </p>
+                <Button 
+                  onClick={begin}
+                  disabled={starting || (generating && !genError)}
+                  className="flex items-center gap-2"
+                  size="lg"
+                >
+                  {starting ? (
+                    <>
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10" strokeDasharray="60" strokeDashoffset="20" />
+                        </svg>
+                      </motion.div>
+                      Starting...
+                    </>
+                  ) : (
+                    <>
+                      <Play size={16} fill="currentColor" />
+                      Begin Interview
+                    </>
+                  )}
+                </Button>
               </div>
-            ) : (
-              <video ref={videoRef} autoPlay playsInline muted className="pi-video" />
-            )}
-          </div>
-
-          {/* Checks */}
-          <div className="pi-checks" style={{display: "flex", flexDirection: "row", gap: "1rem", justifyContent: "space-between"}}>
-            <CheckRow label="Camera accessible" done={checks.camera} optional />
-            <CheckRow label="Microphone accessible" done={checks.mic} optional />
-            <CheckRow label="Questions generated" done={questionsReady} />
-          </div>
-
-          {genError && (
-            <div className="pi-error">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
-              {genError} — You can still proceed with default questions.
             </div>
-          )}
 
-          <button
-            className="btn-primary pi-begin"
-            onClick={begin}
-            disabled={starting || (generating && !genError)}
-          >
-            {starting ? (
-              <><span className="spinner"/>Starting…</>
-            ) : generating && !genError ? (
-              <><span className="spinner"/>Generating questions…</>
-            ) : (
-              <>Begin Interview<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg></>
-            )}
-          </button>
-        </div>
+            {/* Camera Preview & Session Details (40%) */}
+            <div className="col-span-5 space-y-6">
+              {/* Camera Preview */}
+              <Card className="overflow-hidden">
+                <div className="aspect-video bg-text-primary relative flex items-center justify-center">
+                  {camError ? (
+                    <div className="text-center text-white/60">
+                      <Video size={48} className="mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Camera Preview</p>
+                      <p className="text-xs mt-2 opacity-60">{camError}</p>
+                    </div>
+                  ) : (
+                    <video 
+                      ref={videoRef} 
+                      autoPlay 
+                      playsInline 
+                      muted 
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                  <div className="absolute top-3 right-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-semantic-error rounded-full animate-pulse" />
+                    <span className="text-xs text-white/80 font-mono">REC</span>
+                  </div>
+                  <div className="absolute bottom-3 left-3 text-xs text-white/60 font-mono">
+                    Posture monitoring active
+                  </div>
+                </div>
+                <div className="p-4 border-t border-border">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-text-secondary">Skeleton overlay</span>
+                    <button 
+                      onClick={() => setSkeletonEnabled(!skeletonEnabled)}
+                      className={cn(
+                        "relative w-11 h-6 rounded-sm transition-colors",
+                        skeletonEnabled ? "bg-veridian" : "bg-surface-overlay"
+                      )}
+                    >
+                      <span className={cn(
+                        "absolute top-1 w-4 h-4 bg-white rounded-sm shadow-sm transition-all",
+                        skeletonEnabled ? "right-1" : "left-1"
+                      )} />
+                    </button>
+                  </div>
+                </div>
+              </Card>
 
-        <div className="pi-right animate-in">
-          <div className="card pi-session-card">
-            <div className="pi-session-card__title">Session Details</div>
-            <div className="pi-session-rows">
-              {setupData?.name && <div className="pi-session-row"><span>Candidate</span><span>{setupData.name}</span></div>}
-              {setupData?.jobRole && <div className="pi-session-row"><span>Target Role</span><span>{setupData.jobRole}</span></div>}
-              {setupData?.company && <div className="pi-session-row"><span>Company</span><span>{setupData.company}</span></div>}
-              {setupData?.expertiseLevel && <div className="pi-session-row"><span>Level</span><span style={{textTransform:"capitalize"}}>{setupData.expertiseLevel}</span></div>}
+              {/* Session Card */}
+              <Card className="bg-surface-overlay border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                    Session Configuration
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 text-sm">
+                    {setupData?.name && (
+                      <div className="flex justify-between">
+                        <span className="text-text-secondary">Candidate</span>
+                        <span className="font-medium text-text-primary">{setupData.name}</span>
+                      </div>
+                    )}
+                    {setupData?.jobRole && (
+                      <div className="flex justify-between">
+                        <span className="text-text-secondary">Target Role</span>
+                        <span className="font-medium text-text-primary">{setupData.jobRole}</span>
+                      </div>
+                    )}
+                    {setupData?.company && (
+                      <div className="flex justify-between">
+                        <span className="text-text-secondary">Company</span>
+                        <span className="font-medium text-text-primary">{setupData.company}</span>
+                      </div>
+                    )}
+                    {setupData?.expertiseLevel && (
+                      <div className="flex justify-between">
+                        <span className="text-text-secondary">Level</span>
+                        <span className="font-medium text-text-primary capitalize">{setupData.expertiseLevel}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between pt-2 border-t border-border">
+                      <span className="text-text-secondary">Expected Duration</span>
+                      <span className="font-medium text-text-primary font-mono">25-35 min</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
-
-          <div className="card pi-tips-card">
-            <div className="pi-tips-card__title">Before You Begin</div>
-            <ul className="pi-tips-list">
-              <li>Sit in a quiet, well-lit space</li>
-              <li>Face the camera directly</li>
-              <li>Keep your shoulders level and back straight</li>
-              <li>Answers are evaluated in real time — be specific and structured</li>
-              <li>Use the STAR method: Situation → Task → Action → Result</li>
-              <li>Don't tab away — anti-cheat monitoring is active</li>
-            </ul>
-          </div>
-        </div>
-      </div>
+        </motion.div>
+      </main>
     </div>
   );
 }

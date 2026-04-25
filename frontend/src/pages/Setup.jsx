@@ -1,30 +1,82 @@
 import { useRef, useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Upload, Check, AlertCircle, ArrowRight, FileText, ChevronLeft } from "lucide-react";
 import { useInterview } from "../contexts/InterviewContext";
 import { api } from "../api/client";
-import "./Setup.css";
-
-const Logo = () => (
-  <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="36" height="36" rx="10" fill="url(#sb-lg)"/>
-    <path d="M8 26 L18 10 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" fill="none" opacity="0.4"/>
-    <path d="M8 26 L14 18 L18 22 L22 14 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
-    <defs><linearGradient id="sb-lg" x1="0" y1="0" x2="36" y2="36"><stop offset="0%" stopColor="#14B8A6"/><stop offset="100%" stopColor="#0D9488"/></linearGradient></defs>
-  </svg>
-);
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const LEVELS = ["fresher", "intermediate", "experienced"];
 const LEVEL_DESC = {
-  fresher:      "Fundamentals, projects & learning approach",
+  fresher: "Fundamentals, projects & learning approach",
   intermediate: "Previous work, deeper concepts & trade-offs",
-  experienced:  "Architecture, leadership & production decisions",
+  experienced: "Architecture, leadership & production decisions",
 };
+
+// Resume parsing animation component
+function ResumeParsingAnimation({ fileName, extracted, onComplete }) {
+  const fields = [
+    { key: "name", label: "Name detected", value: extracted?.name || "Processing..." },
+    { key: "level", label: "Experience level", value: extracted?.expertise_level || "Analyzing..." },
+    { key: "skills", label: "Technical skills", value: extracted?.skills?.length ? `${extracted.skills.length} found` : "Scanning..." },
+    { key: "projects", label: "Projects analyzed", value: extracted?.projects?.length ? `${extracted.projects.length} documented` : "Extracting..." },
+  ];
+
+  return (
+    <Card className="p-5 border-veridian/30 bg-veridian-subtle/30">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-8 h-8 bg-veridian rounded-sm flex items-center justify-center">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" strokeDasharray="60" strokeDashoffset="20" />
+            </svg>
+          </motion.div>
+        </div>
+        <div>
+          <p className="font-medium text-text-primary">Analyzing resume...</p>
+          <p className="text-sm text-text-secondary">Extracting skills, projects, experience</p>
+        </div>
+      </div>
+      
+      <div className="space-y-2">
+        {fields.map((field, idx) => (
+          <motion.div
+            key={field.key}
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: idx * 0.2, duration: 0.4 }}
+            className="flex items-center justify-between text-sm"
+          >
+            <span className="text-text-secondary">{field.label}</span>
+            <motion.span 
+              className={cn(
+                "font-medium",
+                field.value && !field.value.includes("...") ? "text-veridian" : "text-text-muted"
+              )}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: idx * 0.2 + 0.3 }}
+            >
+              {field.value}
+            </motion.span>
+          </motion.div>
+        ))}
+      </div>
+    </Card>
+  );
+}
 
 export default function Setup({ onSubmit, loading: outerLoading, error: outerError, onBack }) {
   const iv = useInterview();
   const [form, setForm] = useState({
     name: "",
     jobRole: "",
-    expertiseLevel: "fresher",
+    expertiseLevel: "intermediate",
     jobDescription: "",
     company: "",
     experience: "",
@@ -39,7 +91,6 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // Create session and parse resume
   const handleFileSelect = useCallback(async (selectedFile) => {
     if (!selectedFile) return;
     
@@ -49,18 +100,14 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
     setParsedData(null);
 
     try {
-      // Create session first
       const sessionRes = await api.createSession();
       const sessionId = sessionRes.session_id;
       iv.setSession(sessionId);
 
-      // Parse and extract
       const parseRes = await api.parseAndExtract(sessionId, selectedFile);
       
       if (parseRes.status === "ok") {
         setParsedData(parseRes);
-        
-        // Autofill form
         const extracted = parseRes.extracted;
         setForm(prev => ({
           ...prev,
@@ -95,226 +142,246 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
   const canSubmit = form.name.trim() && form.jobRole.trim() && file && !parsing;
 
   return (
-    <div className="setup-shell">
-      <header className="setup-bar">
-        <div className="setup-bar__left">
-          {onBack && (
-            <button className="setup-back-btn" onClick={onBack} title="Back to Dashboard">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
-            </button>
-          )}
-          <a href="#" className="setup-bar__brand" onClick={e => { e.preventDefault(); window.location.reload(); }}>
-            <Logo /><span>Ascent</span>
-          </a>
+    <div className="min-h-screen bg-surface-base">
+      {/* Minimal Header */}
+      <header className="border-b border-border">
+        <div className="max-w-2xl mx-auto px-6 h-14 flex items-center">
+          <div className="flex items-center gap-2">
+            {onBack && (
+              <button 
+                onClick={onBack}
+                className="mr-2 p-1.5 hover:bg-surface-overlay rounded-sm transition-colors"
+              >
+                <ChevronLeft size={20} />
+              </button>
+            )}
+            <svg width="24" height="24" viewBox="0 0 36 36" fill="none">
+              <rect width="36" height="36" rx="6" fill="#059669"/>
+              <path d="M8 26 L14 18 L18 22 L22 14 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/>
+            </svg>
+            <span className="font-semibold">Ascent</span>
+          </div>
+          <div className="ml-auto flex items-center gap-2 text-sm text-text-muted">
+            <span className="w-2 h-2 bg-veridian rounded-full" />
+            Step 1 of 3
+          </div>
         </div>
-        <span className="setup-bar__step">Setup · Step 1 of 3</span>
       </header>
 
-      <div className="setup-body">
-        <aside className="setup-aside">
-          <div className="setup-aside__title">Interview Setup</div>
-          <p className="setup-aside__sub">Upload your resume to autofill details, then customize for your target role.</p>
-
-          <div className="setup-aside__tip">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4m0-4h.01" /></svg>
-            Resume autofill extracts: name, skills, projects, education, and suggests a difficulty level.
+      {/* Main Content */}
+      <main className="max-w-2xl mx-auto px-6 py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {/* Header */}
+          <div className="mb-10">
+            <h1 className="text-2xl font-semibold mb-2">Configure Session</h1>
+            <p className="text-text-secondary">Upload your resume. Our AI will parse your technical profile and tailor the interview.</p>
           </div>
-        </aside>
 
-        <main className="setup-main">
-          <form
+          {/* Upload Zone */}
+          <AnimatePresence mode="wait">
+            {!file && !parsing && (
+              <motion.div
+                key="upload"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div
+                  className={cn(
+                    "border-2 border-dashed border-border rounded-md p-12 text-center transition-all duration-250 cursor-pointer bg-surface-base",
+                    drag && "border-veridian bg-veridian-subtle/20"
+                  )}
+                  onDragOver={e => { e.preventDefault(); setDrag(true); }}
+                  onDragLeave={() => setDrag(false)}
+                  onDrop={handleDrop}
+                  onClick={() => fileRef.current.click()}
+                >
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept=".pdf,.docx,.doc"
+                    className="hidden"
+                    onChange={handleInputChange}
+                  />
+                  <div className="w-16 h-16 mx-auto mb-4 bg-surface-overlay rounded-md flex items-center justify-center">
+                    <Upload size={28} className="text-text-secondary" />
+                  </div>
+                  <p className="font-medium text-text-primary mb-1">Drop your resume here</p>
+                  <p className="text-sm text-text-secondary">PDF or DOCX • Max 10MB</p>
+                </div>
+              </motion.div>
+            )}
+
+            {parsing && (
+              <motion.div
+                key="parsing"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+              >
+                <ResumeParsingAnimation 
+                  fileName={file?.name}
+                  extracted={parsedData?.extracted}
+                />
+              </motion.div>
+            )}
+
+            {file && !parsing && (
+              <motion.div
+                key="uploaded"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="mb-8"
+              >
+                <div className="border border-veridian bg-veridian-subtle/20 rounded-md p-5">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-veridian rounded-md flex items-center justify-center">
+                      <Check size={24} className="text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-veridian">Resume uploaded</p>
+                      <p className="text-sm text-text-secondary">{file.name} • {(file.size / 1024).toFixed(0)} KB</p>
+                    </div>
+                    <button 
+                      onClick={() => { setFile(null); setParsedData(null); }}
+                      className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  {parsedData?.extracted?.skills?.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-veridian/20 flex gap-2">
+                      <Badge variant="default">{parsedData.extracted.skills.length} skills found</Badge>
+                      <Badge variant="secondary">{parsedData.extracted.projects?.length || 0} projects</Badge>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {parseError && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 p-4 bg-semantic-error-bg border border-semantic-error/20 rounded-md flex items-center gap-3"
+            >
+              <AlertCircle size={18} className="text-semantic-error" />
+              <p className="text-sm text-semantic-error">{parseError}</p>
+            </motion.div>
+          )}
+
+          {/* Form */}
+          <motion.form
+            initial={{ opacity: 0 }}
+            animate={{ opacity: file && !parsing ? 1 : 0.5 }}
+            transition={{ delay: 0.2 }}
+            className={cn("space-y-6", (!file || parsing) && "pointer-events-none")}
             onSubmit={e => { 
               e.preventDefault(); 
               if (canSubmit && !outerLoading) {
                 onSubmit({ ...form, resumeFile: file, parsedData });
               }
             }}
-            noValidate
           >
-            <div className="setup-section animate-in">
-              <div className="setup-section__title">
-                <span className="section-number">1</span>
-                Upload Resume
-              </div>
-              <p className="setup-section__note">PDF or DOCX. We'll extract your details automatically.</p>
-
-              <div className="input-group">
-                <div
-                  className={`dropzone${drag ? " dropzone--drag" : ""}${file ? " dropzone--done" : ""}${parsing ? " dropzone--parsing" : ""}`}
-                  onDragOver={e => { e.preventDefault(); setDrag(true); }}
-                  onDragLeave={() => setDrag(false)}
-                  onDrop={handleDrop}
-                  onClick={() => fileRef.current.click()}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") fileRef.current.click(); }}
-                  aria-label="Upload resume"
-                >
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept=".pdf,.docx,.doc"
-                    style={{ display: "none" }}
-                    onChange={handleInputChange}
-                  />
-                  {parsing ? (
-                    <>
-                      <div className="dropzone__icon dropzone__icon--spin">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeDasharray="60" strokeDashoffset="10"/></svg>
-                      </div>
-                      <div className="dropzone__name">Parsing resume…</div>
-                      <div className="dropzone__sub">Extracting skills, projects, and experience</div>
-                    </>
-                  ) : file ? (
-                    <>
-                      <div className="dropzone__icon dropzone__icon--done">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                      </div>
-                      <div className="dropzone__name">{file.name}</div>
-                      <div className="dropzone__sub">{(file.size / 1024).toFixed(0)} KB · Click to replace</div>
-                      {parsedData?.extracted?.skills?.length > 0 && (
-                        <div className="dropzone__meta">
-                          <span className="badge">{parsedData.extracted.skills.length} skills found</span>
-                          <span className="badge">{parsedData.extracted.projects?.length || 0} projects</span>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <div className="dropzone__icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
-                      </div>
-                      <div className="dropzone__label">Drop your resume here, or <span>browse</span></div>
-                      <div className="dropzone__sub">PDF, DOC, DOCX · Max 10 MB</div>
-                    </>
-                  )}
-                </div>
-                {parseError && (
-                  <div className="input-hint input-hint--error">{parseError}</div>
-                )}
-              </div>
-
-              <div className="setup-section__title">
-                <span className="section-number">2</span>
-                Your Details
-              </div>
-              <p className="setup-section__note">Review and edit the autofilled information.</p>
-
-              <div className="setup-row">
-                <div className="input-group">
-                  <label className="input-label">Full Name *</label>
-                  <input
-                    value={form.name}
-                    onChange={e => set("name", e.target.value)}
-                    placeholder="e.g. John Doe"
-                    required
-                  />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Target Role *</label>
-                  <input
-                    value={form.jobRole}
-                    onChange={e => set("jobRole", e.target.value)}
-                    placeholder="e.g. Full Stack Developer"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="setup-row">
-                <div className="input-group">
-                  <label className="input-label">Target Company</label>
-                  <input
-                    value={form.company}
-                    onChange={e => set("company", e.target.value)}
-                    placeholder="e.g. Google, Microsoft, startup…"
-                  />
-                  <div className="input-hint">We'll research their interview style and common questions</div>
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Education</label>
-                  <input
-                    value={form.education}
-                    onChange={e => set("education", e.target.value)}
-                    placeholder="e.g. B.Tech Computer Science, 2023"
-                  />
-                </div>
-              </div>
-
-              <div className="input-group">
-                <label className="input-label">Experience Level *</label>
-                <div className="level-grid">
-                  {LEVELS.map(l => (
-                    <button
-                      key={l}
-                      type="button"
-                      className={`level-btn${form.expertiseLevel === l ? " level-btn--active" : ""}`}
-                      onClick={() => set("expertiseLevel", l)}
-                    >
-                      <span className="level-btn__name">{l.charAt(0).toUpperCase() + l.slice(1)}</span>
-                      <span className="level-btn__desc">{LEVEL_DESC[l]}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="input-hint">
-                  {form.expertiseLevel === "fresher" && "Questions focus on fundamentals, projects, and learning approach — not production scaling."}
-                  {form.expertiseLevel === "intermediate" && "Questions focus on real-world problems, debugging, and optimization."}
-                  {form.expertiseLevel === "experienced" && "Questions focus on system design, trade-offs, scalability, and architecture decisions."}
-                </div>
-              </div>
-
-              <div className="setup-section__title">
-                <span className="section-number">3</span>
-                Job Context
-              </div>
-              <p className="setup-section__note">Paste the job description to get highly relevant questions.</p>
-
-              <div className="input-group">
-                <label className="input-label">Job Description</label>
-                <textarea
-                  value={form.jobDescription}
-                  onChange={e => set("jobDescription", e.target.value)}
-                  placeholder="Paste the job posting here. We'll match questions to the required skills and responsibilities."
-                  rows={6}
-                  style={{ resize: "vertical" }}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1.5">Full Name *</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={e => set("name", e.target.value)}
+                  placeholder="Your name"
+                  className="w-full px-4 py-2.5 bg-white border border-border rounded-sm text-sm focus:outline-none focus:border-veridian focus:ring-2 focus:ring-veridian/10 transition-all"
                 />
               </div>
-
-              <div className="input-group">
-                <label className="input-label">Experience Summary</label>
-                <textarea
-                  value={form.experience}
-                  onChange={e => set("experience", e.target.value)}
-                  placeholder="Brief summary of your work experience (optional)…"
-                  rows={3}
-                  style={{ resize: "vertical" }}
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1.5">Target Role *</label>
+                <input
+                  type="text"
+                  value={form.jobRole}
+                  onChange={e => set("jobRole", e.target.value)}
+                  placeholder="e.g. Senior Full Stack Engineer"
+                  className="w-full px-4 py-2.5 bg-white border border-border rounded-sm text-sm focus:outline-none focus:border-veridian focus:ring-2 focus:ring-veridian/10 transition-all"
                 />
-              </div>
-
-              {outerError && (
-                <div className="setup-error">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" /></svg>
-                  {outerError}
-                </div>
-              )}
-
-              <div className="setup-actions">
-                <button
-                  type="submit"
-                  className="btn-primary btn-primary--large"
-                  disabled={!canSubmit || outerLoading}
-                >
-                  {outerLoading ? (
-                    <><span className="spinner" />&nbsp;Creating Session…</>
-                  ) : (
-                    <>Continue to Setup<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg></>
-                  )}
-                </button>
               </div>
             </div>
-          </form>
-        </main>
-      </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                  Target Company <span className="text-text-muted font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.company}
+                  onChange={e => set("company", e.target.value)}
+                  placeholder="e.g. Stripe, Google"
+                  className="w-full px-4 py-2.5 bg-white border border-border rounded-sm text-sm focus:outline-none focus:border-veridian focus:ring-2 focus:ring-veridian/10 transition-all"
+                />
+                <p className="text-xs text-text-muted mt-1.5">We'll research their interview style</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1.5">Experience Level</label>
+                <select
+                  value={form.expertiseLevel}
+                  onChange={e => set("expertiseLevel", e.target.value)}
+                  className="w-full px-4 py-2.5 bg-white border border-border rounded-sm text-sm focus:outline-none focus:border-veridian focus:ring-2 focus:ring-veridian/10 transition-all"
+                >
+                  <option value="fresher">Fresher (0-2 years)</option>
+                  <option value="intermediate">Intermediate (2-5 years)</option>
+                  <option value="experienced">Experienced (5+ years)</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                Job Description <span className="text-text-muted font-normal">(paste for precision)</span>
+              </label>
+              <textarea
+                value={form.jobDescription}
+                onChange={e => set("jobDescription", e.target.value)}
+                placeholder="Paste the job posting here. We'll match questions to required skills and responsibilities..."
+                rows={4}
+                className="w-full px-4 py-3 bg-white border border-border rounded-sm text-sm resize-none focus:outline-none focus:border-veridian focus:ring-2 focus:ring-veridian/10 transition-all"
+              />
+            </div>
+
+            <div className="pt-4">
+              <Button 
+                type="submit"
+                className="w-full flex items-center justify-center gap-2"
+                disabled={!canSubmit || outerLoading}
+              >
+                {outerLoading ? (
+                  <>
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" strokeDasharray="60" strokeDashoffset="20" />
+                      </svg>
+                    </motion.div>
+                    Creating Session...
+                  </>
+                ) : (
+                  <>
+                    Continue to Calibration
+                    <ArrowRight size={16} />
+                  </>
+                )}
+              </Button>
+            </div>
+          </motion.form>
+        </motion.div>
+      </main>
     </div>
   );
 }

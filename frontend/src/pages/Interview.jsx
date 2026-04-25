@@ -1,43 +1,64 @@
 import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Volume2, Mic, PenLine, SkipForward, CircleStop, AlertTriangle, Activity } from "lucide-react";
 import PostureMonitor from "../components/PostureMonitor";
 import { useAudioRecorder } from "../hooks/useAudioRecorder";
 import { useAntiCheat } from "../hooks/useAntiCheat";
 import { AUDIO_INPUT_HINT } from "../api/client";
-import "./Interview.css";
-
-const Logo = () => (
-  <svg width="24" height="24" viewBox="0 0 36 36" fill="none">
-    <rect width="36" height="36" rx="10" fill="url(#iv-lg)"/>
-    <path d="M8 26 L18 10 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" fill="none" opacity="0.4"/>
-    <path d="M8 26 L14 18 L18 22 L22 14 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
-    <defs><linearGradient id="iv-lg" x1="0" y1="0" x2="36" y2="36"><stop offset="0%" stopColor="#14B8A6"/><stop offset="100%" stopColor="#0D9488"/></linearGradient></defs>
-  </svg>
-);
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { ListeningIndicator } from "@/components/animations/ListeningIndicator";
+import { ProcessingVisualization } from "@/components/animations/ProcessingVisualization";
+import { cn } from "@/lib/utils";
 
 const TYPE_META = {
-  self_intro: { label:"Introduction",     chipClass:"chip-teal"    },
-  intro:      { label:"Introduction",     chipClass:"chip-teal"    },
-  project:    { label:"Project",          chipClass:"chip-amber"   },
-  technical:  { label:"Technical",        chipClass:"chip-stone"   },
-  followup:   { label:"Follow-up",        chipClass:"chip-warning" },
-  hr:         { label:"Behavioural",      chipClass:"chip-green"   },
-  critical:   { label:"Critical",         chipClass:"chip-red"     },
-  wrapup:     { label:"Wrap-up",          chipClass:"chip-stone"   },
-  warmup:     { label:"Warm-up",          chipClass:"chip-teal"    },
+  self_intro: { label: "Introduction", color: "veridian" },
+  intro: { label: "Introduction", color: "veridian" },
+  project: { label: "Project", color: "warning" },
+  technical: { label: "Technical", color: "secondary" },
+  followup: { label: "Follow-up", color: "warning" },
+  hr: { label: "Behavioural", color: "veridian" },
+  critical: { label: "Critical", color: "error" },
+  wrapup: { label: "Wrap-up", color: "secondary" },
+  warmup: { label: "Warm-up", color: "veridian" },
 };
 
-export default function Interview({ sessionId, question, questionNumber, loading, evaluating, onSubmitText, onSubmitAudio, setupData, audioEnabled = false }) {
-  const [mode, setMode]       = useState("text");
-  const [answer, setAnswer]   = useState("");
-  const [submitting, setSub]  = useState(false);
+export default function Interview({ 
+  sessionId, 
+  question, 
+  questionNumber, 
+  totalQuestions,
+  loading, 
+  evaluating, 
+  onSubmitText, 
+  onSubmitAudio, 
+  onSkip,
+  setupData, 
+  audioEnabled = false 
+}) {
+  const [mode, setMode] = useState(audioEnabled ? "voice" : "text");
+  const [answer, setAnswer] = useState("");
+  const [submitting, setSub] = useState(false);
   const [cameraStream, setCameraStream] = useState(null);
-  const streamRef             = useRef(null);
+  const [isListening, setIsListening] = useState(false);
+  const streamRef = useRef(null);
+  const textareaRef = useRef(null);
 
-  const { recording, audioBlob, audioURL, micError, start: startRec, stop: stopRec, reset: resetRec } = useAudioRecorder();
+  const { 
+    recording, 
+    audioBlob, 
+    audioURL, 
+    micError, 
+    start: startRec, 
+    stop: stopRec, 
+    reset: resetRec 
+  } = useAudioRecorder();
+  
   const antiCheat = useAntiCheat(sessionId, true);
 
   useEffect(() => {
-    navigator.mediaDevices.getUserMedia({ video:true, audio:false })
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
       .then(s => {
         streamRef.current = s;
         setCameraStream(s);
@@ -50,14 +71,26 @@ export default function Interview({ sessionId, question, questionNumber, loading
   }, []);
 
   useEffect(() => {
-    setAnswer(""); resetRec(); setSub(false);
+    setAnswer(""); 
+    resetRec(); 
+    setSub(false);
+    setIsListening(false);
   }, [question?.id]);
 
   useEffect(() => {
-    if (!audioEnabled && mode === "audio") {
+    if (!audioEnabled && mode === "voice") {
       setMode("text");
     }
-  }, [mode]);
+  }, [audioEnabled, mode]);
+
+  // Auto-listen when in voice mode and not recording
+  useEffect(() => {
+    if (mode === "voice" && !recording && !audioBlob && !evaluating && !loading) {
+      setIsListening(true);
+    } else {
+      setIsListening(false);
+    }
+  }, [mode, recording, audioBlob, evaluating, loading]);
 
   const handleTextSubmit = async () => {
     if (!answer.trim() || submitting || loading || evaluating) return;
@@ -73,245 +106,362 @@ export default function Interview({ sessionId, question, questionNumber, loading
     setSub(false);
   };
 
+  const handleSpeakQuestion = () => {
+    if ('speechSynthesis' in window && question?.question) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(question.question);
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
   const qtype = question?.type || "technical";
-  const meta  = TYPE_META[qtype] || TYPE_META.technical;
-  const canSubmitText  = answer.trim().length > 0 && !submitting && !loading && !evaluating;
+  const meta = TYPE_META[qtype] || TYPE_META.technical;
+  
+  const canSubmitText = answer.trim().length >= 10 && !submitting && !loading && !evaluating;
   const canSubmitAudio = !!audioBlob && !submitting && !loading && !evaluating;
   const busy = submitting || loading || evaluating;
 
+  // Determine current state for UI variant
+  const getState = () => {
+    if (evaluating) return "processing";
+    if (mode === "voice" && recording) return "listening";
+    if (mode === "voice" && isListening && !audioBlob) return "listening";
+    return "input";
+  };
+  
+  const currentState = getState();
+
   return (
-    <div className="iv-shell">
-      {/* Top bar */}
-      <header className="iv-bar">
-        <div className="iv-bar__left">
-          <Logo />
-          <span className="iv-bar__title">Ascent</span>
-          <div className="iv-bar__divider" aria-hidden="true"/>
-          <span className="iv-bar__role">{setupData?.jobRole || "Interview"}</span>
+    <div className="min-h-screen bg-surface-base flex flex-col">
+      {/* Top Bar */}
+      <header className="h-14 border-b border-border bg-surface-base/95 backdrop-blur-sm flex items-center justify-between px-6 flex-shrink-0 z-20">
+        <div className="flex items-center gap-3">
+          <svg width="22" height="22" viewBox="0 0 36 36" fill="none">
+            <rect width="36" height="36" rx="5" fill="#059669"/>
+            <path d="M8 26 L14 18 L18 22 L22 14 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/>
+          </svg>
+          <span className="font-semibold text-sm">Ascent</span>
         </div>
-        <div className="iv-bar__center">
+        
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-text-secondary">
+            Question <span className="font-mono font-bold text-text-primary">{questionNumber}</span> 
+            <span className="text-text-muted">/</span> 
+            <span className="font-mono text-text-secondary">{totalQuestions || "?"}</span>
+          </span>
+          <div className="w-px h-4 bg-border" />
+          <Badge variant="secondary" className="capitalize">{setupData?.expertiseLevel || "Intermediate"}</Badge>
+        </div>
+        
+        <div className="flex items-center gap-3">
           {antiCheat?.warningMessage && (
-            <div className="iv-warning" role="alert">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div className="flex items-center gap-2 text-xs text-semantic-warning">
+              <AlertTriangle size={14} />
               {antiCheat.warningMessage}
             </div>
           )}
-        </div>
-        <div className="iv-bar__right">
-          {setupData?.name && <span className="iv-bar__name">{setupData.name}</span>}
-          {setupData?.expertiseLevel && <span className={`chip chip-stone iv-bar__level`}>{setupData.expertiseLevel}</span>}
+          <div className="flex items-center gap-2 text-xs text-text-secondary">
+            <span className="w-1.5 h-1.5 bg-veridian rounded-full" />
+            Posture OK
+          </div>
         </div>
       </header>
 
-      {/* Main layout: question area + sidebar */}
-      <div className="iv-layout">
-        {/* ── Left: Question + Answer ── */}
-        <main className="iv-main">
-          <div className="iv-q-header">
-            <span className="iv-q-num">Question {questionNumber}</span>
-            <span className={`chip ${meta.chipClass}`}>{meta.label}</span>
-          </div>
+      {/* Main Interview Area */}
+      <main className="flex-1 flex flex-col items-center justify-center px-6 py-8 relative">
+        <AnimatePresence mode="wait">
+          {/* Processing State */}
+          {currentState === "processing" && (
+            <motion.div
+              key="processing"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="flex flex-col items-center"
+            >
+              <ProcessingVisualization size="md" className="mb-8" />
+              <h2 className="text-xl font-semibold mb-2">Analyzing Response</h2>
+              <p className="text-text-secondary text-sm">
+                {mode === "voice" ? "Transcribing audio & evaluating…" : "Evaluating your answer…"}
+              </p>
+            </motion.div>
+          )}
 
-          {loading && !evaluating ? (
-            <div className="iv-loading">
-              <span className="spinner" style={{width:20,height:20}}/> Loading question…
-            </div>
-          ) : (
-            <div className="iv-question-wrap animate-in" key={question?.id}>
-              <div className="iv-question">
+          {/* Listening State */}
+          {currentState === "listening" && (
+            <motion.div
+              key="listening"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="w-full max-w-3xl"
+            >
+              {/* Question Type Badge */}
+              <div className="flex items-center justify-center gap-2 mb-6">
+                <Badge variant={meta.color === "veridian" ? "default" : meta.color === "warning" ? "warning" : "secondary"}>
+                  {meta.label}
+                </Badge>
+                <span className="text-xs text-text-muted">{qtype === "technical" ? "System Design" : ""}</span>
+              </div>
+
+              {/* Question */}
+              <h1 className="text-xl font-medium text-center leading-relaxed mb-8 text-text-primary">
                 {question?.question || "Preparing your next question…"}
+              </h1>
+
+              {/* Listen Button */}
+              <div className="flex justify-center mb-12">
+                <button
+                  onClick={handleSpeakQuestion}
+                  disabled={!('speechSynthesis' in window)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors border border-border rounded-sm hover:border-border-strong"
+                >
+                  <Volume2 size={16} />
+                  Listen to question
+                </button>
               </div>
-              <button
-                className="iv-speak-btn"
-                onClick={() => {
-                  if ('speechSynthesis' in window && question?.question) {
-                    window.speechSynthesis.cancel();
-                    const utterance = new SpeechSynthesisUtterance(question.question);
-                    utterance.rate = 0.9;
-                    utterance.pitch = 1;
-                    window.speechSynthesis.speak(utterance);
-                  }
-                }}
-                disabled={!('speechSynthesis' in window)}
-                title="Read question aloud"
-                aria-label="Read question aloud"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
-                </svg>
-                Listen
-              </button>
-            </div>
+
+              {/* Listening Indicator */}
+              <div className="flex flex-col items-center mb-10">
+                <ListeningIndicator size="md" className="mb-3" />
+                <span className="text-sm text-veridian font-medium">AI is listening</span>
+                <span className="text-xs text-text-muted mt-1">Speak your answer or switch to text mode</span>
+              </div>
+
+              {/* Recording Controls */}
+              <div className="flex justify-center gap-4">
+                <Button variant="outline" onClick={onSkip}>
+                  Skip Question
+                </Button>
+                <Button 
+                  onClick={stopRec}
+                  className="flex items-center gap-2 bg-semantic-error hover:bg-red-700"
+                >
+                  <CircleStop size={16} fill="currentColor" />
+                  Stop Recording
+                </Button>
+              </div>
+            </motion.div>
           )}
 
-          {evaluating && (
-            <div className="iv-eval-bar">
-              <div className="iv-eval-bar__fill" />
-              <span className="iv-eval-bar__label">
-                <span className="spinner" style={{width:14,height:14}}/>
-                {mode === "audio" ? "Transcribing & evaluating…" : "Evaluating your answer…"}
-              </span>
-            </div>
-          )}
-
-          {/* Mode switcher */}
-          <div className="iv-mode-tabs" role="tablist">
-            <button
-              className={`iv-mode-tab${mode==="text"?" active":""}`}
-              role="tab"
-              aria-selected={mode==="text"}
-              onClick={()=>{setMode("text");resetRec();}}
-              disabled={busy}
+          {/* Input State (Text or Voice Ready) */}
+          {currentState === "input" && (
+            <motion.div
+              key="input"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              className="w-full max-w-3xl"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              Type Answer
-            </button>
-            {audioEnabled && (
-              <button
-                className={`iv-mode-tab${mode==="audio"?" active":""}`}
-                role="tab"
-                aria-selected={mode==="audio"}
-                onClick={()=>{setMode("audio");setAnswer("");}}
-                disabled={busy}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-                Speak Answer
-              </button>
-            )}
-          </div>
-
-          {!audioEnabled && (
-            <div className="iv-audio-note">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
-              {AUDIO_INPUT_HINT}
-            </div>
-          )}
-
-          {/* Text input */}
-          {mode === "text" && (
-            <div className="iv-text-area-wrap animate-fade">
-              <textarea
-                className="iv-textarea"
-                value={answer}
-                onChange={e => setAnswer(e.target.value)}
-                placeholder="Type your answer here. Be specific — mention real projects, outcomes, and reasoning…"
-                onKeyDown={e => { if (e.ctrlKey && e.key === "Enter") handleTextSubmit(); }}
-                disabled={busy}
-                rows={6}
-                aria-label="Your answer"
-              />
-              <div className="iv-textarea-hint">
-                <span>{answer.trim().split(/\s+/).filter(Boolean).length} words</span>
-                <span>Ctrl + Enter to submit</span>
+              {/* Question Type Badge */}
+              <div className="flex items-center justify-center gap-2 mb-6">
+                <Badge variant={meta.color === "veridian" ? "default" : meta.color === "warning" ? "warning" : "secondary"}>
+                  {meta.label}
+                </Badge>
+                <span className="text-xs text-text-muted">{qtype === "technical" ? "System Design" : ""}</span>
               </div>
-            </div>
-          )}
 
-          {/* Audio input */}
-          {mode === "audio" && (
-            <div className="iv-audio-wrap animate-fade">
-              {micError && (
-                <div className="iv-audio-error">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                  {micError} — please use text mode or grant microphone access.
+              {/* Question */}
+              <h1 className="text-xl font-medium text-center leading-relaxed mb-6 text-text-primary">
+                {question?.question || "Preparing your next question…"}
+              </h1>
+
+              {/* Listen Button */}
+              <div className="flex justify-center mb-8">
+                <button
+                  onClick={handleSpeakQuestion}
+                  disabled={!('speechSynthesis' in window)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors border border-border rounded-sm hover:border-border-strong"
+                >
+                  <Volume2 size={16} />
+                  Listen to question
+                </button>
+              </div>
+
+              {/* Mode Toggle */}
+              {audioEnabled && (
+                <div className="flex justify-center mb-6">
+                  <div className="inline-flex bg-surface-overlay p-1 rounded-sm">
+                    <button
+                      className={cn(
+                        "px-4 py-2 text-sm font-medium rounded-sm flex items-center gap-2 transition-all",
+                        mode === "voice" 
+                          ? "bg-text-primary text-white" 
+                          : "text-text-secondary hover:text-text-primary"
+                      )}
+                      onClick={() => { setMode("voice"); setAnswer(""); }}
+                      disabled={busy}
+                    >
+                      <Mic size={14} />
+                      Voice Answer
+                    </button>
+                    <button
+                      className={cn(
+                        "px-4 py-2 text-sm font-medium rounded-sm flex items-center gap-2 transition-all",
+                        mode === "text" 
+                          ? "bg-text-primary text-white" 
+                          : "text-text-secondary hover:text-text-primary"
+                      )}
+                      onClick={() => { setMode("text"); resetRec(); }}
+                      disabled={busy}
+                    >
+                      <PenLine size={14} />
+                      Type Answer
+                    </button>
+                  </div>
                 </div>
               )}
-              {!micError && (
-                <div className="iv-audio-controls">
-                  {!recording && !audioBlob && (
-                    <button className="iv-rec-btn iv-rec-btn--start" onClick={startRec} disabled={busy}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg>
-                      Start Recording
-                    </button>
-                  )}
-                  {recording && (
-                    <button className="iv-rec-btn iv-rec-btn--stop" onClick={stopRec}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-                      Stop Recording
-                      <span className="iv-rec-dot" aria-hidden="true"/>
-                    </button>
-                  )}
-                  {audioBlob && !recording && (
-                    <div className="iv-audio-ready">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                      Recording ready
-                      <button className="btn-ghost" style={{fontSize:"var(--text-xs)",padding:"2px var(--space-2)"}} onClick={resetRec} disabled={busy}>Re-record</button>
+
+              {/* Text Input */}
+              {mode === "text" && (
+                <div className="space-y-4">
+                  <textarea
+                    ref={textareaRef}
+                    value={answer}
+                    onChange={e => setAnswer(e.target.value)}
+                    placeholder="Structure your answer with:\n• The approach you'd take\n• Key technical decisions and trade-offs\n• How you'd handle specific constraints"
+                    rows={6}
+                    disabled={busy}
+                    className="w-full px-4 py-4 bg-white border border-border rounded-sm text-base leading-relaxed resize-none focus:outline-none focus:border-veridian focus:ring-2 focus:ring-veridian/10 transition-all"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className={cn(
+                      "text-sm font-mono",
+                      answer.trim().split(/\s+/).filter(Boolean).length >= 50 
+                        ? "text-veridian" 
+                        : "text-semantic-warning"
+                    )}>
+                      {answer.trim().split(/\s+/).filter(Boolean).length} / 50 words minimum
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <Button variant="outline" onClick={onSkip} disabled={busy}>
+                        Skip
+                      </Button>
+                      <Button 
+                        onClick={handleTextSubmit}
+                        disabled={!canSubmitText || busy}
+                        className="flex items-center gap-2"
+                      >
+                        {busy ? (
+                          <>
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="10" strokeDasharray="60" strokeDashoffset="20" />
+                              </svg>
+                            </motion.div>
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            Submit Answer
+                            <Activity size={16} />
+                          </>
+                        )}
+                      </Button>
                     </div>
-                  )}
-                  {audioURL && (
-                    <audio controls src={audioURL} className="iv-audio-preview" aria-label="Your recording"/>
-                  )}
+                  </div>
                 </div>
               )}
-              <div className="iv-audio-note">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
-                {AUDIO_INPUT_HINT}
-              </div>
-            </div>
+
+              {/* Voice Input Controls */}
+              {mode === "voice" && !recording && !audioBlob && (
+                <div className="flex flex-col items-center gap-6">
+                  <Button 
+                    onClick={startRec}
+                    disabled={busy}
+                    size="lg"
+                    className="flex items-center gap-2 px-8"
+                  >
+                    <Mic size={20} />
+                    Start Recording
+                  </Button>
+                  <Button variant="outline" onClick={onSkip} disabled={busy}>
+                    Skip Question
+                  </Button>
+                </div>
+              )}
+
+              {/* Voice - Recording Complete */}
+              {mode === "voice" && audioBlob && !recording && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 p-4 bg-veridian-subtle/30 border border-veridian/30 rounded-sm">
+                    <div className="w-10 h-10 bg-veridian rounded-sm flex items-center justify-center">
+                      <Activity size={20} className="text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-text-primary">Recording ready</p>
+                      <p className="text-sm text-text-secondary">Review your answer before submitting</p>
+                    </div>
+                    <Button variant="outline" onClick={resetRec} disabled={busy} size="sm">
+                      Re-record
+                    </Button>
+                  </div>
+                  {audioURL && (
+                    <audio controls src={audioURL} className="w-full" />
+                  )}
+                  <div className="flex items-center justify-between">
+                    <Button variant="outline" onClick={onSkip} disabled={busy}>
+                      Skip
+                    </Button>
+                    <Button 
+                      onClick={handleAudioSubmit}
+                      disabled={!canSubmitAudio || busy}
+                      className="flex items-center gap-2"
+                    >
+                      {busy ? (
+                        <>
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10" strokeDasharray="60" strokeDashoffset="20" />
+                            </svg>
+                          </motion.div>
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          Submit Answer
+                          <Activity size={16} />
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
           )}
+        </AnimatePresence>
 
-          {/* Submit */}
-          <div className="iv-submit-row">
-            <button
-              className="btn-primary iv-submit"
-              onClick={mode === "text" ? handleTextSubmit : handleAudioSubmit}
-              disabled={mode === "text" ? !canSubmitText : !canSubmitAudio}
-            >
-              {busy
-                ? <><span className="spinner"/>Processing…</>
-                : <>Submit Answer<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></>
-              }
-            </button>
-          </div>
-        </main>
-
-        {/* ── Right: Posture + Info ── */}
-        <aside className="iv-sidebar">
-          <div className="iv-posture-card">
-            <div className="iv-posture-card__header">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/></svg>
-              Live Posture Monitor
+        {/* Camera Picture-in-Picture */}
+        <Card className="fixed bottom-6 right-6 w-48 overflow-hidden shadow-lg z-10">
+          <div className="aspect-video bg-text-primary relative">
+            {cameraStream ? (
+              <video
+                autoPlay
+                playsInline
+                muted
+                ref={el => { if (el) el.srcObject = cameraStream; }}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-white/40 text-xs">
+                Camera Feed
+              </div>
+            )}
+            <div className="absolute top-2 left-2 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 bg-veridian rounded-full animate-pulse" />
+              <span className="text-[10px] text-white/60 font-mono">LIVE</span>
             </div>
-            <PostureMonitor sessionId={sessionId} stream={cameraStream} />
           </div>
-
-          <div className="iv-info-card card card-sm">
-            <div className="iv-info-row">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              <span>{setupData?.name || "Candidate"}</span>
-            </div>
-            {setupData?.jobRole && (
-              <div className="iv-info-row">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                <span>{setupData.jobRole}</span>
-              </div>
-            )}
-            {setupData?.company && (
-              <div className="iv-info-row">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="9" y1="6" x2="15" y2="6"/><line x1="9" y1="10" x2="15" y2="10"/></svg>
-                <span>{setupData.company}</span>
-              </div>
-            )}
-            {setupData?.expertiseLevel && (
-              <div className="iv-info-row">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                <span style={{textTransform:"capitalize"}}>{setupData.expertiseLevel}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="iv-tips card card-sm">
-            <div className="iv-tips__title">Interview Tips</div>
-            <ul className="iv-tips__list">
-              <li>Sit upright, face visible</li>
-              <li>Look at the camera naturally</li>
-              <li>Use STAR: Situation → Task → Action → Result</li>
-              <li>Be specific — mention real outcomes</li>
-            </ul>
-          </div>
-        </aside>
-      </div>
+        </Card>
+      </main>
     </div>
   );
 }
