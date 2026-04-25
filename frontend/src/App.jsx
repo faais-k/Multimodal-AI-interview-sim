@@ -8,10 +8,12 @@ import { useAuth } from './contexts/AuthContext';
 // Pages
 import Landing from './pages/Landing';
 import Login from './pages/Login';
-import CandidateDashboard from './pages/CandidateDashboard';
-import InterviewConfig from './pages/InterviewConfig';
-import InterviewSession from './pages/InterviewSession';
-import InterviewResults from './pages/InterviewResults';
+import Dashboard from './pages/Dashboard';
+import Setup from './pages/Setup';
+import PreInterview from './pages/PreInterview';
+import Interview from './pages/Interview';
+import Processing from './pages/Processing';
+import Results from './pages/Results';
 
 function App() {
   const iv = useInterview();
@@ -52,19 +54,32 @@ function App() {
   }
 
   if (iv.step === "dashboard") {
-    return <CandidateDashboard />;
+    return (
+      <Dashboard 
+        onStartNew={() => iv.setStep("setup")} 
+        onViewResults={(sid) => iv.viewReport(sid)} 
+      />
+    );
   }
 
-  if (iv.step === "config") {
-    return <InterviewConfig />;
+  if (iv.step === "setup") {
+    return <Setup onBack={() => iv.setStep("dashboard")} />;
+  }
+
+  if (iv.step === "preinterview") {
+    return <PreInterview />;
   }
 
   if (iv.step === "interview") {
-    return <InterviewSession />;
+    return <Interview />;
+  }
+
+  if (iv.step === "processing") {
+    return <Processing />;
   }
 
   if (iv.step === "results") {
-    return <InterviewResults />;
+    return <Results />;
   }
 
   return <div>Unknown step: {iv.step}</div>;
