@@ -53,6 +53,13 @@ export default function App() {
   // Show nothing while checking auth session on refresh
   if (authLoading) return <div className="app-loader"><div className="spinner"></div></div>;
 
+  // Auto-transition to dashboard if logged in and on landing/login
+  useEffect(() => {
+    if (!authLoading && currentUser && (iv.step === "landing" || iv.step === "login")) {
+      iv.setStep("dashboard");
+    }
+  }, [currentUser, authLoading, iv.step]);
+
   // STEP: Landing (Entry Point)
   if (iv.step === "landing") {
     return <Landing onStart={() => {
