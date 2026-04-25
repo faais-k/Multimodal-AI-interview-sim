@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, AlertCircle, Video, Mic, FileQuestion, Play, Info } from "lucide-react";
+import { Check, AlertCircle, Video, Mic, FileQuestion, Play, Info, Square, RefreshCw } from "lucide-react";
 import { api } from "../api/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { useAudioRecorder } from "../hooks/useAudioRecorder";
 
 export default function PreInterview({ onBegin, setupData, sessionId }) {
   const [checks, setChecks] = useState({ camera: false, mic: false });
@@ -16,8 +17,18 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
   const [questionsReady, setQuestionsReady] = useState(false);
   const [genError, setGenError] = useState(null);
   const [skeletonEnabled, setSkeletonEnabled] = useState(true);
+  const [testRecording, setTestRecording] = useState(false);
   const videoRef = useRef();
   const streamRef = useRef(null);
+
+  const {
+    recording,
+    audioURL,
+    volume,
+    start: startRec,
+    stop: stopRec,
+    reset: resetRec
+  } = useAudioRecorder();
 
   // Camera/Mic setup
   useEffect(() => {
@@ -34,6 +45,10 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
     })();
     return () => streamRef.current?.getTracks().forEach(t => t.stop());
   }, []);
+
+  const [micCalibrated, setMicCalibrated] = useState(false);
+  const [micWarning, setMicWarning] = useState(false);
+  const maxVolumeRef = useRef(0);
 
   // Background question generation
   useEffect(() => {
@@ -68,11 +83,36 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
     return () => { cancelled = true; };
   }, [sessionId]);
 
+  useEffect(() => {
+    if (testRecording) {
+      maxVolumeRef.current = Math.max(maxVolumeRef.current, volume);
+    }
+  }, [volume, testRecording]);
+
   const begin = async () => {
     setStarting(true);
     try { await document.documentElement.requestFullscreen(); } catch (_) {}
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    resetRec();
     onBegin();
+  };
+
+  const startMicTest = () => {
+    setTestRecording(true);
+    setMicCalibrated(false);
+    setMicWarning(false);
+    maxVolumeRef.current = 0;
+    resetRec();
+    startRec();
+    setTimeout(() => {
+      stopRec();
+      setTestRecording(false);
+      if (maxVolumeRef.current > 0.02) {
+        setMicCalibrated(true);
+      } else {
+        setMicWarning(true);
+      }
+    }, 3000);
   };
 
   const checklistItems = [
@@ -85,10 +125,10 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
     },
     { 
       id: "mic", 
-      label: "Microphone Accessible", 
+      label: "Microphone Calibrated", 
       icon: Mic,
-      done: checks.mic, 
-      status: checks.mic ? "verified" : "pending"
+      done: checks.mic && micCalibrated, 
+      status: (checks.mic && micCalibrated) ? "verified" : micWarning ? "warning" : "pending"
     },
     { 
       id: "questions", 
@@ -193,21 +233,46 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
                         </div>
                         <p className="text-sm text-text-secondary">
                           {item.id === "camera" && (item.done ? "Webcam detected and responsive. Video feed active." : camError || "Waiting for camera access...")}
-                          {item.id === "mic" && (item.done ? "Audio input detected. Speak to test levels." : "Waiting for microphone access...")}
+                          {item.id === "mic" && (item.done ? "Microphone calibrated. Audio levels are good." : micWarning ? "Audio too quiet. Speak louder during the test." : "Please test your microphone before proceeding.")}
                           {item.id === "questions" && (item.done ? "8 tailored questions ready. System design focus detected." : 
                             genError ? `${genError} — Will use fallback questions.` : "Researching company • Analyzing resume...")}
                         </p>
                         
-                        {item.id === "mic" && item.done && (
-                          <div className="mt-3 flex items-center gap-2">
-                            <div className="h-1.5 bg-surface-overlay rounded-sm flex-1 overflow-hidden">
-                              <motion.div 
-                                className="h-full bg-veridian rounded-sm"
-                                animate={{ width: ["20%", "60%", "40%", "80%", "30%"] }}
-                                transition={{ duration: 2, repeat: Infinity }}
-                              />
+                        {item.id === "mic" && checks.mic && (
+                          <div className="mt-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                              <div className="h-1.5 bg-surface-overlay rounded-sm flex-1 overflow-hidden">
+                                <motion.div 
+                                  className="h-full bg-veridian rounded-sm"
+                                  animate={{ width: `${Math.min(volume * 100 * 2, 100)}%` }}
+                                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                                />
+                              </div>
+                              <span className="text-xs text-text-muted font-mono">{Math.round(volume * 100)}%</span>
                             </div>
-                            <span className="text-xs text-text-muted font-mono">-12dB</span>
+                            
+                            <div className="flex items-center gap-3">
+                              {!testRecording && (
+                                <Button size="sm" variant="outline" onClick={startMicTest} className="h-8 text-xs">
+                                  <Mic size={14} className="mr-1.5" /> Test Mic (3s)
+                                </Button>
+                              )}
+                              
+                              {testRecording && (
+                                <Button size="sm" variant="secondary" disabled className="h-8 text-xs animate-pulse">
+                                  <Square size={14} className="mr-1.5 fill-current" /> Recording...
+                                </Button>
+                              )}
+                              
+                              {audioURL && !testRecording && (
+                                <div className="flex items-center gap-2 w-full">
+                                  <audio src={audioURL} controls className="h-8 flex-1 max-w-[200px]" />
+                                  <Button size="sm" variant="ghost" onClick={() => resetRec()} className="h-8 px-2">
+                                    <RefreshCw size={14} />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -234,7 +299,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
                 </p>
                 <Button 
                   onClick={begin}
-                  disabled={starting || (generating && !genError)}
+                  disabled={starting || (generating && !genError) || (checks.mic && !micCalibrated)}
                   className="flex items-center gap-2"
                   size="lg"
                 >

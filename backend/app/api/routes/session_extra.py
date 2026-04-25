@@ -182,8 +182,15 @@ async def skip_question(session_id: str, question_id: str = None):
         answers[question_id] = skip_record
         
         # VERY IMPORTANT: Advance the last_question_id cursor so follow-up logic knows we're done
-        cursor = state.setdefault("cursor", {})
+        cursor = state.setdefault("cursor", {"stage": "intro"})
         cursor["last_question_id"] = question_id
+        
+        # Advance the stage so we don't get stuck in intro
+        if not question_id.startswith("followup"):
+            if cursor.get("stage") == "intro":
+                cursor["stage"] = "project"
+            elif cursor.get("stage") == "project":
+                cursor["stage"] = "dynamic"
         
         # Check if this was a wrapup/final question
         is_final = False

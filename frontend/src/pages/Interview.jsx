@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, Mic, PenLine, SkipForward, CircleStop, AlertTriangle, Activity } from "lucide-react";
+import { Volume2, Mic, PenLine, SkipForward, CircleStop, AlertTriangle, Activity, VideoOff } from "lucide-react";
 import PostureMonitor from "../components/PostureMonitor";
 import { useAudioRecorder } from "../hooks/useAudioRecorder";
 import { useAntiCheat } from "../hooks/useAntiCheat";
@@ -42,19 +42,40 @@ export default function Interview({
   const [submitting, setSub] = useState(false);
   const [cameraStream, setCameraStream] = useState(null);
   const [isListening, setIsListening] = useState(false);
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [isAnswering, setIsAnswering] = useState(false);
   const streamRef = useRef(null);
   const textareaRef = useRef(null);
+  const timerRef = useRef(null);
+  const modeRef = useRef(mode);
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    };
+  }, []);
 
   const { 
     recording, 
     audioBlob, 
     audioURL, 
     micError, 
+    volume,
     start: startRec, 
     stop: stopRec, 
     reset: resetRec 
   } = useAudioRecorder();
   
+  const startRecRef = useRef(startRec);
+  useEffect(() => {
+    startRecRef.current = startRec;
+  }, [startRec]);
+
   const antiCheat = useAntiCheat(sessionId, true);
 
   useEffect(() => {
@@ -75,7 +96,35 @@ export default function Interview({
     resetRec(); 
     setSub(false);
     setIsListening(false);
-  }, [question?.id]);
+    setTimeElapsed(0);
+    setIsAnswering(false);
+    if (timerRef.current) clearInterval(timerRef.current);
+    
+    if (question?.question && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(question.question);
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      
+      utterance.onend = () => {
+        setIsAnswering(true);
+        timerRef.current = setInterval(() => {
+          setTimeElapsed(prev => prev + 1);
+        }, 1000);
+        
+        if (modeRef.current === "voice") {
+          startRecRef.current();
+        }
+      };
+      
+      setTimeout(() => window.speechSynthesis.speak(utterance), 50);
+    } else if (question?.question) {
+      setIsAnswering(true);
+      timerRef.current = setInterval(() => {
+        setTimeElapsed(prev => prev + 1);
+      }, 1000);
+    }
+  }, [question?.id, resetRec]);
 
   useEffect(() => {
     if (!audioEnabled && mode === "voice") {
@@ -114,6 +163,12 @@ export default function Interview({
       utterance.pitch = 1;
       window.speechSynthesis.speak(utterance);
     }
+  };
+
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
   const qtype = question?.type || "technical";
@@ -211,8 +266,8 @@ export default function Interview({
                 {question?.question || "Preparing your next question…"}
               </h1>
 
-              {/* Listen Button */}
-              <div className="flex justify-center mb-12">
+              {/* Listen Button & Timer */}
+              <div className="flex justify-center items-center gap-4 mb-12">
                 <button
                   onClick={handleSpeakQuestion}
                   disabled={!('speechSynthesis' in window)}
@@ -221,12 +276,20 @@ export default function Interview({
                   <Volume2 size={16} />
                   Listen to question
                 </button>
+                {isAnswering && (
+                  <div className="flex items-center gap-2 px-4 py-2 text-sm font-mono bg-surface-overlay border border-border rounded-sm">
+                    <span className="w-2 h-2 bg-veridian rounded-full animate-pulse" />
+                    {formatTime(timeElapsed)}
+                  </div>
+                )}
               </div>
 
               {/* Listening Indicator */}
               <div className="flex flex-col items-center mb-10">
-                <ListeningIndicator size="md" className="mb-3" />
-                <span className="text-sm text-veridian font-medium">AI is listening</span>
+                <ListeningIndicator size="md" className="mb-3" volume={volume} />
+                <span className="text-sm text-veridian font-medium">
+                  {isAnswering ? "AI is listening" : "AI is speaking..."}
+                </span>
                 <span className="text-xs text-text-muted mt-1">Speak your answer or switch to text mode</span>
               </div>
 
@@ -268,8 +331,8 @@ export default function Interview({
                 {question?.question || "Preparing your next question…"}
               </h1>
 
-              {/* Listen Button */}
-              <div className="flex justify-center mb-8">
+              {/* Listen Button & Timer */}
+              <div className="flex justify-center items-center gap-4 mb-8">
                 <button
                   onClick={handleSpeakQuestion}
                   disabled={!('speechSynthesis' in window)}
@@ -278,6 +341,12 @@ export default function Interview({
                   <Volume2 size={16} />
                   Listen to question
                 </button>
+                {isAnswering && (
+                  <div className="flex items-center gap-2 px-4 py-2 text-sm font-mono bg-surface-overlay border border-border rounded-sm">
+                    <span className="w-2 h-2 bg-veridian rounded-full animate-pulse" />
+                    {formatTime(timeElapsed)}
+                  </div>
+                )}
               </div>
 
               {/* Mode Toggle */}
@@ -440,19 +509,14 @@ export default function Interview({
         </AnimatePresence>
 
         {/* Camera Picture-in-Picture */}
-        <Card className="fixed bottom-6 right-6 w-48 overflow-hidden shadow-lg z-10">
-          <div className="aspect-video bg-text-primary relative">
+        <Card className="fixed bottom-6 right-6 w-56 overflow-hidden shadow-xl z-10 border-border/50">
+          <div className="bg-text-primary relative">
             {cameraStream ? (
-              <video
-                autoPlay
-                playsInline
-                muted
-                ref={el => { if (el) el.srcObject = cameraStream; }}
-                className="w-full h-full object-cover"
-              />
+              <PostureMonitor sessionId={sessionId} stream={cameraStream} />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-white/40 text-xs">
-                Camera Feed
+              <div className="flex flex-col items-center justify-center h-full gap-2 p-6">
+                <VideoOff size={24} className="text-text-muted" />
+                <span className="text-xs text-text-muted font-medium">Camera off</span>
               </div>
             )}
             <div className="absolute top-2 left-2 flex items-center gap-1.5">

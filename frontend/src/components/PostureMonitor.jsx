@@ -80,11 +80,12 @@ export default function PostureMonitor({ sessionId, stream }) {
     }
     const baselineOffset = baselineRef.current.noseShoulderOffset / baselineRef.current.count;
 
-    const isHeadForward = (noseForwardOffset - baselineOffset) > 0.08;
-    const isSlouching = torsoHeight < 0.22 || shoulderDiffY > 0.08;
+    // Relaxed thresholds to reduce false positives
+    const isHeadForward = (noseForwardOffset - baselineOffset) > 0.12;
+    const isSlouching = torsoHeight < 0.18 || shoulderDiffY > 0.12;
     const isHeadUp = nose.y < shoulderMidY;
-    const shouldersLevel = shoulderDiffY < 0.06;
-    const headAligned = (noseForwardOffset - baselineOffset) <= 0.05;
+    const shouldersLevel = shoulderDiffY < 0.10;
+    const headAligned = (noseForwardOffset - baselineOffset) <= 0.08;
 
     if (isHeadForward) {
       return { label: "HEAD_FORWARD", score: 0.4, torsoAngle };

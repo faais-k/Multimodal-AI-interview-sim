@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-export function ListeningIndicator({ className, size = "md" }) {
+export function ListeningIndicator({ className, size = "md", volume = 0 }) {
   const sizes = {
     sm: { container: 48, ring1: 48, ring2: 36, ring3: 24, core: 10 },
     md: { container: 80, ring1: 80, ring2: 60, ring3: 40, core: 16 },
@@ -9,6 +9,10 @@ export function ListeningIndicator({ className, size = "md" }) {
   };
 
   const s = sizes[size];
+  
+  // Calculate dynamic scale based on volume (0 to 1)
+  // Base scale + (volume * multiplier)
+  const volScale = 1 + (volume * 1.5);
 
   return (
     <div 
@@ -62,34 +66,20 @@ export function ListeningIndicator({ className, size = "md" }) {
         }}
       />
       
-      {/* Core */}
+      {/* Core - Reactive to Volume */}
       <motion.div
         className="absolute rounded-full bg-veridian z-10"
         style={{ width: s.core, height: s.core }}
-        animate={{
-          scale: [1, 1.1, 1],
-        }}
-        transition={{
-          duration: 1.2,
-          ease: "easeInOut",
-          repeat: Infinity,
-        }}
+        animate={{ scale: volScale }}
+        transition={{ type: "spring", stiffness: 300, damping: 20 }}
       />
       
-      {/* Core ring effect */}
+      {/* Core ring effect - Reactive to volume */}
       <motion.div
         className="absolute rounded-full border-2 border-veridian/30 z-10"
         style={{ width: s.core + 8, height: s.core + 8 }}
-        animate={{
-          scale: [1, 1.2, 1],
-          opacity: [0.4, 0.2, 0.4],
-        }}
-        transition={{
-          duration: 1.2,
-          ease: "easeInOut",
-          repeat: Infinity,
-          delay: 0.2,
-        }}
+        animate={{ scale: volScale * 1.2 }}
+        transition={{ type: "spring", stiffness: 300, damping: 20 }}
       />
     </div>
   );

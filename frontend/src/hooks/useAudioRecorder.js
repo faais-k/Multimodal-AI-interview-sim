@@ -20,18 +20,39 @@ export function useAudioRecorder() {
   const [audioBlob,  setAudioBlob]  = useState(null);
   const [audioURL,   setAudioURL]   = useState(null);
   const [micError,   setMicError]   = useState(null);
+  const [volume,     setVolume]     = useState(0); // 0.0 to 1.0
+  
   const mediaRef  = useRef(null);
   const chunksRef = useRef([]);
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
+  const rafRef = useRef(null);
+
+  const updateVolume = useCallback(() => {
+    if (!analyserRef.current) return;
+    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+    analyserRef.current.getByteFrequencyData(dataArray);
+    
+    // Calculate average volume
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      sum += dataArray[i];
+    }
+    const avg = sum / dataArray.length;
+    setVolume(Math.min(1, avg / 128)); // Normalize roughly to 0-1
+    
+    if (recording) {
+      rafRef.current = requestAnimationFrame(updateVolume);
+    }
+  }, [recording]);
 
   const start = useCallback(async () => {
     setMicError(null);
     
-    // Clean up any previous recording to prevent memory leak
-    if (audioURL) {
-      URL.revokeObjectURL(audioURL);
-    }
+    if (audioURL) URL.revokeObjectURL(audioURL);
     setAudioBlob(null);
     setAudioURL(null);
+    setVolume(0);
     
     try {
       const stream   = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -40,6 +61,16 @@ export function useAudioRecorder() {
       const opts     = mimeType ? { mimeType } : {};
       const mr       = new MediaRecorder(stream, opts);
 
+      // Setup audio analysis for volume
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        audioCtxRef.current = new AudioContext();
+        analyserRef.current = audioCtxRef.current.createAnalyser();
+        const source = audioCtxRef.current.createMediaStreamSource(stream);
+        source.connect(analyserRef.current);
+        analyserRef.current.fftSize = 256;
+      }
+
       mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: mimeType || "audio/webm" });
@@ -47,8 +78,15 @@ export function useAudioRecorder() {
         setAudioBlob(blob);
         setAudioURL(newURL);
         stream.getTracks().forEach(t => t.stop());
-        chunksRef.current = []; // Clear chunks after creating blob
+        chunksRef.current = [];
+        
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+          audioCtxRef.current.close().catch(() => {});
+        }
+        setVolume(0);
       };
+      
       mr.start();
       mediaRef.current = mr;
       setRecording(true);
@@ -57,6 +95,18 @@ export function useAudioRecorder() {
       setMicError("Microphone access denied. Please allow microphone access and try again.");
     }
   }, [audioURL]);
+
+  useEffect(() => {
+    if (recording) {
+      rafRef.current = requestAnimationFrame(updateVolume);
+    } else {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      setVolume(0);
+    }
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [recording, updateVolume]);
 
   const stop = useCallback(() => {
     if (mediaRef.current && mediaRef.current.state !== "inactive") {
@@ -67,17 +117,13 @@ export function useAudioRecorder() {
 
   const reset = useCallback(() => {
     if (audioURL) URL.revokeObjectURL(audioURL);
-    // Explicitly clear blob reference for garbage collection
-    if (audioBlob) {
-      // Blob will be garbage collected when no references remain
-      setAudioBlob(null);
-    }
     setAudioBlob(null);
     setAudioURL(null);
     setRecording(false);
     setMicError(null);
+    setVolume(0);
     chunksRef.current = [];
-  }, [audioURL, audioBlob]);
+  }, [audioURL]);
 
   useEffect(() => {
     return () => {
@@ -85,5 +131,5 @@ export function useAudioRecorder() {
     };
   }, [audioURL]);
 
-  return { recording, audioBlob, audioURL, micError, start, stop, reset };
+  return { recording, audioBlob, audioURL, micError, volume, start, stop, reset };
 }

@@ -87,6 +87,7 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
   const [parsing, setParsing] = useState(false);
   const [parsedData, setParsedData] = useState(null);
   const [parseError, setParseError] = useState(null);
+  const [showDetails, setShowDetails] = useState(null); // 'skills' | 'projects' | null
   const fileRef = useRef();
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -109,10 +110,17 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
       if (parseRes.status === "ok") {
         setParsedData(parseRes);
         const extracted = parseRes.extracted;
+        
+        // Attempt to extract latest role if jobRole is empty
+        let defaultRole = prev.jobRole;
+        if (extracted.current_role) defaultRole = extracted.current_role;
+        else if (extracted.target_role) defaultRole = extracted.target_role;
+        
         setForm(prev => ({
           ...prev,
           name: extracted.name || prev.name,
-          expertiseLevel: extracted.expertise_level || prev.expertiseLevel,
+          jobRole: defaultRole || prev.jobRole,
+          expertiseLevel: extracted.expertise_level || "fresher",
           education: extracted.education_summary || prev.education,
         }));
       }
@@ -255,9 +263,46 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
                     </button>
                   </div>
                   {parsedData?.extracted?.skills?.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-veridian/20 flex gap-2">
-                      <Badge variant="default">{parsedData.extracted.skills.length} skills found</Badge>
-                      <Badge variant="secondary">{parsedData.extracted.projects?.length || 0} projects</Badge>
+                    <div className="mt-3 pt-3 border-t border-veridian/20">
+                      <div className="flex gap-2">
+                        <Badge 
+                          variant={showDetails === 'skills' ? "default" : "secondary"}
+                          className="cursor-pointer transition-colors"
+                          onClick={() => setShowDetails(prev => prev === 'skills' ? null : 'skills')}
+                        >
+                          {parsedData.extracted.skills.length} skills found
+                        </Badge>
+                        <Badge 
+                          variant={showDetails === 'projects' ? "default" : "secondary"}
+                          className="cursor-pointer transition-colors"
+                          onClick={() => setShowDetails(prev => prev === 'projects' ? null : 'projects')}
+                        >
+                          {parsedData.extracted.projects?.length || 0} projects
+                        </Badge>
+                      </div>
+                      
+                      <AnimatePresence>
+                        {showDetails === 'skills' && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                            <div className="mt-3 flex flex-wrap gap-1.5 p-3 bg-white/50 rounded-sm text-xs">
+                              {parsedData.extracted.skills.map((s, i) => (
+                                <span key={i} className="px-2 py-1 bg-surface-base border border-border rounded-sm">{s}</span>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                        {showDetails === 'projects' && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                            <div className="mt-3 space-y-2 p-3 bg-white/50 rounded-sm text-xs max-h-48 overflow-y-auto">
+                              {parsedData.extracted.projects.map((p, i) => (
+                                <div key={i} className="p-2 bg-surface-base border border-border rounded-sm">
+                                  {p}
+                                </div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   )}
                 </div>
