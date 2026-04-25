@@ -55,3 +55,7 @@ node_modules/
 dist/
 
 backend/secrets/
+
+# Agent Planning & Graphs
+.planning/
+
