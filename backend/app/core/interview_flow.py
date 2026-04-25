@@ -208,6 +208,10 @@ def record_answer(
     score: Optional[float] = None,
     detected_topic: str | None = None,
 ) -> bool:
+    """Record answer and update interview stage.
+    
+    Returns True if interview is now COMPLETED, False otherwise.
+    """
     state = read_state(storage_dir, session_id)
 
     state["answers"][question_id] = {
@@ -227,11 +231,20 @@ def record_answer(
     if detected_topic:
         state["cursor"]["current_topic"] = detected_topic
 
+    # Advanced Stage Logic
+    # 1. If it's a follow-up, don't advance the main stage
     if not question_id.startswith("followup"):
-        if state["cursor"]["stage"] == "intro":
+        current_stage = state["cursor"].get("stage", "intro")
+        
+        # Robust stage progression
+        if current_stage == "intro":
             state["cursor"]["stage"] = "project"
-        elif state["cursor"]["stage"] == "project":
+        elif current_stage == "project":
             state["cursor"]["stage"] = "dynamic"
+        elif current_stage == "dynamic" and question_id.startswith("wrapup"):
+            # If we were in dynamic and just answered wrapup, we stay in dynamic 
+            # (or move to a hypothetical 'end' stage), but 'completed' is what matters.
+            pass
 
     state["cursor"]["last_question_id"] = question_id
 
@@ -247,11 +260,12 @@ def record_answer(
                 asked_question = q
                 break
 
+    # Completion check
     if (asked_question and asked_question.get("is_final") is True) or question_id.startswith("wrapup"):
         state["completed"] = True
 
     write_state(storage_dir, session_id, state)
-    return True
+    return state["completed"]
 
 
 # ── Follow-up helpers ──────────────────────────────────────────────────────────

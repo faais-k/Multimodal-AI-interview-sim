@@ -134,17 +134,23 @@ export function InterviewProvider({ children }) {
       const res = await api.scoreText({
         session_id: state.sessionId,
         question_id: state.question.id,
-        answer: text
+        answer_text: text
       });
       
-      if (res.is_final) {
+      if (res.is_final || res.is_completed) {
         setStep("processing");
       } else {
         const next = await api.nextQuestion(state.sessionId);
-        dispatch({ type: "SET_QUESTION", v: next.question, total: next.total_questions || state.totalQuestions });
+        if (next.status === "completed" || !next.question) {
+          setStep("processing");
+        } else {
+          dispatch({ type: "SET_QUESTION", v: next.question, total: next.total_questions || state.totalQuestions });
+        }
       }
     } catch (e) {
       setError(e.message || "Evaluation failed.");
+    } finally {
+      setEvaluating(false);
     }
   }, [state.sessionId, state.question, state.totalQuestions]);
 
@@ -154,14 +160,20 @@ export function InterviewProvider({ children }) {
     try {
       const res = await api.scoreAudio(state.sessionId, state.question.id, blob);
       
-      if (res.is_final) {
+      if (res.is_final || res.is_completed) {
         setStep("processing");
       } else {
         const next = await api.nextQuestion(state.sessionId);
-        dispatch({ type: "SET_QUESTION", v: next.question, total: next.total_questions || state.totalQuestions });
+        if (next.status === "completed" || !next.question) {
+          setStep("processing");
+        } else {
+          dispatch({ type: "SET_QUESTION", v: next.question, total: next.total_questions || state.totalQuestions });
+        }
       }
     } catch (e) {
       setError(e.message || "Audio evaluation failed.");
+    } finally {
+      setEvaluating(false);
     }
   }, [state.sessionId, state.question, state.totalQuestions]);
 

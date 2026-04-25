@@ -505,7 +505,7 @@ async def score_text_answer(payload: dict):
         # that occurred during ML inference between scope 1 and scope 2.
         # Both record_answer and file write happen atomically under this lock.
         async with interview_flow.get_state_lock(session_id):
-            interview_flow.record_answer(
+            is_completed = interview_flow.record_answer(
                 _storage_dir(), session_id, question_id,
                 question_text, answer_text, raw_score,
                 detected_topic=detected_topic,
@@ -532,6 +532,8 @@ async def score_text_answer(payload: dict):
                 "similarity":         sim,
                 "top_matches":        top_matches,
                 "filler_stats":       filler_stats,
+                "is_completed":       is_completed,
+                "is_final":           is_completed, # For frontend compatibility
             }
 
             out_dir = _storage_dir() / session_id / "scores"

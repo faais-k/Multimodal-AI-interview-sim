@@ -100,7 +100,10 @@ export default function Interview({
     setIsAnswering(false);
     if (timerRef.current) clearInterval(timerRef.current);
     
-    if (question?.question && 'speechSynthesis' in window) {
+    // Safety check: if question is null, we might be transitioning
+    if (!question) return;
+
+    if (question.question && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(question.question);
       utterance.rate = 0.9;
@@ -118,7 +121,7 @@ export default function Interview({
       };
       
       setTimeout(() => window.speechSynthesis.speak(utterance), 50);
-    } else if (question?.question) {
+    } else if (question.question) {
       setIsAnswering(true);
       timerRef.current = setInterval(() => {
         setTimeElapsed(prev => prev + 1);
