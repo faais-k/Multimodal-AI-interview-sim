@@ -259,11 +259,25 @@ export default function Results({ report, caps, onRestart }) {
               <div className="qa-list">
                 {sortedQs.map((item, i) => {
                   const s = item.score;
+                  // Determine scoring method label and style
+                  const method = item.scoring_method || item.scorer || "cosine";
+                  const methodLabels = {
+                    "llm_qwen": { label: "LLM (Qwen)", chipClass: "chip-teal" },
+                    "cosine_similarity": { label: "Cosine", chipClass: "chip-stone" },
+                    "whisper_asr": { label: "Whisper ASR", chipClass: "chip-amber" },
+                    "llm": { label: "LLM", chipClass: "chip-teal" },
+                    "cosine": { label: "Cosine", chipClass: "chip-stone" },
+                  };
+                  const methodInfo = methodLabels[method] || { label: method, chipClass: "chip-stone" };
+                  
                   return (
                     <div className="qa-item" key={i}>
                       <div className="qa-item__header">
                         <div className="qa-item__left">
                           <span className={`chip ${scoreChipClass(s)}`}>{fmt(s)}/10</span>
+                          <span className={`chip ${methodInfo.chipClass} qa-item__method`} title="Scoring method used">
+                            {methodInfo.label}
+                          </span>
                           {item.skill_target && <span className="chip chip-stone qa-item__skill">{item.skill_target}</span>}
                           {(item.question_type || item.type) && <span className="chip chip-stone qa-item__type">{item.question_type || item.type}</span>}
                         </div>

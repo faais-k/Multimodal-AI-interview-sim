@@ -33,7 +33,8 @@ STOPWORDS = {
 }
 
 _GENERIC_NAMES = {
-    "full stack","full-stack","fullstack","full","stack",
+    # Removed "full" standalone - was too aggressive, matched "Full Stack" projects
+    "full stack","full-stack","fullstack","stack",
     "web development","web dev","web","dev","development",
     "backend","frontend","mobile app","mobile application","api","rest api",
     "web app","web application","website","app","application","platform",
@@ -42,6 +43,7 @@ _GENERIC_NAMES = {
     "machine learning","ml","ai","deep learning","data science",
     "internship","training","bootcamp","course","certification",
     "technologies","tech","work","built","created","developed",
+    "using","with","based","implemented","designed",
 }
 
 
@@ -81,33 +83,78 @@ def _normalize_skills(skills: List[str]) -> List[str]:
 
 
 def _project_info(raw_project: str, fallback_idx: int) -> Tuple[str, List[str]]:
+    """
+    Extract project name and tech stack from project description.
+    Avoids single-word generic names like 'Full', 'Stack', etc.
+    """
     text = (raw_project or "").strip()
     if not text:
         return (f"Project {fallback_idx}", [])
 
-    parts = [p.strip() for p in re.split(r"\s+[-|:–—]\s+", text, maxsplit=1)]
+    # Remove common bullet markers
+    clean_text = re.sub(r"^[•\-\*#\s]+", "", text)
+    words = clean_text.split()
+    
+    # Try to extract project name from first line
+    first_line = clean_text.split('\n')[0] if '\n' in clean_text else clean_text[:100]
+    
+    # Split by common delimiters to find project name
+    parts = [p.strip() for p in re.split(r"\s+[-|:–—]\s+", first_line, maxsplit=1)]
     candidate = parts[0] if parts and parts[0] else ""
-
-    is_generic = (
-        candidate.lower().strip() in _GENERIC_NAMES
-        or len(candidate.split()) > 6
-        or len(candidate.split()) < 2   # single-word names are never useful project names
-        or len(candidate) < 3
-    )
+    
+    # Normalize candidate
+    candidate_lower = candidate.lower().strip()
+    candidate_words = candidate.split()
+    
+    # Determine if candidate is a valid project name
+    is_generic = False
+    
+    # Check exact match against generic names
+    if candidate_lower in _GENERIC_NAMES:
+        is_generic = True
+    # Check if it's a single word (too vague)
+    elif len(candidate_words) < 2:
+        is_generic = True
+    # Check if too long (probably a sentence, not a name)
+    elif len(candidate_words) > 6:
+        is_generic = True
+    # Check if too short
+    elif len(candidate) < 4:
+        is_generic = True
+    # Check if contains mostly generic words
+    elif sum(1 for w in candidate_words if w.lower() in _GENERIC_NAMES) >= len(candidate_words) * 0.5:
+        is_generic = True
 
     if is_generic:
-        clean_text = re.sub(r"^[•\-\*#\s]+", "", text)
-        words = clean_text.split()
-        if clean_text.lower().strip() in _GENERIC_NAMES or len(words) < 2:
-            candidate = f"Project {fallback_idx}"
+        # Try to find a better name from the full text
+        # Look for capitalized phrases that might be project names
+        potential_names = re.findall(r'\b([A-Z][a-zA-Z0-9]*(?:\s+[A-Z][a-zA-Z0-9]*){1,4})\b', clean_text[:200])
+        
+        for name in potential_names:
+            name_lower = name.lower()
+            if name_lower not in _GENERIC_NAMES and len(name.split()) >= 2:
+                candidate = name
+                break
         else:
-            if len(words) > 5:
-                candidate = " ".join(words[:5]).rstrip(".,;:") + "..."
+            # Fallback: use first 4-5 meaningful words
+            meaningful = [w for w in words[:8] if w.lower() not in _GENERIC_NAMES and len(w) > 2]
+            if len(meaningful) >= 2:
+                candidate = " ".join(meaningful[:4])
             else:
-                candidate = clean_text
+                candidate = f"Project {fallback_idx}"
 
-    candidate = candidate.lstrip("•-*# ").strip() or f"Project {fallback_idx}"
+    # Final cleanup
+    candidate = candidate.lstrip("•-*# ").strip()
+    
+    # Ensure we have something valid
+    if not candidate or len(candidate) < 3:
+        candidate = f"Project {fallback_idx}"
+    
+    # Truncate if too long
+    if len(candidate) > 60:
+        candidate = candidate[:57] + "..."
 
+    # Extract tech stack
     stack = re.findall(
         r"\b(Python|FastAPI|Angular|React|Next\.?js|Node\.?js|TypeScript|JavaScript|"
         r"MongoDB|PostgreSQL|MySQL|SQL|Docker|AWS|Azure|GCP|Flask|Django|Spring|"
@@ -115,7 +162,7 @@ def _project_info(raw_project: str, fallback_idx: int) -> Tuple[str, List[str]]:
         text, re.IGNORECASE
     )
     stack = list(dict.fromkeys(stack))
-    return (candidate[:60], stack)
+    return (candidate, stack)
 
 
 _PROJ_EDU_KW = {

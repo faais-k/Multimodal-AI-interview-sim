@@ -117,8 +117,31 @@ export default function Interview({ sessionId, question, questionNumber, loading
               <span className="spinner" style={{width:20,height:20}}/> Loading question…
             </div>
           ) : (
-            <div className="iv-question animate-in" key={question?.id}>
-              {question?.question || "Preparing your next question…"}
+            <div className="iv-question-wrap animate-in" key={question?.id}>
+              <div className="iv-question">
+                {question?.question || "Preparing your next question…"}
+              </div>
+              <button
+                className="iv-speak-btn"
+                onClick={() => {
+                  if ('speechSynthesis' in window && question?.question) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(question.question);
+                    utterance.rate = 0.9;
+                    utterance.pitch = 1;
+                    window.speechSynthesis.speak(utterance);
+                  }
+                }}
+                disabled={!('speechSynthesis' in window)}
+                title="Read question aloud"
+                aria-label="Read question aloud"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                </svg>
+                Listen
+              </button>
             </div>
           )}
 

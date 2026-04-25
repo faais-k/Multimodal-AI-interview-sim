@@ -53,7 +53,7 @@ export default function App() {
     return <Setup onSubmit={iv.setup} loading={iv.loading} error={iv.error} />;
 
   if (iv.step === "preinterview")
-    return <PreInterview onBegin={iv.startInterview} setupData={iv.setupData} />;
+    return <PreInterview onBegin={iv.startInterview} setupData={iv.setupData} sessionId={iv.sessionId} />;
 
   if (iv.step === "interview")
     return (

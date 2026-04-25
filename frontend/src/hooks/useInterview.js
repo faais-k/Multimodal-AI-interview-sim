@@ -122,11 +122,7 @@ export function useInterview() {
 
   // ── Setup ──────────────────────────────────────────────────────────────────
   const setup = useCallback(async (data) => {
-    dispatch({ type: "CLEAR_ERROR" });
-    const { resumeFile, ...safeData } = data;
-    dispatch({ type: "SAVE_SETUP", v: safeData });
     setLoading(true);
-
     try {
       const { session_id } = await api.createSession();
       if (!session_id) throw new Error("Server did not return a session_id");
@@ -134,8 +130,20 @@ export function useInterview() {
       try { sessionStorage.setItem(SESSION_KEY, session_id); } catch (_) {}
       dispatch({ type: "SET_SESSION", v: session_id });
 
-      await api.uploadResume(session_id, resumeFile);
-      await api.parseResume(session_id);
+      // Use parseAndExtract to autofill data and parse resume
+      if (data.resumeFile) {
+        const parseResult = await api.parseAndExtract(session_id, data.resumeFile);
+        if (parseResult.status === "ok") {
+          // Merge autofill with user edits
+          data = {
+            ...data,
+            name: data.name || parseResult.extracted.name,
+            education: data.education || parseResult.extracted.education_summary,
+            expertiseLevel: data.expertiseLevel || parseResult.extracted.expertise_level,
+            parsedData: parseResult.extracted,
+          };
+        }
+      }
 
       if (data.jobRole || data.jobDescription || data.company) {
         await api.setJobDescription({
@@ -146,17 +154,11 @@ export function useInterview() {
         });
       }
 
-      await api.setCandidateProfile({
-        session_id:      session_id,
-        name:            data.name           || "",
-        expertise_level: data.expertiseLevel || "fresher",
-        experience:      data.experience     || "",
-        education:       data.education      || "",
-      });
-
-      await api.generatePlan(session_id);
+      // Note: Dynamic interview generation happens in PreInterview page
+      // so user can set up camera/mic while questions are being generated
 
       setLoading(false);
+      dispatch({ type: "SAVE_SETUP", v: data });
       dispatch({ type: "SET_STEP", v: "preinterview" });
     } catch (e) {
       setError(e.message || "Setup failed. Please try again.");

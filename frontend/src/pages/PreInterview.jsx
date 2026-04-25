@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { api } from "../api/client";
 import "./PreInterview.css";
 
 const Logo = () => (
@@ -10,13 +11,17 @@ const Logo = () => (
   </svg>
 );
 
-export default function PreInterview({ onBegin, setupData }) {
+export default function PreInterview({ onBegin, setupData, sessionId }) {
   const [checks, setChecks] = useState({ camera: false, mic: false });
   const [starting, setStarting] = useState(false);
   const [camError, setCamError] = useState(null);
+  const [generating, setGenerating] = useState(true);
+  const [questionsReady, setQuestionsReady] = useState(false);
+  const [genError, setGenError] = useState(null);
   const videoRef  = useRef();
   const streamRef = useRef(null);
 
+  // Camera/Mic setup
   useEffect(() => {
     (async () => {
       try {
@@ -31,6 +36,39 @@ export default function PreInterview({ onBegin, setupData }) {
     })();
     return () => streamRef.current?.getTracks().forEach(t => t.stop());
   }, []);
+
+  // Background question generation
+  useEffect(() => {
+    if (!sessionId) return;
+    
+    let cancelled = false;
+    
+    const generateQuestions = async () => {
+      try {
+        setGenerating(true);
+        const result = await api.generateDynamicInterview(sessionId);
+        
+        if (!cancelled) {
+          if (result.status === "ok") {
+            setQuestionsReady(true);
+            setGenerating(false);
+          } else {
+            setGenError("Failed to generate questions");
+            setGenerating(false);
+          }
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setGenError(e.message || "Failed to generate questions");
+          setGenerating(false);
+        }
+      }
+    };
+    
+    generateQuestions();
+    
+    return () => { cancelled = true; };
+  }, [sessionId]);
 
   const begin = async () => {
     setStarting(true);
@@ -84,18 +122,28 @@ export default function PreInterview({ onBegin, setupData }) {
           <div className="pi-checks" style={{display: "flex", flexDirection: "row", gap: "1rem", justifyContent: "space-between"}}>
             <CheckRow label="Camera accessible" done={checks.camera} optional />
             <CheckRow label="Microphone accessible" done={checks.mic} optional />
-            <CheckRow label="Questions generated" done={true} />
+            <CheckRow label="Questions generated" done={questionsReady} />
           </div>
+
+          {genError && (
+            <div className="pi-error">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+              {genError} — You can still proceed with default questions.
+            </div>
+          )}
 
           <button
             className="btn-primary pi-begin"
             onClick={begin}
-            disabled={starting}
+            disabled={starting || (generating && !genError)}
           >
-            {starting
-              ? <><span className="spinner"/>Starting…</>
-              : <>Begin Interview<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg></>
-            }
+            {starting ? (
+              <><span className="spinner"/>Starting…</>
+            ) : generating && !genError ? (
+              <><span className="spinner"/>Generating questions…</>
+            ) : (
+              <>Begin Interview<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg></>
+            )}
           </button>
         </div>
 

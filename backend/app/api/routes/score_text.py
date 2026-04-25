@@ -512,6 +512,7 @@ async def score_text_answer(payload: dict):
                 "raw_score":          raw_score,
                 "cosine_raw_score":   cosine_raw_score,
                 "scorer":             "llm" if llm_result else "cosine",
+                "scoring_method":     "llm_qwen" if llm_result else "cosine_similarity",
                 "llm_evaluation":     llm_result,
                 "relevance_check":    relevance_check,
                 "weighted_score":     weighted_score,

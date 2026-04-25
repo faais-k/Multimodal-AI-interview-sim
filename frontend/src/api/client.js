@@ -61,6 +61,18 @@ export const api = {
   },
 
   parseResume:         (sid)     => req(`/parse/resume/${sid}`,         { method: "POST" }),
+  
+  // New: Parse and extract for resume autofill
+  parseAndExtract: (sid, file) => {
+    const fd = new FormData();
+    fd.append("session_id", sid);
+    fd.append("resume", file);
+    return reqMultipart(`${API_BASE}/parse-and-extract`, fd);
+  },
+  
+  // New: Dynamic interview generation (company research + LLM questions)
+  generateDynamicInterview: (sid) => req(`/interview/generate-dynamic/${sid}`, { method: "POST" }),
+  
   setJobDescription:   (payload) => req("/session/job_description",     { method: "POST", body: JSON.stringify(payload) }),
   setCandidateProfile: (payload) => req("/session/candidate_profile",   { method: "POST", body: JSON.stringify(payload) }),
   generatePlan:        (sid)     => req(`/interview/plan/${sid}`,       { method: "POST" }),

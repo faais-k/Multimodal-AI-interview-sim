@@ -10,7 +10,9 @@ from backend.app.api.routes.session import router as session_router
 from backend.app.api.routes.session_extra import router as session_extra_router
 from backend.app.api.routes.upload import router as upload_router
 from backend.app.api.routes.parse_resume import router as parse_router
+from backend.app.api.routes.parse_and_extract import router as parse_extract_router
 from backend.app.api.routes.interview_plan import router as plan_router
+from backend.app.api.routes.dynamic_interview import router as dynamic_interview_router
 from backend.app.api.routes.score_text import router as score_router
 from backend.app.api.routes.answer_audio import router as answer_audio_router
 from backend.app.api.routes.posture import router as posture_router
@@ -152,7 +154,9 @@ app.include_router(session_router, prefix="/api")
 app.include_router(session_extra_router, prefix="/api")
 app.include_router(upload_router, prefix="/api")
 app.include_router(parse_router, prefix="/api")
+app.include_router(parse_extract_router, prefix="/api")
 app.include_router(plan_router, prefix="/api")
+app.include_router(dynamic_interview_router, prefix="/api")
 app.include_router(score_router, prefix="/api")
 app.include_router(answer_audio_router, prefix="/api")
 app.include_router(posture_router, prefix="/api")
