@@ -15,16 +15,10 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState(null);
 
   async function loginWithGoogle() {
-    if (!auth) {
-      const msg = "Firebase not initialized. Check your Vercel env vars.";
-      setError(msg);
-      alert(msg);
-      return;
-    }
-
+    // TRIGGER INSTANTLY to bypass browser popup blockers
+    // Don't do any awaits or logic before this line
     try {
       setError(null);
-      console.log("🚀 Initiating Google Sign-In Popup...");
       const result = await signInWithPopup(auth, googleProvider);
       console.log("✅ Popup success! User:", result.user.email);
       return result;
