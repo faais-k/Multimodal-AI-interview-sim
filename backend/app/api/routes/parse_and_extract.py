@@ -193,9 +193,28 @@ async def parse_and_extract_resume(
     resume_dir = sdir / "resumes"
     resume_dir.mkdir(exist_ok=True)
     
-    file_path = resume_dir / resume.filename
-    content = await resume.read()
-    file_path.write_bytes(content)
+    safe_filename = Path(resume.filename or "resume").name
+    if not safe_filename or safe_filename.startswith("."):
+        safe_filename = "resume.pdf"
+    file_path = resume_dir / safe_filename
+    
+    # Stream write with size limit (10 MB) - atomic write pattern
+    MAX_SIZE = 10 * 1024 * 1024  # 10 MB
+    size = 0
+    temp_path = resume_dir / f".tmp_{safe_filename}"
+    try:
+        with temp_path.open("wb") as f:
+            while chunk := await resume.read(64 * 1024):
+                size += len(chunk)
+                if size > MAX_SIZE:
+                    temp_path.unlink(missing_ok=True)
+                    raise HTTPException(413, "Resume too large. Max 10 MB.")
+                f.write(chunk)
+        # Atomic rename
+        temp_path.replace(file_path)
+    except Exception:
+        temp_path.unlink(missing_ok=True)
+        raise
     
     # Extract text based on file type
     raw_text = ""

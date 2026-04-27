@@ -8,26 +8,27 @@ Each violation is timestamped and stored in violations.json.
 """
 import json
 import asyncio
+import threading
 from datetime import datetime
+from typing import Dict, Any
 from pathlib import Path
-from typing import Any, Dict
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends
+from backend.app.core.storage import get_storage_dir
 from backend.app.core.auth import get_optional_user
 from backend.app.core.db_ops import log_violation_db
-from backend.app.core.storage import get_storage_dir
 from backend.app.core.validation import validate_session_id
 
 router = APIRouter()
 _session_locks: dict[str, asyncio.Lock] = {}
+_session_locks_mutex = threading.Lock()
 
 
 def get_session_lock(session_id: str) -> asyncio.Lock:
-    lock = _session_locks.get(session_id)
-    if lock is None:
-        lock = asyncio.Lock()
-        _session_locks[session_id] = lock
-    return lock
+    with _session_locks_mutex:
+        if session_id not in _session_locks:
+            _session_locks[session_id] = asyncio.Lock()
+        return _session_locks[session_id]
 
 
 def _storage_dir() -> Path:

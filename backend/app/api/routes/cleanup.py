@@ -27,28 +27,8 @@ MAX_SESSION_AGE_HOURS = 48
 CLEANUP_SECRET = os.getenv("CLEANUP_SECRET", "")
 
 
-@router.post("/admin/cleanup")
-async def cleanup_old_sessions(
-    max_age_hours: int = MAX_SESSION_AGE_HOURS,
-    x_cleanup_secret: str = Header(default=""),
-    enforce_auth: bool = True,
-):
-    """Delete old completed or abandoned sessions.
-
-    Requires X-Cleanup-Secret header if CLEANUP_SECRET env var is set.
-    The startup lifespan call in main.py calls this as a Python function
-    and bypasses the header check intentionally.
-    """
-    # BUG 6: Reject unauthorised callers when a secret is configured
-    if enforce_auth and not CLEANUP_SECRET:
-        raise HTTPException(
-            status_code=503,
-            detail="Cleanup endpoint is disabled until CLEANUP_SECRET is configured.",
-        )
-
-    if enforce_auth and x_cleanup_secret != CLEANUP_SECRET:
-        raise HTTPException(status_code=403, detail="Invalid cleanup secret.")
-
+async def _cleanup_internal(max_age_hours: int = 48):
+    """Called from lifespan only."""
     storage = get_storage_dir()
     if not storage.exists():
         return {"deleted": 0, "skipped": 0, "cutoff": None}
@@ -61,27 +41,48 @@ async def cleanup_old_sessions(
         if not session_dir.is_dir():
             continue
 
-        # Check directory age via mtime
-        mtime = datetime.utcfromtimestamp(session_dir.stat().st_mtime)
-        if mtime > cutoff:
-            skipped += 1
-            continue
-
-        state_path    = session_dir / "interview_state.json"
-        decision_path = session_dir / "final_decision.json"
-
-        # Safe to delete:
-        #   - completed interview: final_decision.json exists
-        #   - abandoned before interview started: no interview_state.json
-        if decision_path.exists() or not state_path.exists():
-            shutil.rmtree(session_dir, ignore_errors=True)
-            deleted += 1
+        # Check session activity via state file timestamps, not directory mtime
+        state_file = session_dir / "interview_state.json"
+        if state_file.exists():
+            try:
+                state_mtime = datetime.fromtimestamp(state_file.stat().st_mtime)
+                if state_mtime < cutoff:
+                    # Check if session has final_decision.json (completed)
+                    if (session_dir / "final_decision.json").exists():
+                        shutil.rmtree(session_dir)
+                        deleted += 1
+                    else:
+                        skipped += 1
+            except Exception:
+                # If we can't read timestamps, skip this directory
+                skipped += 1
         else:
-            # In-progress session — leave it alone
-            skipped += 1
+            # No state file means inactive session, safe to delete if old enough
+            try:
+                dir_mtime = datetime.fromtimestamp(session_dir.stat().st_mtime)
+                if dir_mtime < cutoff:
+                    shutil.rmtree(session_dir)
+                    deleted += 1
+            except Exception:
+                skipped += 1
 
-    return {
-        "deleted": deleted,
-        "skipped": skipped,
-        "cutoff":  cutoff.isoformat(),
-    }
+    return {"deleted": deleted, "skipped": skipped, "cutoff": cutoff.isoformat()}
+
+
+@router.post("/admin/cleanup")
+async def cleanup_old_sessions(
+    max_age_hours: int = MAX_SESSION_AGE_HOURS,
+    x_cleanup_secret: str = Header(default=""),
+    internal: bool = False,  # Allows bypassing secret check for internal lifespan calls
+):
+    """Delete old completed or abandoned sessions.
+
+    Requires X-Cleanup-Secret header if CLEANUP_SECRET env var is set.
+    Bypass secret check when called internally (e.g., from lifespan).
+    """
+    if not internal:
+        if not CLEANUP_SECRET:
+            raise HTTPException(503, "Cleanup endpoint disabled until CLEANUP_SECRET is set.")
+        if x_cleanup_secret != CLEANUP_SECRET:
+            raise HTTPException(403, "Invalid cleanup secret.")
+    return await _cleanup_internal(max_age_hours)

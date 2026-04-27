@@ -34,7 +34,7 @@ async def posture_report(payload: dict):
 
         suggestions = []
         ps            = float(metrics.get("posture_score", 1.0))
-        torso         = float(metrics.get("torso_angle",   90))
+        torso         = float(metrics.get("spine_height",  90))
         shake         = float(metrics.get("hand_shake_score", 0.0))
         hands_visible = metrics.get("hands_visible", True)
 

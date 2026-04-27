@@ -10,7 +10,13 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 _request_counts: dict = defaultdict(list)
-_rate_lock = asyncio.Lock()
+_rate_lock: asyncio.Lock | None = None
+
+def _get_rate_lock() -> asyncio.Lock:
+    global _rate_lock
+    if _rate_lock is None:
+        _rate_lock = asyncio.Lock()
+    return _rate_lock
 
 
 async def check_rate_limit(
@@ -24,7 +30,7 @@ async def check_rate_limit(
     Tracks per (session_id, endpoint) pairs using a sliding time window.
     Expired timestamps are pruned on each check.
     """
-    async with _rate_lock:
+    async with _get_rate_lock():
         key = f"{session_id}:{endpoint}"
         now = datetime.utcnow()
         window_start = now - timedelta(seconds=window_seconds)

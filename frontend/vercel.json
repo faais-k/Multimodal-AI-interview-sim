@@ -18,6 +18,10 @@
     {
       "source": "/__/auth/:path*",
       "destination": "https://ascent-ai-intrv-simulator.firebaseapp.com/__/auth/:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }

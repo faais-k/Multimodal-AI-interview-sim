@@ -100,8 +100,7 @@ async def aggregate_scores(
         raw  = data.get("raw_score") if data.get("raw_score") is not None else data.get("score")
 
         qtype = data.get("question_type") or data.get("type") or "technical"
-        if qtype == "behavioral":
-            qtype = "hr"
+        # Keep behavioral as behavioral, don't map to hr
 
         weight = data.get("weight")
         if weight is None:

@@ -33,7 +33,9 @@ function reducer(s, a) {
     case "SET_EVALUATING":     return { ...s, evaluating: a.v };
     case "SET_ERROR":          return { ...s, error: a.v, loading: false, evaluating: false };
     case "CLEAR_ERROR":        return { ...s, error: null };
-    case "SET_SESSION":        return { ...s, sessionId: a.v };
+    case "SET_SESSION":
+      sessionStorage.setItem(SESSION_KEY, a.v);
+      return { ...s, sessionId: a.v };
     case "SET_STEP":
       sessionStorage.setItem("ai_interview_step", a.v);
       return { ...s, step: a.v };
@@ -95,11 +97,11 @@ export function InterviewProvider({ children }) {
               }
             });
           } else if (status.status === "completed") {
-            // Interview was completed
+            // Interview was completed - trigger results pipeline
             dispatch({
               type: "RESTORE_STATE",
               state: {
-                step: "dashboard",
+                step: "processing",
                 sessionId: sid
               }
             });
@@ -188,6 +190,10 @@ export function InterviewProvider({ children }) {
     try {
       // Use formal skip endpoint that properly updates backend state
       const result = await api.skipQuestion(state.sessionId, state.question.id);
+      if (!result.next_question || result.next_question?.status === "completed") {
+        setStep("processing");
+        return;
+      }
       dispatch({ 
         type: "SET_QUESTION", 
         v: result.next_question, 

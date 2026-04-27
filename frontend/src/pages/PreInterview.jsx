@@ -59,6 +59,24 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
     const generateQuestions = async () => {
       try {
         setGenerating(true);
+        
+        // Post setup data to backend before generating plan
+        if (setupData) {
+          await api.setJobDescription({
+            session_id: sessionId,
+            job_role: setupData.jobRole || "",
+            job_description: setupData.jobDescription || "",
+            company: setupData.company || "",
+          });
+          await api.setCandidateProfile({
+            session_id: sessionId,
+            name: setupData.name || "",
+            expertise_level: setupData.expertiseLevel || "fresher",
+            experience: setupData.experience || "",
+            education: setupData.education || "",
+          });
+        }
+        
         const result = await api.generateDynamicInterview(sessionId);
         
         if (!cancelled) {

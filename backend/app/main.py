@@ -104,7 +104,7 @@ async def lifespan(app: FastAPI):
     try:
         from backend.app.api.routes.cleanup import cleanup_old_sessions
 
-        result = await cleanup_old_sessions(max_age_hours=48, enforce_auth=False)
+        result = await cleanup_old_sessions(max_age_hours=48, internal=True)
         logger.info(
             f"Startup cleanup: deleted {result['deleted']} old sessions, "
             f"skipped {result['skipped']}"

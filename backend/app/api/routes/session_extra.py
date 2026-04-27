@@ -3,8 +3,9 @@ from pathlib import Path
 import json
 from typing import Any, Dict
 
-from backend.app.core.storage import get_storage_dir
+from backend.app.core.storage import get_storage_dir, write_json_atomic
 from backend.app.core.validation import validate_session_id
+from backend.app.core.rate_limit import check_rate_limit
 
 router = APIRouter()
 
@@ -14,8 +15,7 @@ def _storage_dir() -> Path:
 
 
 def _write_json(path: Path, data: Dict[str, Any]):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    write_json_atomic(path, data)
 
 
 def _require_session(session_id: str) -> Path:
@@ -85,6 +85,11 @@ async def get_session_status(session_id: str):
     """
     Get current interview status for state recovery after page refresh.
     """
+    # Rate limit: 30 requests per minute per session
+    allowed = await check_rate_limit(session_id, "get_session_status", max_requests=30, window_seconds=60)
+    if not allowed:
+        raise HTTPException(status_code=429, detail="Too many status checks. Please wait.")
+
     validate_session_id(session_id)
     sdir = _require_session(session_id)
     
@@ -160,7 +165,8 @@ async def skip_question(session_id: str, question_id: str = None):
         async with get_state_lock(session_id):
             # Load state
             try:
-                state = read_state(sdir, session_id)
+                storage = get_storage_dir()
+                state = read_state(storage, session_id)
             except FileNotFoundError:
                 raise HTTPException(
                     status_code=400, 
@@ -205,7 +211,7 @@ async def skip_question(session_id: str, question_id: str = None):
                 if cursor.get("stage") == "intro":
                     cursor["stage"] = "project"
                 elif cursor.get("stage") == "project":
-                    cursor["stage"] = "dynamic"
+                    cursor["stage"] = "technical"
             
             # Completion check
             is_final = False
@@ -217,17 +223,26 @@ async def skip_question(session_id: str, question_id: str = None):
             if is_final or question_id.startswith("wrapup"):
                 state["completed"] = True
                 
-            write_state(sdir, session_id, state)
+            write_state(storage, session_id, state)
             
-        # Now call next_question to get the next question
-        from backend.app.api.routes.session import next_question
-        next_q_res = await next_question(session_id)
+            # Call interview_flow directly inside same lock
+            from backend.app.core.interview_flow import _decide_next_read, _decide_next_write, _load_json
+            plan = _load_json(storage / session_id / "interview_plan.json")
+            next_q_data = _decide_next_read(storage, session_id, state, plan)
+            if next_q_data:
+                state, _ = _decide_next_write(storage, session_id, state, plan, next_q_data)
+                write_state(storage, session_id, state)
+                next_q = {"question": next_q_data, "total_questions": plan.get("total_questions", 0)}
+            else:
+                state["completed"] = True
+                write_state(storage, session_id, state)
+                next_q = {"status": "completed", "question": None}
         
         return {
             "status": "skipped",
             "skipped_question_id": question_id,
-            "next_question": next_q_res.get("question"),
-            "total_questions": next_q_res.get("total_questions", 0)
+            "next_question": next_q.get("question"),
+            "total_questions": next_q.get("total_questions", 0)
         }
     except HTTPException:
         raise

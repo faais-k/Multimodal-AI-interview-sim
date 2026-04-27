@@ -26,9 +26,9 @@ function App() {
   useEffect(() => {
     api.getHealth().then(res => {
       setCaps({
-        mode: res.runtime_mode || "CPU",
-        llmMode: res.llm_evaluator || "api",
-        audioEnabled: res.asr_model !== "none"
+        mode: res.mode || "CPU",
+        llmMode: res.llm_mode || "api",
+        audioEnabled: res.asr_available === true
       });
     }).catch(() => {});
   }, []);

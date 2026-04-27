@@ -23,7 +23,6 @@ def _storage_dir() -> Path:
 
 class SessionCreateResponse(BaseModel):
     session_id: str
-    storage_path: str
 
 
 @router.post("/session/create", response_model=SessionCreateResponse)
@@ -50,7 +49,7 @@ async def create_session(request: Request, user: dict = Depends(get_optional_use
     
     uid = user.get("uid") if user else None
     await create_session_record(sid, user_id=uid)
-    return {"session_id": sid, "storage_path": str(session_dir)}
+    return {"session_id": sid}
 
 
 @router.post("/session/start_interview")
@@ -66,20 +65,19 @@ async def start_interview(session_id: str):
             detail="parsed_resume.json not found. Call /api/parse/resume first.",
         )
 
-    # SAFETY NET: Ensure interview_plan.json exists. If dynamic generation failed,
-    # we generate a static one here to prevent the interview from being "unstartable".
-    plan_path = STORAGE_DIR / session_id / "interview_plan.json"
-    if not plan_path.exists():
-        from backend.app.api.routes.interview_plan import create_interview_plan
-        # Generate static plan as fallback
-        await create_interview_plan(session_id)
-
     parsed = json.loads(parsed_path.read_text(encoding="utf-8"))
 
     # LOGIC-1 FIX: Lock the check-and-init to prevent race conditions from
     # double-clicks. Without this, two requests can both pass the exists()
     # check before either writes, corrupting state.
+    # SAFETY NET: Also ensure interview_plan.json exists under lock to prevent
+    # duplicate plan generation from concurrent requests.
     async with interview_flow.get_state_lock(session_id):
+        # Check and generate plan under lock to prevent race conditions
+        plan_path = STORAGE_DIR / session_id / "interview_plan.json"
+        if not plan_path.exists():
+            from backend.app.api.routes.interview_plan import create_interview_plan
+            await create_interview_plan(session_id)
         state_path = STORAGE_DIR / session_id / "interview_state.json"
         if state_path.exists():
             try:

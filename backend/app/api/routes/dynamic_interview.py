@@ -323,15 +323,11 @@ async def generate_dynamic_interview(session_id: str):
         
         questions = []
         
+        # Prepare all question generation tasks to run in parallel
+        tasks = []
+        
         # 1. Self Introduction
-        intro_result = await _generate_dynamic_question("intro", context, expertise, company_research)
-        questions.append({
-            "id": "intro_1",
-            "type": "self_intro",
-            "question": intro_result["question"],
-            "skill_target": "self_intro",
-            "source": "llm_dynamic"
-        })
+        tasks.append(("intro", context, "intro_1", "self_intro", "self_intro"))
         
         # 2. Project Questions (up to 2)
         for i, proj in enumerate(projects[:2]):
@@ -340,14 +336,7 @@ async def generate_dynamic_interview(session_id: str):
                 "current_project": str(proj)[:100],
                 "project_tech": re.findall(r"\b(Python|JavaScript|React|Node|MongoDB|SQL|AWS|Docker|Kubernetes)\b", str(proj), re.I)
             }
-            proj_result = await _generate_dynamic_question("project", proj_context, expertise, company_research)
-            questions.append({
-                "id": f"project_{i+1}",
-                "type": "project",
-                "question": proj_result["question"],
-                "skill_target": str(proj)[:50],
-                "source": "llm_dynamic"
-            })
+            tasks.append(("project", proj_context, f"project_{i+1}", "project", str(proj)[:50]))
         
         # 3. Technical Questions (2-3 based on skills and job)
         tech_skills = skills[:3] if skills else ["programming"]
@@ -356,24 +345,10 @@ async def generate_dynamic_interview(session_id: str):
                 **context,
                 "target_skill": skill
             }
-            tech_result = await _generate_dynamic_question("technical", tech_context, expertise, company_research)
-            questions.append({
-                "id": f"technical_{i+1}",
-                "type": "technical",
-                "question": tech_result["question"],
-                "skill_target": skill,
-                "source": "llm_dynamic"
-            })
+            tasks.append(("technical", tech_context, f"technical_{i+1}", "technical", skill))
         
         # 4. Behavioral Question
-        behav_result = await _generate_dynamic_question("behavioral", context, expertise, company_research)
-        questions.append({
-            "id": "behavioral_1",
-            "type": "behavioral",
-            "question": behav_result["question"],
-            "skill_target": "collaboration",
-            "source": "llm_dynamic"
-        })
+        tasks.append(("behavioral", context, "behavioral_1", "behavioral", "collaboration"))
         
         # 5. Critical Thinking
         critical_skill = tech_skills[0] if tech_skills else "system"
@@ -381,24 +356,26 @@ async def generate_dynamic_interview(session_id: str):
             **context,
             "target_skill": critical_skill
         }
-        critical_result = await _generate_dynamic_question("critical", critical_context, expertise, company_research)
-        questions.append({
-            "id": "critical_1",
-            "type": "critical",
-            "question": critical_result["question"],
-            "skill_target": critical_skill,
-            "source": "llm_dynamic"
-        })
+        tasks.append(("critical", critical_context, "critical_1", "critical", critical_skill))
         
         # 6. Wrap-up
-        wrapup_result = await _generate_dynamic_question("wrapup", context, expertise, company_research)
-        questions.append({
-            "id": "wrapup_1",
-            "type": "wrapup",
-            "question": wrapup_result["question"],
-            "skill_target": "wrapup",
-            "source": "llm_dynamic"
-        })
+        tasks.append(("wrapup", context, "wrapup_1", "wrapup", "wrapup"))
+        
+        # Execute all LLM calls in parallel
+        results = await asyncio.gather(*[
+            _generate_dynamic_question(q_type, q_context, expertise, company_research)
+            for q_type, q_context, _, _, _ in tasks
+        ])
+        
+        # Build questions from results
+        for (q_type, _, q_id, q_type_display, skill_target), result in zip(tasks, results):
+            questions.append({
+                "id": q_id,
+                "type": q_type_display,
+                "question": result["question"],
+                "skill_target": skill_target,
+                "source": "llm_dynamic"
+            })
         
         # Save the plan
         plan = {
@@ -412,7 +389,9 @@ async def generate_dynamic_interview(session_id: str):
             "llm_generated": True,
             "company_research": company_research,
             "questions": questions,
-            "generated_at": str(asyncio.get_event_loop().time())
+            "max_followups": {"fresher": 3, "intermediate": 5, "experienced": 7}.get(expertise, 5),
+            "followup_cache": {},  # populated post-generation if needed
+            "generated_at": str(asyncio.get_running_loop().time())
         }
         
         _write_json(sdir / "interview_plan.json", plan)

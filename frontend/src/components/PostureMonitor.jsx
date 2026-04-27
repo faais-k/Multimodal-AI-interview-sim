@@ -171,7 +171,14 @@ export default function PostureMonitor({ sessionId, stream }) {
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      // Close PoseLandmarker to free resources
+      if (poseRef.current && poseRef.current.close) {
+        poseRef.current.close();
+        poseRef.current = null;
+      }
+    };
   }, [stream]);
 
   // Analysis loop
@@ -200,7 +207,7 @@ export default function PostureMonitor({ sessionId, stream }) {
         metricsRef.current.push({
           posture_score: posture.score,
           posture_label: posture.label,
-          torso_angle:   posture.torsoAngle,
+          spine_height:  posture.torsoAngle,
           hands_visible: true,
           timestamp:     Date.now(),
         });

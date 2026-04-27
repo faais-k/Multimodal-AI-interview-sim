@@ -29,9 +29,22 @@ DEFAULT_MAX_FOLLOWUPS = 5
 
 _state_locks:       dict = {}
 _state_locks_mutex = threading.Lock()
+_MAX_LOCKS = 10000  # Prevent unbounded growth
+
+
+def _cleanup_old_locks():
+    """Remove locks for sessions that no longer exist on disk."""
+    global _state_locks
+    with _state_locks_mutex:
+        if len(_state_locks) > _MAX_LOCKS:
+            # Simple LRU: clear oldest half when exceeding limit
+            keys_to_remove = list(_state_locks.keys())[:_MAX_LOCKS // 2]
+            for key in keys_to_remove:
+                del _state_locks[key]
 
 
 def _get_state_lock(session_id: str) -> asyncio.Lock:
+    _cleanup_old_locks()
     with _state_locks_mutex:
         if session_id not in _state_locks:
             _state_locks[session_id] = asyncio.Lock()
@@ -240,9 +253,9 @@ def record_answer(
         if current_stage == "intro":
             state["cursor"]["stage"] = "project"
         elif current_stage == "project":
-            state["cursor"]["stage"] = "dynamic"
-        elif current_stage == "dynamic" and question_id.startswith("wrapup"):
-            # If we were in dynamic and just answered wrapup, we stay in dynamic 
+            state["cursor"]["stage"] = "technical"
+        elif current_stage == "technical" and question_id.startswith("wrapup"):
+            # If we were in technical and just answered wrapup, we stay in technical
             # (or move to a hypothetical 'end' stage), but 'completed' is what matters.
             pass
 
@@ -429,11 +442,16 @@ def generate_followup_question(
             cache = plan_data.get("followup_cache", {})
             if original_q_id in cache:
                 cached_q = cache[original_q_id]
-                # Consume from cache — remove so it can't be served twice
-                del cache[original_q_id]
-                plan_data["followup_cache"] = cache
-                plan_path.write_text(json.dumps(plan_data, indent=2), encoding="utf-8")
+                # Return question key for caller to handle cache deletion
                 q_text = cached_q
+                cache_key = original_q_id
+                # We'll handle cache deletion in the caller under proper lock
+                return {
+                    "question": q_text,
+                    "type": "followup",
+                    "id": f"followup_{int(time.time())}",
+                    "cache_key": cache_key
+                }
         except Exception:
             pass
 
@@ -752,6 +770,20 @@ def decide_next_question(
             if q:
                 state["followup_depth"][original_q_id] = current_depth + 1
                 _store_question(state, q)
+                
+                # Handle cache deletion under same lock
+                if "cache_key" in q:
+                    plan_path = storage_dir / session_id / "interview_plan.json"
+                    try:
+                        plan_data = json.loads(plan_path.read_text(encoding="utf-8"))
+                        cache = plan_data.get("followup_cache", {})
+                        if q["cache_key"] in cache:
+                            del cache[q["cache_key"]]
+                            plan_data["followup_cache"] = cache
+                            plan_path.write_text(json.dumps(plan_data, indent=2), encoding="utf-8")
+                    except Exception:
+                        pass  # Cache deletion failed but question was already stored
+                
                 write_state(storage_dir, session_id, state)
                 return q
 
@@ -799,7 +831,7 @@ def decide_next_question(
         write_state(storage_dir, session_id, state)
         return q
 
-    # ── Plan questions (dynamic stage) ────────────────────────────────────────
+    # ── Plan questions (technical stage) ─────────────────────────────────────
     asked_ids = {q["id"] for q in state["questions_asked"]}
     for q in plan.get("questions", []):
         if q.get("id") not in asked_ids:

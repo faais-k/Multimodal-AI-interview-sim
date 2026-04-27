@@ -415,7 +415,8 @@ def llm_generate(
 
     # ── Disabled mode ────────────────────────────────────────────────────
     if model is None:
-        return "Please tell me about your experience and the technical challenges you've faced."
+        logger.warning("LLM unavailable — all LLM callers will use fallbacks.")
+        return ""  # empty string, not a human sentence (forces callers to use their own fallbacks)
 
     # ── Local GPU mode: existing Qwen inference ──────────────────────────
     try:

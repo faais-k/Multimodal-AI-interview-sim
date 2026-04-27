@@ -5,7 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     APP_STAGE=production \
     PORT=7860 \
-    STORAGE_DIR=/tmp/ascent-storage
+    STORAGE_DIR=/data/ascent-storage
 
 WORKDIR /app
 

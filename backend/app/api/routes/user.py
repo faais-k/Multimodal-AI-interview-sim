@@ -1,13 +1,18 @@
-from fastapi import APIRouter, Depends
-from typing import List, Dict, Any
-from backend.app.core.auth import get_current_user
+from fastapi import APIRouter, Depends, Request
+from typing import List, Dict, Any, Optional
+from backend.app.core.auth import get_optional_user
 from backend.app.core.database import db_available, get_db
 
 router = APIRouter()
 
 @router.get("/history")
-async def get_user_history(user: dict = Depends(get_current_user)) -> Dict[str, Any]:
-    """Retrieve all past interview reports for the authenticated user."""
+async def get_user_history(request: Request, user: Optional[dict] = Depends(get_optional_user)) -> Dict[str, Any]:
+    """Retrieve all past interview reports for the authenticated user.
+    Guest users receive an empty history."""
+    # Guest users (no auth) get empty history
+    if user is None:
+        return {"status": "ok", "history": []}
+    
     if not db_available():
         return {"status": "ok", "history": []}
         

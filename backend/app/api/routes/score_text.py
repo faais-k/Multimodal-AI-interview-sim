@@ -56,7 +56,7 @@ router = APIRouter()
 
 
 def _storage_dir() -> Path:
-    from backend.app.core.storage import get_storage_dir
+    from backend.app.core.storage import get_storage_dir, write_json_atomic
     return get_storage_dir()
 
 
@@ -401,16 +401,6 @@ async def score_text_answer(payload: dict):
         if not await check_rate_limit(session_id, "score_text", max_requests=60, window_seconds=60):
             raise HTTPException(status_code=429, detail="Too many scoring requests. Please slow down.")
 
-        # ── FUNC-3 FIX: Dedup — if already scored, return cached result ──────
-        safe_qid_check = re.sub(r"[^a-zA-Z0-9_\-]", "_", question_id)[:80]
-        cached_score_path = _storage_dir() / session_id / "scores" / f"{safe_qid_check}.json"
-        if cached_score_path.exists():
-            try:
-                cached = _load_json(cached_score_path)
-                return {"status": "ok", "cached": True, **cached}
-            except Exception:
-                pass  # Corrupt cache — fall through and re-score
-
         # Load resume (file read, outside lock — doesn't touch interview state)
         try:
             parsed_resume = _load_parsed_resume(session_id)
@@ -419,6 +409,15 @@ async def score_text_answer(payload: dict):
 
         # ── SCOPE 1 — read lock (~1ms): extract all needed state then release ──
         async with interview_flow.get_state_lock(session_id):
+            # Check cache inside lock to prevent double-scoring
+            safe_qid_check = re.sub(r"[^a-zA-Z0-9_\-]", "_", question_id)[:80]
+            cached_score_path = _storage_dir() / session_id / "scores" / f"{safe_qid_check}.json"
+            if cached_score_path.exists():
+                try:
+                    cached = _load_json(cached_score_path)
+                    return {"status": "ok", "cached": True, **cached}
+                except Exception:
+                    pass  # Corrupt cache — fall through and re-score
             try:
                 state = _load_state(session_id)
             except FileNotFoundError:
@@ -537,10 +536,8 @@ async def score_text_answer(payload: dict):
             }
 
             out_dir = _storage_dir() / session_id / "scores"
-            out_dir.mkdir(parents=True, exist_ok=True)
-            (out_dir / f"{safe_qid}.json").write_text(
-                json.dumps(score_obj, indent=2), encoding="utf-8"
-            )
+            from backend.app.core.storage import write_json_atomic
+            write_json_atomic(out_dir / f"{safe_qid}.json", score_obj)
 
             return {"status": "ok", **score_obj}
         # ── SCOPE 2 RELEASED ──────────────────────────────────────────────────

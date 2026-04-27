@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 
 from fastapi import APIRouter, HTTPException
 from backend.app.core.validation import validate_session_id
+from backend.app.core.rate_limit import check_rate_limit
 
 router = APIRouter()
 
@@ -30,6 +31,11 @@ def _safe_read(p: Path) -> Dict[str, Any]:
 
 @router.get("/report/{session_id}")
 async def get_full_report(session_id: str):
+    # Rate limit: 10 requests per minute per session
+    allowed = await check_rate_limit(session_id, "get_full_report", max_requests=10, window_seconds=60)
+    if not allowed:
+        raise HTTPException(status_code=429, detail="Too many report requests. Please wait.")
+
     validate_session_id(session_id)
     sdir = _storage_dir() / session_id
     if not sdir.exists():

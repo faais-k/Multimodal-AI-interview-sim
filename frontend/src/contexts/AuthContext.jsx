@@ -3,6 +3,19 @@ import { auth } from "../firebase";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import { googleProvider } from "../firebase";
 
+// Token refresh utility
+async function refreshFirebaseToken() {
+  if (!auth.currentUser) return null;
+  try {
+    const token = await auth.currentUser.getIdToken(true); // force refresh
+    localStorage.setItem("firebase_token", token);
+    return token;
+  } catch (err) {
+    console.error("Token refresh failed:", err);
+    return null;
+  }
+}
+
 const AuthContext = createContext();
 
 export function useAuth() {
@@ -57,7 +70,7 @@ export function AuthProvider({ children }) {
     setIsGuest(false);
     localStorage.removeItem("ascent_guest_user");
     localStorage.removeItem("firebaseToken");
-    if (auth.currentUser) {
+    if (auth && auth.currentUser) {
       return signOut(auth);
     } else {
       setCurrentUser(null);
@@ -107,6 +120,17 @@ export function AuthProvider({ children }) {
     initAuth();
     return () => unsubscribe();
   }, []);
+
+  // Periodic token refresh (every 45 minutes, Firebase tokens expire after 1 hour)
+  useEffect(() => {
+    if (!currentUser || isGuest) return;
+
+    const refreshInterval = setInterval(async () => {
+      await refreshFirebaseToken();
+    }, 45 * 60 * 1000); // 45 minutes
+
+    return () => clearInterval(refreshInterval);
+  }, [currentUser, isGuest]);
 
   const value = {
     currentUser,
