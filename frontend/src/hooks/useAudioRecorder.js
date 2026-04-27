@@ -79,6 +79,8 @@ export function useAudioRecorder() {
       };
 
       mr.onstop = () => {
+        // Small delay to ensure all dataavailable events have fired
+        setTimeout(() => {
         try {
           if (chunksRef.current.length === 0) {
             console.warn("No audio chunks collected.");
@@ -105,6 +107,7 @@ export function useAudioRecorder() {
           setVolume(0);
           setRecording(false);
         }
+        }, 100); // 100ms delay to collect final chunks
       };
       
       // Start recording with 1s timeslice to ensure data is periodically pushed
@@ -132,11 +135,15 @@ export function useAudioRecorder() {
   const stop = useCallback(() => {
     if (mediaRef.current && mediaRef.current.state !== "inactive") {
       mediaRef.current.stop();
-      setRecording(false);
+      // Don't setRecording(false) here - let onstop callback handle it
     }
   }, []);
 
   const reset = useCallback(() => {
+    // Stop any active recording first
+    if (mediaRef.current && mediaRef.current.state !== "inactive") {
+      mediaRef.current.stop();
+    }
     if (audioURL) URL.revokeObjectURL(audioURL);
     setAudioBlob(null);
     setAudioURL(null);
@@ -144,6 +151,7 @@ export function useAudioRecorder() {
     setMicError(null);
     setVolume(0);
     chunksRef.current = [];
+    mediaRef.current = null;
   }, [audioURL]);
 
   useEffect(() => {
