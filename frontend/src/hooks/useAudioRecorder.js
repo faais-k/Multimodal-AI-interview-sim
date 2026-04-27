@@ -32,7 +32,7 @@ export function useAudioRecorder() {
     if (!analyserRef.current) return;
     const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
     analyserRef.current.getByteFrequencyData(dataArray);
-    
+
     // Calculate average volume
     let sum = 0;
     for (let i = 0; i < dataArray.length; i++) {
@@ -40,11 +40,12 @@ export function useAudioRecorder() {
     }
     const avg = sum / dataArray.length;
     setVolume(Math.min(1, avg / 128)); // Normalize roughly to 0-1
-    
-    if (recording) {
+
+    // Use mediaRef to check recording state (avoids stale closure)
+    if (mediaRef.current && mediaRef.current.state === "recording") {
       rafRef.current = requestAnimationFrame(updateVolume);
     }
-  }, [recording]);
+  }, []);
 
   const start = useCallback(async () => {
     setMicError(null);
@@ -126,7 +127,7 @@ export function useAudioRecorder() {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [recording, updateVolume]);
+  }, [recording]);
 
   const stop = useCallback(() => {
     if (mediaRef.current && mediaRef.current.state !== "inactive") {
