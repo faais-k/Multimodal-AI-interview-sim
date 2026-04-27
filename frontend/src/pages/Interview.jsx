@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, Mic, PenLine, SkipForward, CircleStop, AlertTriangle, Activity, VideoOff } from "lucide-react";
+import { Volume2, Mic, PenLine, SkipForward, CircleStop, AlertTriangle, Activity, VideoOff, Send, Square } from "lucide-react";
 import PostureMonitor from "../components/PostureMonitor";
 import { useAudioRecorder } from "../hooks/useAudioRecorder";
 import { useAntiCheat } from "../hooks/useAntiCheat";
@@ -288,7 +288,7 @@ export default function Interview({
 
               {/* Question */}
               <h1 className="text-xl font-medium text-center leading-relaxed mb-8 text-text-primary">
-                {question?.question || "Preparing your next question…"}
+                {loading ? "Fetching your next question..." : (question?.question || "Preparing your next question...")}
               </h1>
 
               {/* Listen Button & Timer */}
@@ -324,7 +324,7 @@ export default function Interview({
                   Skip Question
                 </Button>
                 <Button 
-                  onClick={stopRec}
+                  onClick={stopRecording}
                   className="flex items-center gap-2 bg-semantic-error hover:bg-red-700"
                 >
                   <CircleStop size={16} fill="currentColor" />
@@ -353,7 +353,7 @@ export default function Interview({
 
               {/* Question */}
               <h1 className="text-xl font-medium text-center leading-relaxed mb-6 text-text-primary">
-                {question?.question || "Preparing your next question…"}
+                {loading ? "Fetching your next question..." : (question?.question || "Preparing your next question...")}
               </h1>
 
               {/* Listen Button & Timer */}
