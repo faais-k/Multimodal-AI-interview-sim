@@ -25,8 +25,8 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
     recording,
     audioURL,
     volume,
-    start: startRec,
-    stop: stopRec,
+    startRecording: startRec,
+    stopRecording: stopRec,
     reset: resetRec
   } = useAudioRecorder();
 

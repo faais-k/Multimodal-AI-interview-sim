@@ -68,7 +68,8 @@ export default function Interview({
     volume,
     startRecording, 
     stopRecording, 
-    reset: resetRec 
+    reset: resetRec,
+    mediaRef
   } = useAudioRecorder();
   
   // Wrap startRecording to cancel speech synthesis
