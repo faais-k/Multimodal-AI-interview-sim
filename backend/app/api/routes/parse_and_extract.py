@@ -120,41 +120,126 @@ def _extract_latest_role(text: str) -> str:
     return ""
 
 
-def _format_projects_for_display(projects: List[str]) -> List[Dict]:
-    """Format projects with better names for UI display."""
-    formatted = []
-    for i, proj in enumerate(projects[:4]):  # Top 4 projects
-        # Try to extract a clean name
-        lines = proj.strip().split('\n')
-        first_line = lines[0][:80] if lines else f"Project {i+1}"
+def _extract_project_name(project_text: str) -> str:
+    """Extract a clean project name from project text using multiple heuristics."""
+    lines = [l.strip() for l in project_text.split('\n') if l.strip()]
+    if not lines:
+        return ""
+    
+    # Priority 1: Look for text in quotes (often project names)
+    for line in lines[:3]:
+        match = re.search(r'["\']([^"\']+)["\']', line)
+        if match:
+            name = match.group(1).strip()
+            if 3 < len(name) < 60 and not any(kw in name.lower() for kw in ["bachelor", "master", "degree", "university"]):
+                return name
+    
+    # Priority 2: First line that looks like a title (capitalized, no verbs, reasonable length)
+    for line in lines[:3]:
+        clean = re.sub(r"^[•\-\*#\s▪>◦▸▹]+", "", line).strip()
+        # Skip if contains education keywords
+        if any(kw in clean.lower() for kw in ["bachelor", "master", "degree", "university", "college", "cgpa", "gpa"]):
+            continue
+        # Check if it looks like a project name (multiple capitalized words, tech terms, or specific patterns)
+        words = clean.split()
+        cap_words = [w for w in words if w and w[0].isupper() and w.isalpha()]
+        has_tech_term = any(term in clean.lower() for term in ["app", "api", "web", "system", "platform", "tool", "bot", "dashboard", "analytics", "ml", "ai", "dashboard", "e-commerce", "ecommerce", "website", "portal"])
         
-        # Clean up the first line
-        name = re.sub(r"^[•\-\*#\s]+", "", first_line)
-        if len(name) > 60:
-            name = name[:57] + "..."
+        if 5 < len(clean) < 60:
+            if len(cap_words) >= 1 or has_tech_term or "-" in clean or "_" in clean:
+                return clean
+    
+    # Priority 3: First non-bullet line that's reasonable
+    for line in lines[:2]:
+        clean = re.sub(r"^[•\-\*#\s▪>◦▸▹]+", "", line).strip()
+        clean = re.sub(r'\s+', ' ', clean)
+        if 5 < len(clean) < 60 and not any(kw in clean.lower() for kw in ["developed", "implemented", "using", "with", "and"]):
+            return clean
+    
+    # Fallback: use first line with length limit
+    clean = re.sub(r"^[•\-\*#\s▪>◦▸▹]+", "", lines[0]).strip()
+    if len(clean) > 60:
+        clean = clean[:57] + "..."
+    return clean if len(clean) > 5 else ""
+
+
+def _format_projects_for_display(projects: List[str]) -> Dict:
+    """
+    Format projects with better names for UI display.
+    Returns structured dict with count and list of projects with name and details.
+    """
+    formatted_projects = []
+    
+    for i, proj in enumerate(projects[:6]):  # Top 6 projects
+        name = _extract_project_name(proj)
         
-        formatted.append({
-            "name": name if len(name) > 5 else f"Project {i+1}",
-            "description": proj[:300]
+        # If no name extracted, generate one based on content
+        if not name or len(name) < 3:
+            # Try to infer from description keywords
+            proj_lower = proj.lower()
+            if "app" in proj_lower or "mobile" in proj_lower:
+                name = f"Mobile App Project {i+1}"
+            elif "web" in proj_lower or "website" in proj_lower or "site" in proj_lower:
+                name = f"Web Project {i+1}"
+            elif "api" in proj_lower:
+                name = f"API Project {i+1}"
+            elif "ml" in proj_lower or "machine learning" in proj_lower or "ai" in proj_lower:
+                name = f"ML Project {i+1}"
+            elif "dashboard" in proj_lower or "analytics" in proj_lower:
+                name = f"Dashboard Project {i+1}"
+            else:
+                name = f"Project {i+1}"
+        
+        # Clean up description - remove the name if it appears at start
+        description = proj.strip()
+        if description.lower().startswith(name.lower()):
+            description = description[len(name):].strip()
+            # Remove common separators
+            description = re.sub(r"^[•\-\*#|:–—]\s*", "", description)
+        
+        formatted_projects.append({
+            "name": name,
+            "description": description[:400] if description else proj[:400]
         })
     
-    return formatted
+    return {
+        "total_projects_found": len(projects),
+        "projects_extracted": len(formatted_projects),
+        "projects": formatted_projects
+    }
 
 
-def _extract_top_skills(skills: List[str], n: int = 8) -> List[str]:
-    """Return top N skills, prioritizing technical ones."""
-    priority_skills = [
-        "python", "javascript", "typescript", "java", "react", "nodejs", 
-        "docker", "aws", "sql", "mongodb", "kubernetes", "git",
-        "fastapi", "flask", "django", "angular", "vue", "nextjs"
+def _extract_top_skills(skills: List[str], n: int = 10) -> List[str]:
+    """Return top N skills, prioritizing technical ones by category."""
+    # Tier 1: Most in-demand programming languages and frameworks
+    tier1 = [
+        "python", "javascript", "typescript", "java", "go", "golang", "rust",
+        "react", "react.js", "nextjs", "angular", "vue", "vue.js",
+        "nodejs", "node.js", "fastapi", "flask", "django", "spring", "spring boot",
+        "postgresql", "mysql", "mongodb", "redis", "sql",
+    ]
+    # Tier 2: Cloud, DevOps, and ML/AI
+    tier2 = [
+        "aws", "gcp", "azure", "docker", "kubernetes", "terraform",
+        "github actions", "ci/cd", "jenkins", "linux",
+        "pytorch", "tensorflow", "machine learning", "deep learning",
+        "git", "github", "gitlab",
+    ]
+    # Tier 3: Other technical skills
+    tier3 = [
+        "html", "html5", "css", "css3", "tailwind", "bootstrap",
+        "graphql", "rest api", "websocket", "microservices",
+        "kafka", "spark", "airflow", "elasticsearch",
+        "android", "ios", "react native", "flutter",
     ]
     
-    # Sort skills by priority
+    priority_map = {s: (0, i) for i, s in enumerate(tier1)}
+    priority_map.update({s: (1, i) for i, s in enumerate(tier2)})
+    priority_map.update({s: (2, i) for i, s in enumerate(tier3)})
+    
     def skill_priority(s):
         s_lower = s.lower()
-        if s_lower in priority_skills:
-            return (0, priority_skills.index(s_lower))
-        return (1, 0)
+        return priority_map.get(s_lower, (3, 0))
     
     sorted_skills = sorted(skills, key=skill_priority)
     return sorted_skills[:n]

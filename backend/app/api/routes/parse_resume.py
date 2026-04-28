@@ -29,23 +29,40 @@ GITHUB_RE   = re.compile(r"github\.com/[\w\-]+",      re.IGNORECASE)
 
 # ── Section header patterns ───────────────────────────────────────────────────
 SECTION_PATTERNS = {
-    "summary":        re.compile(r"^\s*(summary|objective|profile|about me|career objective)\s*$", re.IGNORECASE),
-    "skills":         re.compile(r"^\s*(skills?|technical skills?|core competencies|technologies|tech stack)\s*$", re.IGNORECASE),
-    "experience":     re.compile(r"^\s*(experience|work experience|employment|professional experience|internship)\s*$", re.IGNORECASE),
-    "education":      re.compile(r"^\s*(education|academic|qualification|degree)\s*$", re.IGNORECASE),
-    "projects":       re.compile(r"^\s*(projects?|personal projects?|academic projects?|key projects?)\s*$", re.IGNORECASE),
-    "certifications": re.compile(r"^\s*(certifications?|courses?|training|achievements?)\s*$", re.IGNORECASE),
+    "summary":        re.compile(r"^\s*(summary|objective|profile|about me|career objective|professional summary)\s*$", re.IGNORECASE),
+    "skills":         re.compile(r"^\s*(skills?|technical skills?|core competencies|technologies|tech stack|expertise|key skills|programming languages|tools)\s*$", re.IGNORECASE),
+    "experience":     re.compile(r"^\s*(experience|work experience|employment|professional experience|work history|internship|career history)\s*$", re.IGNORECASE),
+    "education":      re.compile(r"^\s*(education|academic|qualification|degree|educational background|academic background|university|college)\s*$", re.IGNORECASE),
+    "projects":       re.compile(r"^\s*(projects?|personal projects?|academic projects?|key projects?|side projects?|portfolio|notable projects)\s*$", re.IGNORECASE),
+    "certifications": re.compile(r"^\s*(certifications?|certificates?|courses?|training|achievements?|awards?|publications?)\s*$", re.IGNORECASE),
 }
 
 EDU_KEYWORDS = [
     "bachelor", "master", "b.sc", "m.sc", "b.tech", "m.tech", "b.e", "m.e",
     "bs", "ms", "ba", "ma", "phd", "ph.d", "mba", "degree", "diploma",
-    "b.com", "bca", "mca", "b.eng", "m.eng",
+    "b.com", "bca", "mca", "b.eng", "m.eng", "b.s.", "m.s.", "b.a.", "m.a.",
+    "high school", "secondary", "senior secondary", "12th", "10th", "ssc", "hsc",
+    "university", "college", "institute", "academy", "school", "polytechnic",
+    "cgpa", "percentage", "gpa", "grade", "first class", "distinction",
+    "computer science", "information technology", "electronics", "electrical",
+    "mechanical", "civil", "biotechnology", "data science",
 ]
 
 PROJECT_KEYWORDS = [
     "project", "built", "developed", "implemented", "created", "designed",
-    "worked on", "contributed", "deployed", "architected", "engineered",
+    "contributed", "deployed", "architected", "engineered", "launched",
+    "published", "shipped", "delivered", "maintained", "optimized",
+    "enhanced", "upgraded", "refactored", "automated", "integrated",
+    "github.com", "gitlab.com", "bitbucket.org", "demo", "live", "production",
+]
+
+# Negative keywords to exclude education entries from projects
+EDU_NEGATIVE_KEYWORDS = [
+    "bachelor", "master", "b.sc", "m.sc", "b.tech", "m.tech", "b.e", "m.e",
+    "bs", "ms", "ba", "ma", "phd", "ph.d", "mba", "degree", "diploma",
+    "cgpa", "gpa", "percentage", "grade", "university", "college", "institute",
+    "academy", "passed", "graduated", "matriculation", "secondary", "high school",
+    "coursework", "thesis", "dissertation", "academic", "semester", "batch",
 ]
 
 # ── Skills list ───────────────────────────────────────────────────────────────
@@ -56,37 +73,121 @@ SKILLS_LIST = [
     "python", "java", "javascript", "typescript", "c language", "c programming",
     "c++", "c#", "go", "golang", "rust", "ruby", "php", "swift", "kotlin",
     "scala", "r", "matlab", "perl", "dart", "lua", "haskell", "elixir", "clojure",
+    "objective-c", "groovy", "vb.net", "vba", "sas", "abap", "apex", "julia",
     # ML/AI
     "pytorch", "tensorflow", "keras", "scikit-learn", "sklearn",
     "machine learning", "deep learning", "nlp", "natural language processing",
     "computer vision", "reinforcement learning", "transformers", "bert", "gpt",
-    "llm", "langchain", "huggingface", "xgboost", "lightgbm", "catboost",
-    "pandas", "numpy", "scipy", "matplotlib", "seaborn", "plotly",
-    "openai", "stable diffusion", "generative ai",
+    "llm", "llama", "langchain", "huggingface", "xgboost", "lightgbm", "catboost",
+    "pandas", "numpy", "scipy", "matplotlib", "seaborn", "plotly", "streamlit",
+    "openai", "stable diffusion", "generative ai", "gemini", "claude", "ollama",
+    "mlflow", "kubeflow", "labelbox", "roboflow", "detectron2", "spacy", "nltk",
+    "tokenization", "embeddings", "vector database", "pinecone", "weaviate",
+    "chroma", "faiss", "milvus", "qdrant", "annoy", "hnsw",
     # Web
-    "react", "vue", "angular", "nextjs", "nuxtjs", "svelte",
-    "nodejs", "express", "fastapi", "flask", "django", "spring", "spring boot",
-    "laravel", "rails", "asp.net", "graphql", "rest api", "websocket",
-    "html", "css", "tailwind", "bootstrap", "sass",
+    "react", "react.js", "vue", "vue.js", "angular", "nextjs", "nuxtjs", "svelte",
+    "sveltekit", "solidjs", "preact", "alpine.js", "htmx", "jquery",
+    "nodejs", "node.js", "express", "fastapi", "flask", "django", "tornado",
+    "spring", "spring boot", "springboot", "quarkus", "micronaut",
+    "laravel", "symfony", "codeigniter", "cakephp", "rails", "ruby on rails",
+    "asp.net", "asp.net core", "blazor", "razor", "mvc", "webapi",
+    "graphql", "apollo", "trpc", "rest api", "restful", "soap", "grpc",
+    "websocket", "socket.io", "pusher", "signalr",
+    "html", "html5", "css", "css3", "sass", "scss", "less",
+    "tailwind", "bootstrap", "material-ui", "mui", "chakra-ui", "antd",
+    "styled-components", "emotion", "postcss", "autoprefixer",
     # Data / DB
-    "sql", "mysql", "postgresql", "sqlite", "mongodb", "redis", "cassandra",
-    "elasticsearch", "firebase", "dynamodb", "neo4j", "supabase",
-    "spark", "hadoop", "kafka", "airflow", "dbt", "snowflake", "bigquery",
-    "tableau", "power bi", "looker",
+    "sql", "mysql", "mariadb", "postgresql", "postgres", "sqlite", "oracle",
+    "mongodb", "mongoose", "redis", "cassandra", "cockroachdb", "cockroach",
+    "elasticsearch", "solr", "meilisearch", "algolia",
+    "firebase", "firestore", "dynamodb", "cosmos db", "cosmosdb",
+    "neo4j", "arangodb", "orientdb", "supabase", "planetscale", "neon",
+    "prisma", "typeorm", "sequelize", "sqlalchemy", "peewee", "hibernate",
+    "entity framework", "ef core", "dapper", "jpa", "jdbc", "odbc",
+    "spark", "hadoop", "hdfs", "yarn", "kafka", "kafka streams", "airflow",
+    "dbt", "snowflake", "bigquery", "redshift", "databricks", "delta lake",
+    "tableau", "power bi", "powerbi", "looker", "metabase", "grafana",
+    "pentaho", "talend", "informatica", "ssis", "ssrs", "ssas",
     # DevOps / Cloud
-    "docker", "kubernetes", "terraform", "ansible", "jenkins", "github actions",
-    "aws", "gcp", "azure", "heroku", "vercel", "netlify",
-    "linux", "bash", "shell scripting", "nginx", "apache",
-    "ci/cd", "devops", "microservices",
+    "docker", "containerd", "podman", "lxc",
+    "kubernetes", "k8s", "helm", "kustomize", "istio", "linkerd",
+    "terraform", "terragrunt", "pulumi", "crossplane",
+    "ansible", "puppet", "chef", "saltstack",
+    "jenkins", "github actions", "gitlab ci", "azure devops", "circleci",
+    "travis ci", "drone", "argo cd", "flux", "spinnaker",
+    "aws", "amazon web services", "ec2", "ecs", "eks", "lambda", "s3",
+    "rds", "sqs", "sns", "eventbridge", "step functions", "api gateway",
+    "cloudformation", "cloudwatch", "iam", "route53", "cloudfront",
+    "gcp", "google cloud", "compute engine", "gke", "cloud run", "cloud functions",
+    "bigquery", "pub/sub", "dataflow", "dataproc",
+    "azure", "azure app service", "azure functions", "aks", "azure devops",
+    "heroku", "railway", "render", "fly.io", "vercel", "netlify", "surge",
+    "linux", "ubuntu", "centos", "debian", "redhat", "rhel", "fedora",
+    "bash", "zsh", "shell scripting", "powershell", "awk", "sed",
+    "nginx", "apache", "httpd", "tomcat", "iis", "caddy", "traefik",
+    "ha proxy", "haproxy", "varnish", "squid",
+    "ci/cd", "cicd", "devops", "devsecops", "sre", "site reliability",
+    "microservices", "monolith", "serverless", "paas", "iaas", "faas",
+    "observability", "monitoring", "logging", "tracing", "opentelemetry",
+    "prometheus", "thanos", "loki", "jaeger", "zipkin", "new relic",
+    "datadog", "sentry", "bugsnag", "rollbar", "pagerduty", "opsgenie",
     # Mobile
-    "android", "ios", "react native", "flutter", "xamarin",
+    "android", "ios", "react native", "flutter", "xamarin", "cordova",
+    "phonegap", "ionic", "capacitor", "swiftui", "jetpack compose",
+    "kotlin multiplatform", "kmp", "realm", "coredata", "sqlite",
+    # Testing
+    "unit testing", "integration testing", "e2e testing", "end to end testing",
+    "jest", "mocha", "chai", "cypress", "playwright", "selenium", "webdriver",
+    "pytest", "unittest", "junit", "testng", "nunit", "xunit", "moq",
+    "cucumber", "bdd", "tdd", "atdd", "specflow", "robot framework",
+    "postman", "insomnia", "restassured", "karate", "soapui",
+    "k6", "jmeter", "loadrunner", "artillery", "locust",
+    # Security
+    "oauth", "oauth2", "openid connect", "oidc", "saml", "jwt", "auth0",
+    "keycloak", "okta", "azure ad", "active directory", "ldap",
+    "encryption", "hashing", "tls", "ssl", "https", "certificates",
+    "penetration testing", "vulnerability scanning", "owasp", "security",
+    "burp suite", "metasploit", "nmap", "wireshark", "kali linux",
     # CV
-    "opencv", "pillow", "mediapipe", "yolo", "object detection",
-    # Tools
-    "git", "github", "gitlab", "bitbucket",
-    "unity", "unreal", "blender",
-    "solidity", "blockchain", "web3",
-    "figma", "photoshop", "illustrator",
+    "opencv", "pillow", "mediapipe", "yolo", "yolov8", "yolov5", "object detection",
+    "image processing", "video processing", "ffmpeg", "computer vision",
+    "ocr", "tesseract", "opencv-python", "scikit-image", "scikit-image",
+    # Tools / Platform
+    "git", "github", "gitlab", "bitbucket", "azure repos", "svn", "mercurial",
+    "jira", "confluence", "trello", "asana", "monday", "notion", "linear",
+    "slack", "teams", "discord", "zoom", "google meet", "webex",
+    "figma", "sketch", "adobe xd", "invision", "framer", "proto.io",
+    "photoshop", "illustrator", "after effects", "premiere", "indesign",
+    "blender", "maya", "3ds max", "cinema 4d", "zbrush", "substance",
+    "unity", "unreal engine", "unreal", "godot", "gamemaker", "cryengine",
+    # Blockchain / Web3
+    "solidity", "vyper", "rust", "move", "cairo",
+    "blockchain", "web3", "ethereum", "bitcoin", "polygon", "solana",
+    "cardano", "avalanche", "fantom", "arbitrum", "optimism", "zksync",
+    "smart contracts", "defi", "nft", "dao", "hardhat", "foundry",
+    "truffle", "ganache", "brownie", "ape", "alchemy", "infura",
+    "the graph", "chainlink", "openzeppelin", "erc20", "erc721", "erc1155",
+    "metamask", "walletconnect", "ipfs", "filecoin", "arweave",
+    # Methodologies / Soft Skills
+    "agile", "scrum", "kanban", "lean", "xp", "extreme programming",
+    "waterfall", "spiral", "iterative", "incremental", "devops", "cicd",
+    "okr", "kpi", "roadmapping", "stakeholder management", "mentoring",
+    "leadership", "team management", "cross-functional", "communication",
+    "problem solving", "critical thinking", "analytical skills", "creativity",
+    "time management", "prioritization", "collaboration", "pair programming",
+    "code review", "technical writing", "documentation", "presentation",
+    # Architecture / Design
+    "system design", "distributed systems", "scalability", "high availability",
+    "fault tolerance", "load balancing", "caching", "cdn", "edge computing",
+    "event-driven", "message queue", "pub sub", "saga pattern", "cqrs",
+    "event sourcing", "ddd", "domain driven design", "clean architecture",
+    "hexagonal architecture", "onion architecture", "micro frontends",
+    "soa", "service oriented architecture", "esb", "api gateway",
+    # Additional Frameworks/Libraries
+    "rxjava", "reactivex", "rxjs", "ktor", "vert.x", "quarkus",
+    "netty", "jetty", "undertow", "electron", "tauri", "neutralino",
+    "nw.js", "cef", "qt", "pyqt", "pyside", "tkinter", "wxpython",
+    "electron", "capacitor", "react native web", "expo", "detox",
 ]
 
 
@@ -144,6 +245,25 @@ def extract_skills(text: str, skills_section: str = "") -> List[str]:
     return sorted(found)
 
 
+def _contains_edu_keywords(text: str) -> bool:
+    """Check if text contains education-related keywords that should exclude it from projects."""
+    text_lower = text.lower()
+    return any(kw in text_lower for kw in EDU_NEGATIVE_KEYWORDS)
+
+
+def _is_likely_project(text: str) -> bool:
+    """Check if text contains strong project indicators (github links, tech stack, deployment)."""
+    text_lower = text.lower()
+    strong_indicators = [
+        "github.com", "gitlab.com", "bitbucket.org", "demo", "live link",
+        "deployed", "hosted on", "available at", "try it", "source code",
+        "repository", "repo", "play store", "app store", "chrome extension",
+        "npm", "pypi", "docker hub", "vercel.app", "netlify.app", "herokuapp",
+        "youtube", "video demo", "screenshot", "architecture", "designed",
+    ]
+    return any(ind in text_lower for ind in strong_indicators)
+
+
 def extract_projects(text: str, projects_section: str = "") -> List[str]:
     blocks: List[str] = []
 
@@ -153,41 +273,65 @@ def extract_projects(text: str, projects_section: str = "") -> List[str]:
         current_block = []
         
         for line in lines:
+            # Skip lines that look like education entries
+            if _contains_edu_keywords(line):
+                if current_block:
+                    block_text = " ".join(current_block)
+                    if len(block_text) > 40 and len(block_text.split()) > 5:
+                        blocks.append(block_text)
+                    current_block = []
+                continue
+            
             # Check if line starts with a bullet point
-            is_bullet = bool(re.match(r"^[\-\*\•\▪\>]\s*", line))
-            # Or if it looks like a standalone project title (short, mostly capitalized, no verbs)
-            is_title = len(line) < 60 and line.istitle() and not any(kw in line.lower() for kw in PROJECT_KEYWORDS)
+            is_bullet = bool(re.match(r"^[\-\*\•\▪\>◦▸▹]\s*", line))
+            # Or if it looks like a standalone project title (short, capitalized words, with tech indicators)
+            is_title = (len(line) < 80 and 
+                       sum(1 for w in line.split() if w and w[0].isupper()) >= 2 and
+                       not any(kw in line.lower() for kw in ["bachelor", "master", "degree", "university"]))
             
             if (is_bullet or is_title) and current_block:
                 block_text = " ".join(current_block)
-                # Only keep blocks that actually describe something (longer than 30 chars, > 5 words)
-                if len(block_text) > 30 and len(block_text.split()) > 5:
+                # Filter: must be long enough, not contain education keywords, and describe something technical
+                if (len(block_text) > 40 and 
+                    len(block_text.split()) > 5 and
+                    not _contains_edu_keywords(block_text) and
+                    (_is_likely_project(block_text) or any(kw in block_text.lower() for kw in PROJECT_KEYWORDS))):
                     blocks.append(block_text)
                 
                 if is_title:
                     current_block = [line]
                 else:
-                    current_block = [re.sub(r"^[\-\*\•\▪\>]\s*", "", line)]
+                    current_block = [re.sub(r"^[\-\*\•\▪\>◦▸▹]\s*", "", line)]
             else:
                 if is_bullet:
-                    line = re.sub(r"^[\-\*\•\▪\>]\s*", "", line)
+                    line = re.sub(r"^[\-\*\•\▪\>◦▸▹]\s*", "", line)
                 current_block.append(line)
                 
         if current_block:
             block_text = " ".join(current_block)
-            if len(block_text) > 30 and len(block_text.split()) > 5:
+            if (len(block_text) > 40 and 
+                len(block_text.split()) > 5 and
+                not _contains_edu_keywords(block_text) and
+                (_is_likely_project(block_text) or any(kw in block_text.lower() for kw in PROJECT_KEYWORDS))):
                 blocks.append(block_text)
 
-    # Heuristic 2: Fallback to searching full text for project keywords
+    # Heuristic 2: Fallback to searching full text for project keywords with stricter filtering
     if not blocks:
         lines = text.splitlines()
         for i, line in enumerate(lines):
             line_lower = line.lower()
-            if any(kw in line_lower for kw in PROJECT_KEYWORDS) and len(line) > 20:
+            # Skip if contains education keywords
+            if _contains_edu_keywords(line):
+                continue
+            # Require strong project indicators in fallback mode
+            if any(kw in line_lower for kw in ["github.com", "project", "built", "developed"]) and len(line) > 20:
                 start = max(0, i)
                 end   = min(len(lines), i + 4)
                 block = " ".join(l.strip() for l in lines[start:end] if l.strip())
-                if len(block) > 40 and len(block.split()) > 5:
+                if (len(block) > 50 and 
+                    len(block.split()) > 6 and
+                    not _contains_edu_keywords(block) and
+                    _is_likely_project(block)):
                     blocks.append(block)
                 if len(blocks) >= 6:
                     break
@@ -197,10 +341,10 @@ def extract_projects(text: str, projects_section: str = "") -> List[str]:
     unique: List[str] = []
     for b in blocks:
         b = re.sub(r"\s+", " ", b).strip()
-        key = b[:40].lower()
-        if key not in seen and len(b) >= 40:
+        key = b[:50].lower()
+        if key not in seen and len(b) >= 50:
             seen.add(key)
-            unique.append(b[:400])
+            unique.append(b[:500])
             
     return unique[:6]
 
