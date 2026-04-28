@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Dict, Any
 from pathlib import Path
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from backend.app.core.storage import get_storage_dir
 from backend.app.core.auth import get_optional_user
 from backend.app.core.db_ops import log_violation_db

@@ -232,7 +232,10 @@ async def skip_question(session_id: str, question_id: str = None):
                     is_final = True
                     break
             
-            if is_final or question_id.startswith("wrapup"):
+            questions_asked_count = len(state.get("questions_asked", []))
+            minimum_questions_before_completion = 5  # intro + project + at least 3 more
+            
+            if (is_final or question_id.startswith("wrapup")) and questions_asked_count >= minimum_questions_before_completion:
                 state["completed"] = True
                 
             write_state(storage, session_id, state)

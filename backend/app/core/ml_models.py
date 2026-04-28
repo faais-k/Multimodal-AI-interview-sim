@@ -323,7 +323,6 @@ def _hf_api_generate(prompt: str, max_new_tokens: int = 512, temperature: float 
 
     if not _HF_TOKEN:
         # Log warning once about missing token
-        import logging
         logging.getLogger(__name__).warning(
             "HF_TOKEN not set - using LLM fallback. "
             "Set HF_TOKEN environment variable for full LLM features."

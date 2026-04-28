@@ -274,7 +274,12 @@ def record_answer(
                 break
 
     # Completion check
-    if (asked_question and asked_question.get("is_final") is True) or question_id.startswith("wrapup"):
+    # Only complete if: (1) the answered question is marked is_final, or (2) it's a wrapup question
+    # AND we should verify that we've actually gone through the interview flow
+    questions_asked_count = len(state.get("questions_asked", []))
+    minimum_questions_before_completion = 5  # intro + project + at least 3 more
+    
+    if ((asked_question and asked_question.get("is_final") is True) or question_id.startswith("wrapup")) and questions_asked_count >= minimum_questions_before_completion:
         state["completed"] = True
 
     write_state(storage_dir, session_id, state)
