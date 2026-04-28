@@ -24,9 +24,18 @@ export function useAudioRecorder() {
   
   const mediaRef  = useRef(null);
   const chunksRef = useRef([]);
+  const audioURLRef = useRef(null);
+  const suppressStopBlobRef = useRef(false);
   const audioCtxRef = useRef(null);
   const analyserRef = useRef(null);
   const rafRef = useRef(null);
+
+  const revokeAudioURL = useCallback(() => {
+    if (audioURLRef.current) {
+      URL.revokeObjectURL(audioURLRef.current);
+      audioURLRef.current = null;
+    }
+  }, []);
 
   const updateVolume = useCallback(() => {
     if (!analyserRef.current) return;
@@ -50,7 +59,8 @@ export function useAudioRecorder() {
   const start = useCallback(async () => {
     setMicError(null);
     
-    if (audioURL) URL.revokeObjectURL(audioURL);
+    suppressStopBlobRef.current = false;
+    revokeAudioURL();
     setAudioBlob(null);
     setAudioURL(null);
     setVolume(0);
@@ -82,6 +92,9 @@ export function useAudioRecorder() {
         // Small delay to ensure all dataavailable events have fired
         setTimeout(() => {
         try {
+          if (suppressStopBlobRef.current) {
+            return;
+          }
           if (chunksRef.current.length === 0) {
             console.warn("No audio chunks collected.");
             setMicError("No audio was captured. Please speak into the microphone.");
@@ -91,6 +104,7 @@ export function useAudioRecorder() {
 
           const blob = new Blob(chunksRef.current, { type: mimeType || "audio/webm" });
           const newURL = URL.createObjectURL(blob);
+          audioURLRef.current = newURL;
           setAudioBlob(blob);
           setAudioURL(newURL);
         } catch (err) {
@@ -118,7 +132,7 @@ export function useAudioRecorder() {
       console.error("Mic access failed:", e);
       setMicError("Microphone access denied. Please allow microphone access and try again.");
     }
-  }, [audioURL]);
+  }, [revokeAudioURL]);
 
   useEffect(() => {
     if (recording) {
@@ -142,9 +156,10 @@ export function useAudioRecorder() {
   const reset = useCallback(() => {
     // Stop any active recording first
     if (mediaRef.current && mediaRef.current.state !== "inactive") {
+      suppressStopBlobRef.current = true;
       mediaRef.current.stop();
     }
-    if (audioURL) URL.revokeObjectURL(audioURL);
+    revokeAudioURL();
     setAudioBlob(null);
     setAudioURL(null);
     setRecording(false);
@@ -152,13 +167,13 @@ export function useAudioRecorder() {
     setVolume(0);
     chunksRef.current = [];
     mediaRef.current = null;
-  }, [audioURL]);
+  }, [revokeAudioURL]);
 
   useEffect(() => {
     return () => {
-      if (audioURL) URL.revokeObjectURL(audioURL);
+      revokeAudioURL();
     };
-  }, [audioURL]);
+  }, [revokeAudioURL]);
 
   return { 
     recording, 

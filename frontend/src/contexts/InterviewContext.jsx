@@ -134,6 +134,25 @@ export function InterviewProvider({ children }) {
                 sessionId: sid
               }
             });
+          } else if (storedStep === "interview" && status.status === "active") {
+            // Last answer was already saved, but no unanswered question is active.
+            // This happens after a refresh between scoring and fetching the next question.
+            const next = await api.nextQuestion(sid);
+            if (next.status === "completed" || next.status === "awaiting_wrapup_answer" || !next.question) {
+              dispatch({ type: "CLEAR_QUESTION" });
+              dispatch({ type: "SET_STEP", v: "processing" });
+            } else {
+              dispatch({
+                type: "RESTORE_STATE",
+                state: {
+                  step: "interview",
+                  question: next.question,
+                  questionNumber: (status.questions_asked_count || 0) + 1,
+                  totalQuestions: next.total_questions || status.total_questions,
+                  sessionId: sid
+                }
+              });
+            }
           }
           // If no active question, user stays at their current step
         } catch (e) {
@@ -158,8 +177,13 @@ export function InterviewProvider({ children }) {
     try {
       await api.startInterview(state.sessionId);
       const res = await api.nextQuestion(state.sessionId);
-      dispatch({ type: "SET_QUESTION", v: res.question, total: res.total_questions || 0 });
-      setStep("interview");
+      if (res.status === "completed" || res.status === "awaiting_wrapup_answer" || !res.question) {
+        setLoading(false);
+        setStep("processing");
+      } else {
+        dispatch({ type: "SET_QUESTION", v: res.question, total: res.total_questions || 0 });
+        setStep("interview");
+      }
     } catch (e) {
       setError(e.message || "Could not start interview.");
     }
@@ -226,7 +250,7 @@ export function InterviewProvider({ children }) {
     try {
       // Use formal skip endpoint that properly updates backend state
       const result = await api.skipQuestion(state.sessionId, state.question.id);
-      if (!result.next_question || result.next_question?.status === "completed") {
+      if (!result.next_question) {
         setStep("processing");
         return;
       }
