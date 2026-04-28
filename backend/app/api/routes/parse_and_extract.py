@@ -134,77 +134,133 @@ def _extract_project_name(project_text: str) -> str:
             if 3 < len(name) < 60 and not any(kw in name.lower() for kw in ["bachelor", "master", "degree", "university"]):
                 return name
     
-    # Priority 2: First line that looks like a title (capitalized, no verbs, reasonable length)
+    # Priority 2: First line that looks like a project name
     for line in lines[:3]:
         clean = re.sub(r"^[•\-\*#\s▪>◦▸▹]+", "", line).strip()
         # Skip if contains education keywords
         if any(kw in clean.lower() for kw in ["bachelor", "master", "degree", "university", "college", "cgpa", "gpa"]):
             continue
-        # Check if it looks like a project name (multiple capitalized words, tech terms, or specific patterns)
+        # Skip if it's a clear description starter
+        if clean.lower().startswith(("developed", "implemented", "created", "built", "using", "with")):
+            continue
+            
+        # Check if it looks like a project name
         words = clean.split()
-        cap_words = [w for w in words if w and w[0].isupper() and w.isalpha()]
-        has_tech_term = any(term in clean.lower() for term in ["app", "api", "web", "system", "platform", "tool", "bot", "dashboard", "analytics", "ml", "ai", "dashboard", "e-commerce", "ecommerce", "website", "portal"])
+        clean_lower = clean.lower()
         
-        if 5 < len(clean) < 60:
-            if len(cap_words) >= 1 or has_tech_term or "-" in clean or "_" in clean:
+        # Tech keywords that indicate project names (including AI/ML terms)
+        tech_terms = [
+            "app", "api", "web", "system", "platform", "tool", "bot", "dashboard", 
+            "analytics", "ml", "ai", "e-commerce", "ecommerce", "website", "portal",
+            "multimodal", "simulator", "interview", "generator", "classifier",
+            "detector", "recognition", "chatbot", "assistant", "recommender",
+            "prediction", "forecasting", "optimization", "automation",
+            "scraper", "crawler", "parser", "converter", "translator",
+            "tracker", "manager", "scheduler", "calculator", "visualizer"
+        ]
+        has_tech_term = any(term in clean_lower for term in tech_terms)
+        
+        # GitHub-style repo names (kebab-case or snake_case)
+        has_repo_style = "-" in clean or "_" in clean
+        
+        # Has at least one capitalized word (traditional title)
+        cap_words = [w for w in words if w and w[0].isupper() and w.isalpha()]
+        
+        # Accept if reasonable length and has some project-like quality
+        if 3 < len(clean) < 60:
+            # Accept tech-heavy names even if lowercase
+            if has_tech_term or has_repo_style or len(cap_words) >= 1:
                 return clean
+            # Accept short descriptive names (2-5 words, no obvious action verbs)
+            if 2 <= len(words) <= 6:
+                action_verbs = ["developed", "implemented", "created", "built", "designed", "worked", "made", "using", "with", "and", "the", "for"]
+                if not any(words[0].lower().startswith(v) for v in action_verbs):
+                    return clean
     
-    # Priority 3: First non-bullet line that's reasonable
+    # Priority 3: First reasonable line that's not a clear description
     for line in lines[:2]:
         clean = re.sub(r"^[•\-\*#\s▪>◦▸▹]+", "", line).strip()
         clean = re.sub(r'\s+', ' ', clean)
-        if 5 < len(clean) < 60 and not any(kw in clean.lower() for kw in ["developed", "implemented", "using", "with", "and"]):
+        clean_lower = clean.lower()
+        
+        # Skip education keywords
+        if any(kw in clean_lower for kw in ["bachelor", "master", "degree", "university", "college"]):
+            continue
+        # Skip clear action starters
+        if clean_lower.startswith(("developed", "implemented", "created", "built", "designed", "using", "with", "and", "the")):
+            continue
+            
+        if 3 < len(clean) < 60:
             return clean
     
     # Fallback: use first line with length limit
     clean = re.sub(r"^[•\-\*#\s▪>◦▸▹]+", "", lines[0]).strip()
     if len(clean) > 60:
         clean = clean[:57] + "..."
-    return clean if len(clean) > 5 else ""
+    return clean if len(clean) > 3 else ""
 
 
-def _format_projects_for_display(projects: List[str]) -> Dict:
+def _format_projects_for_display(projects: List[Dict]) -> Dict:
     """
     Format projects with better names for UI display.
-    Returns structured dict with count and list of projects with name and details.
+    Input: List of dicts with 'name', 'tech_stack', 'details', 'confidence'
+    Returns structured dict with count, confidence info, and list of projects.
     """
     formatted_projects = []
+    total_confidence = 0.0
+    low_confidence_count = 0
     
     for i, proj in enumerate(projects[:6]):  # Top 6 projects
-        name = _extract_project_name(proj)
+        # Get name from the structured data
+        name = proj.get("name", "").strip()
+        tech_stack = proj.get("tech_stack", "").strip()
+        details = proj.get("details", "").strip()
+        confidence = proj.get("confidence", 0.0)
+        extraction_method = proj.get("extraction_method", "unknown")
         
-        # If no name extracted, generate one based on content
+        # Track confidence stats
+        total_confidence += confidence
+        if confidence < 0.5:
+            low_confidence_count += 1
+        
+        # If no name or too short, try to extract better
         if not name or len(name) < 3:
-            # Try to infer from description keywords
-            proj_lower = proj.lower()
-            if "app" in proj_lower or "mobile" in proj_lower:
-                name = f"Mobile App Project {i+1}"
-            elif "web" in proj_lower or "website" in proj_lower or "site" in proj_lower:
-                name = f"Web Project {i+1}"
-            elif "api" in proj_lower:
-                name = f"API Project {i+1}"
-            elif "ml" in proj_lower or "machine learning" in proj_lower or "ai" in proj_lower:
-                name = f"ML Project {i+1}"
-            elif "dashboard" in proj_lower or "analytics" in proj_lower:
-                name = f"Dashboard Project {i+1}"
-            else:
-                name = f"Project {i+1}"
+            name = _extract_project_name(details) if details else f"Project {i+1}"
         
-        # Clean up description - remove the name if it appears at start
-        description = proj.strip()
-        if description.lower().startswith(name.lower()):
-            description = description[len(name):].strip()
-            # Remove common separators
-            description = re.sub(r"^[•\-\*#|:–—]\s*", "", description)
+        # Build description with tech stack + details
+        description_parts = []
+        if tech_stack:
+            description_parts.append(f"Tech: {tech_stack}")
+        if details:
+            description_parts.append(details)
+        
+        description = "\n".join(description_parts) if description_parts else "No details available"
         
         formatted_projects.append({
-            "name": name,
-            "description": description[:400] if description else proj[:400]
+            "name": name if len(name) > 3 else f"Project {i+1}",
+            "tech_stack": tech_stack,
+            "description": description[:500],
+            "confidence": round(confidence, 2),
+            "extraction_method": extraction_method
         })
+    
+    # Calculate overall extraction quality
+    avg_confidence = total_confidence / len(projects) if projects else 0.0
+    
+    # Quality indicator
+    if avg_confidence >= 0.7:
+        quality = "high"
+    elif avg_confidence >= 0.4:
+        quality = "medium"
+    else:
+        quality = "low"
     
     return {
         "total_projects_found": len(projects),
         "projects_extracted": len(formatted_projects),
+        "average_confidence": round(avg_confidence, 2),
+        "extraction_quality": quality,
+        "low_confidence_warnings": low_confidence_count,
         "projects": formatted_projects
     }
 

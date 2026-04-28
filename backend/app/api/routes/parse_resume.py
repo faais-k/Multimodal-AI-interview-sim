@@ -5,7 +5,7 @@ Resume Parser — PDF and DOCX text extraction with structured field detection.
 import json
 import re
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import docx2txt
 import pdfplumber
@@ -251,6 +251,15 @@ def _contains_edu_keywords(text: str) -> bool:
     return any(kw in text_lower for kw in EDU_NEGATIVE_KEYWORDS)
 
 
+def _is_section_header(text: str) -> bool:
+    """Check if text looks like a section header (EDUCATION, EXPERIENCE, etc.)."""
+    section_headers = ["education", "experience", "work", "employment", "internship", 
+                      "certifications", "skills", "languages", "interests", "references",
+                      "academic", "publications", "awards", "achievements"]
+    text_clean = re.sub(r"[^\w]", "", text.lower())
+    return any(header in text_clean for header in section_headers)
+
+
 def _is_likely_project(text: str) -> bool:
     """Check if text contains strong project indicators (github links, tech stack, deployment)."""
     text_lower = text.lower()
@@ -260,93 +269,261 @@ def _is_likely_project(text: str) -> bool:
         "repository", "repo", "play store", "app store", "chrome extension",
         "npm", "pypi", "docker hub", "vercel.app", "netlify.app", "herokuapp",
         "youtube", "video demo", "screenshot", "architecture", "designed",
+        "implemented", "built", "developed", "created",
     ]
     return any(ind in text_lower for ind in strong_indicators)
 
 
-def extract_projects(text: str, projects_section: str = "") -> List[str]:
-    blocks: List[str] = []
+def _is_project_title(line: str) -> bool:
+    """
+    Determine if a line is likely a project title.
+    Project titles typically:
+    - Have multiple capitalized words
+    - Are followed by tech stack or bullet points
+    - Don't start with action verbs like 'Developed', 'Built'
+    - Don't contain education keywords
+    """
+    if not line or len(line) > 100:
+        return False
+    
+    # Skip if contains education keywords
+    if _contains_edu_keywords(line):
+        return False
+    
+    # Skip if starts with action verbs (these are description lines, not titles)
+    action_starters = ["developed", "implemented", "built", "created", "designed", 
+                      "worked", "made", "using", "with", "and", "the", "for", "to",
+                      "architected", "engineered", "programmed", "coded"]
+    line_lower = line.lower()
+    first_word = line.split()[0].lower() if line.split() else ""
+    if first_word in action_starters:
+        return False
+    
+    # Check for bullet point - if it's a bullet, it's not a title
+    if re.match(r"^[\-\*\•\▪\>◦▸▹]\s*", line):
+        return False
+    
+    # Count capitalized words (at least 2 capitalized words usually indicates a title)
+    words = line.split()
+    cap_words = [w for w in words if w and w[0].isupper() and w.isalpha() and len(w) > 1]
+    
+    # Has tech terms (indicates project title with tech stack)
+    tech_terms = [
+        "react", "python", "javascript", "typescript", "angular", "vue", "node",
+        "fastapi", "flask", "django", "spring", "aws", "docker", "kubernetes",
+        "tensorflow", "pytorch", "scikit", "pandas", "numpy", "mongodb", "postgres",
+        "mysql", "redis", "firebase", "supabase", "vercel", "netlify", "heroku",
+        "github", "gitlab", "api", "app", "web", "mobile", "frontend", "backend",
+        "full-stack", "fullstack", "microservices", "serverless", "cloud", "ml",
+        "ai", "machine learning", "deep learning", "nlp", "computer vision",
+    ]
+    has_tech = any(term in line_lower for term in tech_terms)
+    
+    # Title indicators: multiple capitalized words OR tech stack present
+    if len(cap_words) >= 2:
+        return True
+    if has_tech and len(words) <= 15:  # Tech stack lines are usually short
+        return True
+    
+    return False
 
-    # Heuristic 1: Look for bullet points or project titles in the projects section
-    if projects_section.strip():
-        lines = [l.strip() for l in projects_section.splitlines() if l.strip()]
-        current_block = []
+
+def _calculate_project_confidence(project: Dict, used_heuristic: str) -> float:
+    """
+    Calculate confidence score (0.0 to 1.0) for a project extraction.
+    Higher score = more likely to be a real project.
+    """
+    score = 0.0
+    name = project.get("name", "")
+    tech_stack = project.get("tech_stack", "")
+    details = project.get("details", "")
+    
+    # 1. Name quality (max 0.4)
+    if name:
+        # Good length
+        if 10 <= len(name) <= 60:
+            score += 0.15
+        elif len(name) > 5:
+            score += 0.1
         
-        for line in lines:
-            # Skip lines that look like education entries
-            if _contains_edu_keywords(line):
-                if current_block:
-                    block_text = " ".join(current_block)
-                    if len(block_text) > 40 and len(block_text.split()) > 5:
-                        blocks.append(block_text)
-                    current_block = []
-                continue
+        # Has capitalized words (proper title)
+        cap_words = [w for w in name.split() if w and w[0].isupper()]
+        if len(cap_words) >= 2:
+            score += 0.15
+        elif len(cap_words) >= 1:
+            score += 0.1
+        
+        # Not generic name
+        generic = ["project", "app", "application", "system", "tool"]
+        if not any(g in name.lower() for g in generic):
+            score += 0.1
+    
+    # 2. Tech stack quality (max 0.3)
+    if tech_stack:
+        tech_count = len([t for t in tech_stack.split(",") if t.strip()])
+        if tech_count >= 3:
+            score += 0.3
+        elif tech_count >= 2:
+            score += 0.2
+        elif tech_count >= 1:
+            score += 0.1
+    
+    # 3. Details quality (max 0.3)
+    if details:
+        bullet_count = details.count("•")
+        if bullet_count >= 2:
+            score += 0.2
+        elif bullet_count >= 1:
+            score += 0.15
+        
+        # Reasonable length
+        if 100 <= len(details) <= 1000:
+            score += 0.1
+        elif len(details) > 50:
+            score += 0.05
+    
+    # 4. Extraction method bonus (max 0.1)
+    if used_heuristic == "pipe_separator":
+        score += 0.1  # Clear delimiter found = high confidence
+    elif used_heuristic == "tech_word_split":
+        score += 0.05  # Heuristic split = medium confidence
+    
+    return min(score, 1.0)
+
+
+def extract_projects(text: str, projects_section: str = "") -> List[Dict]:
+    """
+    Extract projects with proper structure: name, tech_stack, details, and confidence.
+    
+    Returns list of dicts like:
+    {
+        "name": "Project Name",
+        "tech_stack": "React, Node.js, MongoDB",
+        "details": "Full description with bullet points...",
+        "confidence": 0.85,
+        "extraction_method": "tech_word_split"
+    }
+    """
+    projects: List[Dict] = []
+    
+    section_to_parse = projects_section.strip() if projects_section.strip() else text
+    if not section_to_parse:
+        return projects
+    
+    lines = section_to_parse.splitlines()
+    current_project: Optional[Dict] = None
+    current_lines: List[str] = []
+    current_extraction_method = ""
+    
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        
+        # Skip empty lines
+        if not line:
+            i += 1
+            continue
+        
+        # Stop if we hit a new section header (Education, Experience, etc.)
+        if _is_section_header(line) and not _is_project_title(line):
+            # Save current project if exists
+            if current_project and current_lines:
+                current_project["details"] = "\n".join(current_lines).strip()
+                if len(current_project["details"]) > 20:
+                    current_project["confidence"] = _calculate_project_confidence(
+                        current_project, current_extraction_method
+                    )
+                    projects.append(current_project)
+            break
+        
+        # Check if this line is a project title
+        if _is_project_title(line):
+            # Save previous project if exists
+            if current_project and current_lines:
+                current_project["details"] = "\n".join(current_lines).strip()
+                if len(current_project["details"]) > 20:
+                    current_project["confidence"] = _calculate_project_confidence(
+                        current_project, current_extraction_method
+                    )
+                    projects.append(current_project)
             
-            # Check if line starts with a bullet point
-            is_bullet = bool(re.match(r"^[\-\*\•\▪\>◦▸▹]\s*", line))
-            # Or if it looks like a standalone project title (short, capitalized words, with tech indicators)
-            is_title = (len(line) < 80 and 
-                       sum(1 for w in line.split() if w and w[0].isupper()) >= 2 and
-                       not any(kw in line.lower() for kw in ["bachelor", "master", "degree", "university"]))
+            # Start new project
+            # Try to separate project name from tech stack
+            # Common format: "Project Name Tech1, Tech2, Tech3" or "Project Name | Tech1, Tech2"
             
-            if (is_bullet or is_title) and current_block:
-                block_text = " ".join(current_block)
-                # Filter: must be long enough, not contain education keywords, and describe something technical
-                if (len(block_text) > 40 and 
-                    len(block_text.split()) > 5 and
-                    not _contains_edu_keywords(block_text) and
-                    (_is_likely_project(block_text) or any(kw in block_text.lower() for kw in PROJECT_KEYWORDS))):
-                    blocks.append(block_text)
-                
-                if is_title:
-                    current_block = [line]
-                else:
-                    current_block = [re.sub(r"^[\-\*\•\▪\>◦▸▹]\s*", "", line)]
+            # Look for pipe separator or common delimiters
+            parts = re.split(r'\s*[|\-–—]\s*', line, maxsplit=1)
+            if len(parts) == 2:
+                name = parts[0].strip()
+                tech_stack = parts[1].strip()
+                current_extraction_method = "pipe_separator"
             else:
-                if is_bullet:
-                    line = re.sub(r"^[\-\*\•\▪\>◦▸▹]\s*", "", line)
-                current_block.append(line)
+                # Try to detect where name ends and tech stack begins
+                # Heuristic: tech stack often has commas, or contains known tech terms
+                words = line.split()
+                name_words = []
+                tech_words = []
                 
-        if current_block:
-            block_text = " ".join(current_block)
-            if (len(block_text) > 40 and 
-                len(block_text.split()) > 5 and
-                not _contains_edu_keywords(block_text) and
-                (_is_likely_project(block_text) or any(kw in block_text.lower() for kw in PROJECT_KEYWORDS))):
-                blocks.append(block_text)
-
-    # Heuristic 2: Fallback to searching full text for project keywords with stricter filtering
-    if not blocks:
-        lines = text.splitlines()
-        for i, line in enumerate(lines):
-            line_lower = line.lower()
-            # Skip if contains education keywords
-            if _contains_edu_keywords(line):
-                continue
-            # Require strong project indicators in fallback mode
-            if any(kw in line_lower for kw in ["github.com", "project", "built", "developed"]) and len(line) > 20:
-                start = max(0, i)
-                end   = min(len(lines), i + 4)
-                block = " ".join(l.strip() for l in lines[start:end] if l.strip())
-                if (len(block) > 50 and 
-                    len(block.split()) > 6 and
-                    not _contains_edu_keywords(block) and
-                    _is_likely_project(block)):
-                    blocks.append(block)
-                if len(blocks) >= 6:
-                    break
-
-    # Deduplicate and clean up
-    seen: set = set()
-    unique: List[str] = []
-    for b in blocks:
-        b = re.sub(r"\s+", " ", b).strip()
-        key = b[:50].lower()
-        if key not in seen and len(b) >= 50:
-            seen.add(key)
-            unique.append(b[:500])
+                for word in words:
+                    clean_word = re.sub(r'[^\w]', '', word.lower())
+                    # If word is a known tech term or has comma/parentheses, it's part of tech stack
+                    is_tech = any(t in clean_word for t in [
+                        "react", "angular", "vue", "node", "python", "javascript",
+                        "typescript", "java", "go", "rust", "sql", "mongo", "postgres",
+                        "aws", "docker", "kubernetes", "tensorflow", "pytorch",
+                        "scikit", "pandas", "numpy", "api", "app", "web", "ml", "ai"
+                    ])
+                    has_punct = any(c in word for c in [",", "(", ")", "-", "+", "."])
+                    
+                    if is_tech or has_punct or (tech_words and word.lower() not in ["and", "with", "using"]):
+                        tech_words.append(word)
+                    elif not tech_words:
+                        name_words.append(word)
+                    else:
+                        tech_words.append(word)
+                
+                if name_words and tech_words:
+                    name = " ".join(name_words)
+                    tech_stack = " ".join(tech_words)
+                    current_extraction_method = "tech_word_split"
+                else:
+                    # Can't separate, use whole line as name
+                    name = line
+                    tech_stack = ""
+                    current_extraction_method = "no_split"
             
-    return unique[:6]
+            # Clean up name
+            name = re.sub(r"^[\-\*\•\▪\>◦▸▹#]+\s*", "", name)
+            
+            current_project = {
+                "name": name,
+                "tech_stack": tech_stack,
+                "details": "",
+                "extraction_method": current_extraction_method
+            }
+            current_lines = []
+        
+        elif current_project is not None:
+            # This is part of the current project's details
+            # Remove bullet markers but keep the structure
+            clean_line = re.sub(r"^[\-\*\•\▪\>◦▸▹]\s*", "• ", line)
+            current_lines.append(clean_line)
+        
+        i += 1
+    
+    # Don't forget the last project
+    if current_project and current_lines:
+        current_project["details"] = "\n".join(current_lines).strip()
+        if len(current_project["details"]) > 20:
+            current_project["confidence"] = _calculate_project_confidence(
+                current_project, current_extraction_method
+            )
+            # Ensure extraction_method is set
+            if "extraction_method" not in current_project:
+                current_project["extraction_method"] = current_extraction_method
+            projects.append(current_project)
+    
+    return projects[:6]
 
 
 def extract_education(text: str, edu_section: str = "") -> List[dict]:
