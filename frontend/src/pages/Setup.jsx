@@ -169,7 +169,7 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
     <div className="min-h-screen bg-surface-base">
       {/* Minimal Header */}
       <header className="border-b border-border">
-        <div className="max-w-2xl mx-auto px-6 h-14 flex items-center">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center">
           <div className="flex items-center gap-2">
             {onBack && (
               <button 
@@ -193,7 +193,7 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
       </header>
 
       {/* Main Content */}
-      <main className="max-w-2xl mx-auto px-6 py-12">
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -217,7 +217,7 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
               >
                 <div
                   className={cn(
-                    "border-2 border-dashed border-border rounded-md p-12 text-center transition-all duration-250 cursor-pointer bg-surface-base",
+                    "border-2 border-dashed border-border rounded-md p-8 sm:p-12 text-center transition-all duration-250 cursor-pointer bg-surface-base",
                     drag && "border-veridian bg-veridian-subtle/20"
                   )}
                   onDragOver={e => { e.preventDefault(); setDrag(true); }}
@@ -356,7 +356,7 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
               }
             }}
           >
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1.5">Full Name *</label>
                 <input
@@ -379,7 +379,7 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1.5">
                   Target Company <span className="text-text-muted font-normal">(optional)</span>

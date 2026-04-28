@@ -208,7 +208,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
     <div className="min-h-screen bg-surface-base">
       {/* Header */}
       <header className="border-b border-border">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center">
           <div className="flex items-center gap-2">
             <svg width="24" height="24" viewBox="0 0 36 36" fill="none">
               <rect width="36" height="36" rx="6" fill="#059669"/>
@@ -224,7 +224,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-6 py-10">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -236,9 +236,9 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
             <p className="text-text-secondary">Verify your environment before the interview begins.</p>
           </div>
 
-          <div className="grid grid-cols-12 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
             {/* Checklist (60%) */}
-            <div className="col-span-7 space-y-4">
+            <div className="lg:col-span-7 space-y-4 min-w-0">
               {checklistItems.map((item, idx) => (
                 <motion.div
                   key={item.id}
@@ -251,7 +251,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
                     item.done ? "border-veridian bg-veridian-subtle/10" : 
                     item.status === "generating" ? "border-semantic-warning bg-semantic-warning-bg/30" : ""
                   )}>
-                    <div className="flex items-start gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                       <div className={cn(
                         "w-10 h-10 rounded-sm flex items-center justify-center transition-all",
                         item.done ? "bg-veridian text-white" :
@@ -275,7 +275,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
                         )}
                       </div>
                       <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-1">
                           <h3 className={cn(
                             "font-semibold",
                             item.done ? "text-text-primary" : "text-text-primary"
@@ -314,7 +314,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
                               <span className="text-xs text-text-muted font-mono">{Math.round(volume * 100)}%</span>
                             </div>
                             
-                            <div className="flex items-center gap-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                               {!testRecording && (
                                 <Button size="sm" variant="outline" onClick={startMicTest} className="h-8 text-xs">
                                   <Mic size={14} className="mr-1.5" /> Test Mic (3s)
@@ -329,7 +329,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
                               
                               {audioURL && !testRecording && (
                                 <div className="flex items-center gap-2 w-full">
-                                  <audio src={audioURL} controls className="h-8 flex-1 max-w-[200px]" />
+                                  <audio src={audioURL} controls className="h-8 flex-1 min-w-0 sm:max-w-[200px]" />
                                   <Button size="sm" variant="ghost" onClick={() => resetRec()} className="h-8 px-2">
                                     <RefreshCw size={14} />
                                   </Button>
@@ -356,14 +356,14 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
               )}
 
               {/* Begin Button */}
-              <div className="pt-6 border-t border-border flex items-center justify-between">
+              <div className="pt-6 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <p className="text-sm text-text-secondary">
                   <span className="text-veridian font-medium">{completedChecks}</span> of <span className="font-medium">{checklistItems.length}</span> checks complete
                 </p>
                 <Button 
                   onClick={begin}
                   disabled={starting || (generating && !genError) || (checks.mic && !micCalibrated)}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 w-full sm:w-auto"
                   size="lg"
                 >
                   {starting ? (
@@ -389,7 +389,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
             </div>
 
             {/* Camera Preview & Session Details (40%) */}
-            <div className="col-span-5 space-y-6">
+            <div className="lg:col-span-5 space-y-6 min-w-0">
               {/* Camera Preview */}
               <Card className="overflow-hidden">
                 <div className="aspect-video bg-text-primary relative flex items-center justify-center">

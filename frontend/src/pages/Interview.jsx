@@ -623,7 +623,7 @@ export default function Interview({
         </AnimatePresence>
 
         {/* Camera Picture-in-Picture */}
-        <Card className="fixed bottom-6 right-6 w-56 overflow-hidden shadow-xl z-10 border-border/50">
+        <Card className="static mt-8 w-full max-w-sm mx-auto overflow-hidden shadow-sm z-10 border-border/50 xl:fixed xl:top-20 xl:right-6 xl:mt-0 xl:w-52">
           <div className="bg-text-primary relative">
             {cameraStream ? (
               <PostureMonitor sessionId={sessionId} stream={cameraStream} />
