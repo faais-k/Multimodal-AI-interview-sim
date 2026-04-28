@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Volume2, Mic, PenLine, SkipForward, AlertTriangle, Activity, VideoOff, Send, Square } from "lucide-react";
 import PostureMonitor from "../components/PostureMonitor";
@@ -367,7 +367,7 @@ export default function Interview({
 
               {/* Recording Controls */}
               <div className="flex justify-center gap-4">
-                <Button variant="outline" onClick={onSkip}>
+                <Button variant="outline" onClick={handleSkip}>
                   Skip Question
                 </Button>
                 <Button 
