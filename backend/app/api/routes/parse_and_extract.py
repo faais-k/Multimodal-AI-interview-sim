@@ -407,7 +407,7 @@ async def parse_and_extract_resume(
     out_file.write_text(json.dumps(parsed, indent=2, ensure_ascii=False), encoding="utf-8")
     
     # Format projects for UI
-    formatted_projects = _format_projects_for_display(parsed.get("projects", []))
+    projects_data = _format_projects_for_display(parsed.get("projects", []))
     
     # Get top skills
     top_skills = _extract_top_skills(parsed.get("skills", []))
@@ -420,7 +420,12 @@ async def parse_and_extract_resume(
             "phone": parsed.get("phones", [None])[0],
             "skills": top_skills,
             "all_skills": parsed.get("skills", []),
-            "projects": formatted_projects,
+            "projects": projects_data.get("projects", []),  # Array for frontend compatibility
+            "projects_meta": {  # Additional metadata if needed
+                "total_found": projects_data.get("total_projects_found", 0),
+                "extraction_quality": projects_data.get("extraction_quality", "unknown"),
+                "average_confidence": projects_data.get("average_confidence", 0),
+            },
             "education_summary": edu_summary,
             "experience_years": exp_years,
             "expertise_level": expertise,
