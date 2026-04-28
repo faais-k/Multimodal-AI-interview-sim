@@ -82,12 +82,29 @@ def _normalize_skills(skills: List[str]) -> List[str]:
     return out
 
 
-def _project_info(raw_project: str, fallback_idx: int) -> Tuple[str, List[str]]:
+def _project_info(raw_project: dict | str, fallback_idx: int) -> Tuple[str, List[str]]:
     """
     Extract project name and tech stack from project description.
-    Avoids single-word generic names like 'Full', 'Stack', etc.
+    Handles both strings and dictionaries from the resume parser.
     """
-    text = (raw_project or "").strip()
+    if isinstance(raw_project, dict):
+        name = raw_project.get("name") or f"Project {fallback_idx}"
+        text = raw_project.get("details") or ""
+        # If we already have a name from the parser, we use it
+        if "extraction_method" in raw_project and len(name) > 3:
+            # Re-extract stack just in case, or use one if provided
+            stack = re.findall(
+                r"\b(Python|FastAPI|Angular|React|Next\.?js|Node\.?js|TypeScript|JavaScript|"
+                r"MongoDB|PostgreSQL|MySQL|SQL|Docker|AWS|Azure|GCP|Flask|Django|Spring|"
+                r"TensorFlow|PyTorch|Keras|scikit-learn|Redis|GraphQL|Kubernetes|Terraform)\b",
+                text, re.IGNORECASE
+            )
+            return (name, list(dict.fromkeys(stack)))
+        raw_text = text
+    else:
+        raw_text = (raw_project or "").strip()
+    
+    text = raw_text
     if not text:
         return (f"Project {fallback_idx}", [])
 
@@ -174,15 +191,19 @@ _PROJ_DATE_RE   = re.compile(r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|
 _PROJ_VERB_RE   = re.compile(r"\b(?:technologies|built|developed|implemented|created|designed|deployed)\b", re.IGNORECASE)
 
 
-def _filter_valid_projects(projects: List[str]) -> List[str]:
+def _filter_valid_projects(projects: List[dict | str]) -> List[dict | str]:
     valid = []
     for p in projects:
-        t = str(p).strip()
+        if isinstance(p, dict):
+            t = (p.get("details") or p.get("name") or "").strip()
+        else:
+            t = str(p).strip()
+            
         if len(t) < 15: continue
         if any(kw in t.lower() for kw in _PROJ_EDU_KW): continue
         if re.match(r"^[•\-\*]\s*(?:b\.sc|b\.tech|m\.sc|m\.tech|b\.e|m\.e|mba|bachelor|master)", t.lower()): continue
         if _PROJ_DATE_RE.search(t) and not _PROJ_VERB_RE.search(t): continue
-        valid.append(t)
+        valid.append(p)
     return valid
 
 

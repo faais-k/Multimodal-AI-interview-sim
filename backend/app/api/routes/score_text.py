@@ -113,7 +113,16 @@ def _infer_type(question_id: str, question_text: str) -> str:
 def _build_reference(question_text: str, parsed_resume: dict, state: dict) -> str:
     resume_summary = parsed_resume.get("summary", "")
     skills         = ", ".join(parsed_resume.get("skills", []))
-    projects       = " ".join(parsed_resume.get("projects", [])[:2])
+    
+    # NEW: Handle project dictionaries or strings
+    raw_projects = parsed_resume.get("projects", [])
+    project_list = []
+    for p in raw_projects[:2]:
+        if isinstance(p, dict):
+            project_list.append(f"{p.get('name', '')}: {p.get('details', '')}")
+        else:
+            project_list.append(str(p))
+    projects = " | ".join(project_list)
     recent_turns   = [
         f"{t['role']}: {t['text']}"
         for t in state.get("turns", [])[-6:]

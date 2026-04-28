@@ -311,13 +311,18 @@ async def generate_dynamic_interview(session_id: str):
         company_research = await _research_company(company, job_role)
         
         # Build generation context
+        def _get_proj_field(p, field, limit=200):
+            if isinstance(p, dict):
+                return str(p.get(field, ""))[:limit]
+            return str(p)[:limit]
+
         context = {
             "name": name,
             "job_role": job_role,
             "company": company,
             "experience_years": parsed.get("experience_years", 0),
             "skills": skills,
-            "projects": [{"name": str(p)[:50], "description": str(p)[:200]} for p in projects[:3]],
+            "projects": [{"name": _get_proj_field(p, "name", 50), "description": _get_proj_field(p, "details", 200)} for p in projects[:3]],
             "education_summary": parsed.get("education_summary", ""),
         }
         
@@ -331,12 +336,15 @@ async def generate_dynamic_interview(session_id: str):
         
         # 2. Project Questions (up to 2)
         for i, proj in enumerate(projects[:2]):
+            proj_text = _get_proj_field(proj, "details", 500) if isinstance(proj, dict) else str(proj)
+            proj_name = _get_proj_field(proj, "name", 100) if isinstance(proj, dict) else f"Project {i+1}"
+            
             proj_context = {
                 **context,
-                "current_project": str(proj)[:100],
-                "project_tech": re.findall(r"\b(Python|JavaScript|React|Node|MongoDB|SQL|AWS|Docker|Kubernetes)\b", str(proj), re.I)
+                "current_project": proj_text[:300],
+                "project_tech": re.findall(r"\b(Python|JavaScript|React|Node|MongoDB|SQL|AWS|Docker|Kubernetes)\b", proj_text, re.I)
             }
-            tasks.append(("project", proj_context, f"project_{i+1}", "project", str(proj)[:50]))
+            tasks.append(("project", proj_context, f"project_{i+1}", "project", proj_name))
         
         # 3. Technical Questions (2-3 based on skills and job)
         tech_skills = skills[:3] if skills else ["programming"]
