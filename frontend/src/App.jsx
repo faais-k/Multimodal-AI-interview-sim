@@ -10,6 +10,46 @@ import { useInterview } from "./contexts/InterviewContext";
 import { useAuth } from "./contexts/AuthContext";
 import { api } from "./api/client";
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("App Error Boundary caught:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-surface-base flex items-center justify-center p-6">
+          <div className="max-w-md w-full card card-lg text-center">
+            <h3 className="text-lg font-semibold mb-2 text-semantic-error">Something went wrong</h3>
+            <p className="text-sm text-text-secondary mb-4">
+              The application encountered an unexpected error. Please return to the landing page and try again.
+            </p>
+            <pre className="text-xs bg-surface-overlay p-3 rounded-sm mb-4 text-left overflow-auto max-h-40 text-semantic-error">
+              {this.state.error?.message || "Unknown error"}
+            </pre>
+            <button
+              className="btn-primary"
+              onClick={() => {
+                sessionStorage.clear();
+                window.location.href = "/";
+              }}
+            >
+              Return to Landing Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function App() {
   const iv = useInterview();
   const { currentUser, isGuest, loading: authLoading, loginWithGoogle } = useAuth();
@@ -158,4 +198,10 @@ function App() {
   );
 }
 
-export default App;
+export default function AppWithBoundary() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+}

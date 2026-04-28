@@ -157,7 +157,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
     try { await document.documentElement.requestFullscreen(); } catch (_) {}
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
     resetRec();
-    onBegin();
+    await onBegin();
   };
 
   const startMicTest = () => {

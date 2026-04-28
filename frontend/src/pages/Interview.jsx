@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, Mic, PenLine, SkipForward, CircleStop, AlertTriangle, Activity, VideoOff, Send, Square } from "lucide-react";
+import { Volume2, Mic, PenLine, SkipForward, AlertTriangle, Activity, VideoOff, Send, Square } from "lucide-react";
 import PostureMonitor from "../components/PostureMonitor";
 import { useAudioRecorder } from "../hooks/useAudioRecorder";
 import { useAntiCheat } from "../hooks/useAntiCheat";
@@ -374,7 +374,7 @@ export default function Interview({
                   onClick={stopRecording}
                   className="flex items-center gap-2 bg-semantic-error hover:bg-red-700"
                 >
-                  <CircleStop size={16} fill="currentColor" />
+                  <Square size={16} fill="currentColor" />
                   Stop Recording
                 </Button>
               </div>

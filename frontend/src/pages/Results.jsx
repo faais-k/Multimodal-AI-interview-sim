@@ -69,7 +69,21 @@ function ScoreBar({ value, max = 10, color }) {
 }
 
 export default function Results({ report, caps, onRestart }) {
-  if (!report) return null;
+  if (!report) {
+    return (
+      <div className="min-h-screen bg-surface-base flex items-center justify-center p-6">
+        <div className="text-center max-w-sm">
+          <h2 className="text-xl font-semibold mb-2 text-text-primary">No Report Available</h2>
+          <p className="text-sm text-text-secondary mb-6">
+            Interview results could not be loaded. This can happen if you refreshed the page or navigated here directly.
+          </p>
+          <button className="btn-primary px-6 py-2" onClick={onRestart}>
+            Start New Interview
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const verdict   = report.decision || report.verdict || "BORDERLINE";
   const score     = report.final_score ?? 0;
