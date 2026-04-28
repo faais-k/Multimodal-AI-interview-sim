@@ -39,7 +39,16 @@ function reducer(s, a) {
     case "SET_STEP":
       sessionStorage.setItem("ai_interview_step", a.v);
       return { ...s, step: a.v };
-    case "SET_QUESTION": return { ...s, question: a.v, questionNumber: a.questionNumber || s.questionNumber + 1, totalQuestions: a.total || s.totalQuestions, loading: false, evaluating: false };
+    case "SET_QUESTION": 
+      const isSameQ = s.question && a.v && s.question.id === a.v.id;
+      return { 
+        ...s, 
+        question: a.v, 
+        questionNumber: a.questionNumber || (isSameQ ? s.questionNumber : s.questionNumber + 1), 
+        totalQuestions: a.total || s.totalQuestions, 
+        loading: false, 
+        evaluating: false 
+      };
     case "RESTORE_STATE":
       if (a.state.step) sessionStorage.setItem("ai_interview_step", a.state.step);
       return { ...s, ...a.state, loading: false, evaluating: false };
@@ -170,7 +179,7 @@ export function InterviewProvider({ children }) {
         setStep("processing");
       } else {
         const next = await api.nextQuestion(state.sessionId);
-        if (next.status === "completed" || !next.question) {
+        if (next.status === "completed" || next.status === "awaiting_wrapup_answer" || !next.question) {
           setStep("processing");
         } else {
           dispatch({ type: "SET_QUESTION", v: next.question, total: next.total_questions || state.totalQuestions });
@@ -193,7 +202,7 @@ export function InterviewProvider({ children }) {
         setStep("processing");
       } else {
         const next = await api.nextQuestion(state.sessionId);
-        if (next.status === "completed" || !next.question) {
+        if (next.status === "completed" || next.status === "awaiting_wrapup_answer" || !next.question) {
           setStep("processing");
         } else {
           dispatch({ type: "SET_QUESTION", v: next.question, total: next.total_questions || state.totalQuestions });

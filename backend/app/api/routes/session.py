@@ -133,24 +133,24 @@ async def next_question(session_id: str):
         )
     plan = json.loads(plan_path.read_text(encoding="utf-8"))
 
-    # ── IDEMPOTENCY FIX: Check if current question was answered ─────────────
-    # If current question is unanswered, return it again (don't advance)
-    state = interview_flow.read_state(STORAGE_DIR, session_id)
-    current_q = _get_current_question(state)
-    if current_q:
-        # Return current question again - don't advance
-        return {
-            "status": "ok",
-            "question": current_q,
-            "total_questions": plan.get("total_questions", 0),
-            "idempotent": True  # Flag that we're returning existing question
-        }
-    # ── END IDEMPOTENCY FIX ───────────────────────────────────────────────
-
     # BUG 2 fix: split lock into two narrow scopes with LLM generation outside.
 
     # SCOPE 1: Read state and determine action — fast, no LLM calls, no writes
     async with interview_flow.get_state_lock(session_id):
+        # ── IDEMPOTENCY CHECK (Inside Lock) ───────────────────────────────────
+        # Move inside lock to prevent race conditions where next_question reads
+        # while score_text is still writing the answer.
+        state = interview_flow.read_state(STORAGE_DIR, session_id)
+        current_q = _get_current_question(state)
+        if current_q:
+            return {
+                "status": "ok",
+                "question": current_q,
+                "total_questions": plan.get("total_questions", 0),
+                "idempotent": True
+            }
+        # ── END IDEMPOTENCY CHECK ─────────────────────────────────────────────
+
         decision = interview_flow._decide_next_read(STORAGE_DIR, session_id, plan)
 
     # Resolve follow-up question text OUTSIDE the lock (may call LLM, 2-4s)
@@ -181,8 +181,18 @@ async def next_question(session_id: str):
 
     # SCOPE 2: Write question to state — fast, no LLM calls
     async with interview_flow.get_state_lock(session_id):
-        q = interview_flow._decide_next_write(
+        res = interview_flow._decide_next_write(
             STORAGE_DIR, session_id, plan, decision, resolved_q_text
         )
 
-    return {"status": "ok", "question": q, "total_questions": plan.get("total_questions", 0)}
+    # ── Fix Problem 2: Ensure status updates are top-level ─────────────────────
+    # If res is a status/completion object (no 'id' field), promote its status.
+    if isinstance(res, dict) and "status" in res and "id" not in res:
+        return {
+            "status": res["status"],
+            "message": res.get("message", ""),
+            "question": None,
+            "total_questions": plan.get("total_questions", 0)
+        }
+
+    return {"status": "ok", "question": res, "total_questions": plan.get("total_questions", 0)}
