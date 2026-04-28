@@ -72,6 +72,8 @@ def _llm_generate_suggestions(
         # Build compact summary of weak answers using LLM evaluation data
         weak_answers_summary = []
         for item in question_breakdown:
+            if item.get("skipped") is True:
+                continue
             score = item.get("score", 0) or 0
             if score < 6.5:
                 llm_eval = item.get("llm_evaluation") or {}
@@ -246,6 +248,8 @@ async def generate_analytics(session_id: str):
     question_breakdown = final_report.get("question_breakdown", [])
     weak_skill_topics: Dict[str, str] = {}
     for qb in question_breakdown:
+        if qb.get("skipped") is True:
+            continue
         sk = str(qb.get("skill_target", "")).strip().lower()
         sc = qb.get("score")
         if sk and isinstance(sc, (int, float)) and sc < 6.5 and sk not in weak_skill_topics:

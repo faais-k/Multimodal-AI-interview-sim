@@ -385,6 +385,8 @@ def should_ask_followup(state: Dict[str, Any]) -> bool:
     last_turn = _last_candidate_turn(state)
     if not last_turn:
         return False
+    if last_turn.get("skipped") is True or str(last_turn.get("text", "")).strip().lower() == "skipped":
+        return False
     # Do not follow up on wrapup or self_intro questions — they mark end-of-interview
     # or opening greetings. Following up on these prevents finalization.
     last_qid_check = state.get("cursor", {}).get("last_question_id", "")

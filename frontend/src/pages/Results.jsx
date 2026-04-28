@@ -102,7 +102,11 @@ export default function Results({ report, caps, onRestart }) {
   const actionPlan  = reviewer.recommendation || report.suggestions || [];
 
   // Sort questions by score ascending (weakest first)
-  const sortedQs = [...questions].sort((a, b) => (a.score ?? 10) - (b.score ?? 10));
+  const sortedQs = [...questions].sort((a, b) => {
+    if (a.skipped && !b.skipped) return -1;
+    if (!a.skipped && b.skipped) return 1;
+    return (a.score ?? 10) - (b.score ?? 10);
+  });
 
   const verdictColors = {
     PASS:       { bg:"var(--success-glow)", border:"var(--success)", text:"var(--success-dark)" },
@@ -276,6 +280,7 @@ export default function Results({ report, caps, onRestart }) {
                   // Determine scoring method label and style
                   const method = item.scoring_method || item.scorer || "cosine";
                   const methodLabels = {
+                    "skipped": { label: "Skipped", chipClass: "chip-stone" },
                     "llm_qwen": { label: "LLM (Qwen)", chipClass: "chip-teal" },
                     "cosine_similarity": { label: "Cosine", chipClass: "chip-stone" },
                     "whisper_asr": { label: "Whisper ASR", chipClass: "chip-amber" },
@@ -289,6 +294,7 @@ export default function Results({ report, caps, onRestart }) {
                       <div className="qa-item__header">
                         <div className="qa-item__left">
                           <span className={`chip ${scoreChipClass(s)}`}>{fmt(s)}/10</span>
+                          {item.skipped && <span className="chip chip-stone">Skipped</span>}
                           <span className={`chip ${methodInfo.chipClass} qa-item__method`} title="Scoring method used">
                             {methodInfo.label}
                           </span>

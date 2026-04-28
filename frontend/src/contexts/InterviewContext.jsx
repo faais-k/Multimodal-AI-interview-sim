@@ -257,8 +257,7 @@ export function InterviewProvider({ children }) {
       dispatch({ 
         type: "SET_QUESTION", 
         v: result.next_question, 
-        total: result.total_questions || state.totalQuestions,
-        questionNumber: state.questionNumber // Keep same number since we're just replacing
+        total: result.total_questions || state.totalQuestions
       });
     } catch (e) {
       setError(e.message || "Failed to skip question.");

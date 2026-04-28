@@ -66,11 +66,16 @@ async def aggregate_scores(
 
     if not session_dir.exists():
         raise HTTPException(status_code=404, detail="session not found")
-    if not scores_dir.exists():
-        raise HTTPException(status_code=404, detail="no scores found for session")
 
-    score_files = list(scores_dir.glob("*.json"))
-    if not score_files:
+    state = _safe_read_json(_state_path(session_id))
+    answers = state.get("answers", {}) if isinstance(state.get("answers", {}), dict) else {}
+    skipped_count = sum(
+        1 for ans in answers.values()
+        if isinstance(ans, dict) and ans.get("skipped") is True
+    )
+
+    score_files = list(scores_dir.glob("*.json")) if scores_dir.exists() else []
+    if not score_files and not answers:
         raise HTTPException(status_code=404, detail="no score files present")
 
     # Load plan for coverage calculation
@@ -171,9 +176,8 @@ async def aggregate_scores(
     resume_skills_map = {s.lower(): s for s in resume_skills}
 
     # total questions answered (from interview_state answers), distinct from scores-count
-    state = _safe_read_json(_state_path(session_id))
-    answers = state.get("answers", {}) if isinstance(state.get("answers", {}), dict) else {}
     total_questions_answered = len(answers)
+    completed_questions = max(total_questions_answered - skipped_count, 0)
 
     # Skill coverage from skill_target + resume skills
     skill_buckets: Dict[str, List[float]] = {k: [] for k in resume_skills_map.keys()}
@@ -241,8 +245,12 @@ async def aggregate_scores(
             except Exception:
                 pass
 
-        # Prefer raw_score from score file (LLM-adjusted) over the state copy
-        q_score = score_data.get("raw_score") or scores.get(qid, {}).get("raw_score") or ans.get("score")
+        # Prefer raw_score from score file (LLM-adjusted) over the state copy.
+        # Skipped answers are intentionally unscored and reduce completion.
+        is_skipped = ans.get("skipped") is True
+        q_score = None if is_skipped else (
+            score_data.get("raw_score") or scores.get(qid, {}).get("raw_score") or ans.get("score")
+        )
 
         question_breakdown.append({
             "question":         q_text,
@@ -251,13 +259,16 @@ async def aggregate_scores(
             "answer_preview":   str(ans.get("answer", ""))[:120],
             "skill_target":     q_skill_l,
             "score":            q_score,
+            "skipped":          is_skipped,
+            "answer_status":    "skipped" if is_skipped else "answered",
             "question_type":    q_type,
             "type":             q_type,
             "followups":        0 if str(qid).startswith("followup") else followup_counts.get(q_skill_l, 0),
             # Fields from score file — None when score file missing
             "llm_evaluation":   score_data.get("llm_evaluation"),
             "relevance_check":  score_data.get("relevance_check"),
-            "scorer":           score_data.get("scorer", "cosine"),
+            "scoring_method":   "skipped" if is_skipped else score_data.get("scoring_method"),
+            "scorer":           "skipped" if is_skipped else score_data.get("scorer", "cosine"),
             "cosine_raw_score": score_data.get("cosine_raw_score"),
         })
 
@@ -321,8 +332,11 @@ async def aggregate_scores(
         "needs_human_review":     needs_human_overall,
         "questions_counted":      len(scores),
         "total_questions_answered": total_questions_answered,
+        "completed_questions":    completed_questions,
+        "skipped_questions":      skipped_count,
         "expected_questions":     expected_count,
         "coverage_pct":           round(coverage_pct, 2) if coverage_pct is not None else None,
+        "completion_pct":         round(coverage_pct, 2) if coverage_pct is not None else None,
         "incomplete":             incomplete,
         "needs_human_questions":  needs_human_questions,
         "per_type_summary":       per_type_summary,

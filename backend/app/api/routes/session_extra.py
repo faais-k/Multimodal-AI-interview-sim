@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pathlib import Path
 import json
+from datetime import datetime
 from typing import Any, Dict
 
 from backend.app.core.storage import get_storage_dir, write_json_atomic
@@ -174,33 +175,44 @@ async def skip_question(session_id: str, question_id: str = None):
                 )
             
             # Get question_id to skip (defaults to the latest asked question if not provided)
+            questions_asked = state.get("questions_asked", [])
             if not question_id:
-                questions_asked = state.get("questions_asked", [])
                 if questions_asked:
                     question_id = questions_asked[-1].get("id")
             
             if not question_id:
                 raise HTTPException(status_code=400, detail="No active question to skip")
-            
-            # Record the skip in answers (DICT)
+
             answers = state.setdefault("answers", {})
+            if question_id in answers:
+                raise HTTPException(status_code=409, detail="Question has already been answered or skipped")
             
-            # Find the question text
-            q_text = "N/A"
-            for q in state.get("questions_asked", []):
+            # Find the active question being skipped.
+            asked_question = None
+            for q in questions_asked:
                 if q.get("id") == question_id:
-                    q_text = q.get("question", "N/A")
+                    asked_question = q
                     break
+            if not asked_question:
+                raise HTTPException(status_code=404, detail="Question not found in interview state")
 
             skip_record = {
-                "question": q_text,
-                "answer": "[SKIPPED BY USER]",
-                "score": 0.0, # Zero score for skipped
+                "question": asked_question.get("question", "N/A"),
+                "answer": "Skipped",
+                "score": None,
                 "skipped": True,
-                "time": __import__('datetime').datetime.utcnow().isoformat() + "Z"
+                "time": datetime.utcnow().isoformat() + "Z"
             }
             
             answers[question_id] = skip_record
+            state.setdefault("turns", []).append({
+                "role": "candidate",
+                "id": question_id,
+                "text": "Skipped",
+                "score": None,
+                "skipped": True,
+                "time": skip_record["time"],
+            })
             
             # Advance cursor
             cursor = state.setdefault("cursor", {"stage": "intro"})
@@ -225,24 +237,35 @@ async def skip_question(session_id: str, question_id: str = None):
                 
             write_state(storage, session_id, state)
             
-            # Call interview_flow directly inside same lock
-            from backend.app.core.interview_flow import _decide_next_read, _decide_next_write, _load_json
-            plan = _load_json(storage / session_id / "interview_plan.json")
-            next_q_data = _decide_next_read(storage, session_id, state, plan)
-            if next_q_data:
-                state, _ = _decide_next_write(storage, session_id, state, plan, next_q_data)
-                write_state(storage, session_id, state)
-                next_q = {"question": next_q_data, "total_questions": plan.get("total_questions", 0)}
+            from backend.app.core import interview_flow
+
+            plan = _read_json(storage / session_id / "interview_plan.json")
+            decision = interview_flow._decide_next_read(storage, session_id, plan)
+            resolved_q_text = decision.get("cached_q_text") if decision.get("action") == "followup" else None
+            if decision.get("action") == "followup" and resolved_q_text is None:
+                topic = (decision.get("original_q") or {}).get("skill_target") or "this area"
+                resolved_q_text = (
+                    f"Could you give me a concrete example of working with {topic}?"
+                    if decision.get("depth", 1) <= 1
+                    else f"What was the most difficult problem you solved with {topic}?"
+                )
+
+            next_q = interview_flow._decide_next_write(
+                storage, session_id, plan, decision, resolved_q_text
+            )
+
+            if isinstance(next_q, dict) and "id" in next_q:
+                next_question = next_q
+                next_status = "skipped"
             else:
-                state["completed"] = True
-                write_state(storage, session_id, state)
-                next_q = {"status": "completed", "question": None}
+                next_question = None
+                next_status = next_q.get("status", "completed") if isinstance(next_q, dict) else "completed"
         
         return {
-            "status": "skipped",
+            "status": next_status,
             "skipped_question_id": question_id,
-            "next_question": next_q.get("question"),
-            "total_questions": next_q.get("total_questions", 0)
+            "next_question": next_question,
+            "total_questions": plan.get("total_questions", 0)
         }
     except HTTPException:
         raise
