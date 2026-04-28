@@ -214,16 +214,90 @@ export default function PostureMonitor({ sessionId, stream }) {
       } catch (_) {}
     }, 500);
 
+    // Metrics buffer with retry logic
+    const metricsBuffer = [];
+    let consecutiveFailures = 0;
+    const MAX_BUFFER_SIZE = 100; // Prevent unbounded growth
+
     sendRef.current = setInterval(async () => {
       if (!sessionId || metricsRef.current.length === 0) return;
-      const latest = metricsRef.current[metricsRef.current.length - 1];
-      try { await api.sendPosture({ session_id: sessionId, metrics: latest }); } catch (_) {}
+
+      // Add new metrics to buffer
+      metricsBuffer.push(...metricsRef.current);
+      if (metricsBuffer.length > MAX_BUFFER_SIZE) {
+        // Keep only the most recent metrics if buffer overflows
+        metricsBuffer.splice(0, metricsBuffer.length - MAX_BUFFER_SIZE);
+      }
       metricsRef.current = [];
+
+      // Send latest metric from buffer
+      const latest = metricsBuffer[metricsBuffer.length - 1];
+      if (!latest) return;
+
+      try {
+        await api.sendPosture({ session_id: sessionId, metrics: latest });
+        // Success - clear buffer and reset failure count
+        metricsBuffer.length = 0;
+        consecutiveFailures = 0;
+      } catch (err) {
+        consecutiveFailures++;
+        console.warn(`Posture metrics send failed (${consecutiveFailures}x):`, err);
+
+        // After 3 consecutive failures, send a batch of aggregated data
+        if (consecutiveFailures >= 3 && metricsBuffer.length > 1) {
+          try {
+            // Calculate average metrics for batch
+            const avgScore = metricsBuffer.reduce((sum, m) => sum + (m.posture_score || 0), 0) / metricsBuffer.length;
+            const modeLabel = metricsBuffer
+              .map(m => m.posture_label)
+              .sort((a, b) =>
+                metricsBuffer.filter(m => m.posture_label === a).length -
+                metricsBuffer.filter(m => m.posture_label === b).length
+              ).pop();
+
+            const batchMetric = {
+              posture_score: avgScore,
+              posture_label: modeLabel,
+              spine_height: metricsBuffer[metricsBuffer.length - 1].spine_height,
+              hands_visible: true,
+              timestamp: Date.now(),
+              batch_size: metricsBuffer.length,
+              batch_aggregated: true
+            };
+
+            await api.sendPosture({ session_id: sessionId, metrics: batchMetric });
+            metricsBuffer.length = 0;
+            consecutiveFailures = 0;
+          } catch (batchErr) {
+            console.warn("Batch posture send also failed:", batchErr);
+          }
+        }
+      }
     }, 30000);
 
     return () => {
       clearInterval(timerRef.current);
       clearInterval(sendRef.current);
+      
+      // Attempt to flush remaining metrics on unmount
+      if (sessionId && metricsBuffer.length > 0) {
+        const latest = metricsBuffer[metricsBuffer.length - 1];
+        const payload = JSON.stringify({
+          session_id: sessionId,
+          metrics: {
+            ...latest,
+            flush_on_unmount: true,
+            timestamp: Date.now()
+          }
+        });
+        
+        // Use sendBeacon for best-effort delivery on unmount
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon('/api/posture/report', new Blob([payload], { type: 'application/json' }));
+        }
+        
+        metricsBuffer.length = 0;
+      }
     };
   }, [poseReady, sessionId, analysePosture, drawSkeleton]);
 

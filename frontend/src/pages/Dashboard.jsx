@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, TrendingUp, Clock, ChevronRight, LogOut, BarChart3, Activity } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { api } from "../api/client";
+import { getGuestHistory } from "@/lib/guestStorage";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,31 +20,42 @@ const itemVariants = {
 };
 
 export default function Dashboard({ onStartNew, onViewResults }) {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, isGuest, logout } = useAuth();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        setLoading(true);
-        const res = await api.getUserHistory();
-        if (res.status === "ok") {
-          setHistory(res.history || []);
-        } else {
-          setError(res.detail || "Failed to load history");
-        }
-      } catch (err) {
-        setError("Error connecting to server. Please try again later.");
-        console.error(err);
-      } finally {
+  const fetchHistory = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      
+      // Guest users: load from local IndexedDB/localStorage
+      if (isGuest) {
+        const guestHistory = await getGuestHistory();
+        setHistory(guestHistory || []);
         setLoading(false);
+        return;
       }
-    };
+      
+      // Google users: load from backend
+      const res = await api.getUserHistory();
+      if (res.status === "ok") {
+        setHistory(res.history || []);
+      } else {
+        setError(res.detail || "Failed to load history");
+      }
+    } catch (err) {
+      setError(err.message || "Error connecting to server. Please try again later.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchHistory();
-  }, []);
+  }, [isGuest]);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "Unknown date";
@@ -212,7 +224,14 @@ export default function Dashboard({ onStartNew, onViewResults }) {
                 ) : error ? (
                   <Card className="p-8 text-center bg-red-500/5 border-red-500/20">
                     <p className="text-red-400 mb-4">{error}</p>
-                    <Button variant="outline" className="border-red-500/30 text-red-400 hover:bg-red-500/10" onClick={() => window.location.reload()}>Retry</Button>
+                    <Button 
+                      variant="outline" 
+                      className="border-red-500/30 text-red-400 hover:bg-red-500/10" 
+                      onClick={fetchHistory}
+                      disabled={loading}
+                    >
+                      {loading ? 'Retrying...' : 'Retry'}
+                    </Button>
                   </Card>
                 ) : history.length === 0 ? (
                   <Card className="p-12 text-center bg-white/[0.02] border-white/5 border-dashed">

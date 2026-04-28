@@ -44,6 +44,7 @@ export default function Interview({
   const [isListening, setIsListening] = useState(false);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [isAnswering, setIsAnswering] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
   const streamRef = useRef(null);
   const textareaRef = useRef(null);
   const timerRef = useRef(null);
@@ -91,6 +92,15 @@ export default function Interview({
     onSkip();
   };
 
+  // Camera cleanup helper
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    setCameraStream(null);
+  }, []);
+
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
       .then(s => {
@@ -98,16 +108,36 @@ export default function Interview({
         setCameraStream(s);
       })
       .catch(e => console.warn("Camera unavailable:", e));
-    return () => {
-      streamRef.current?.getTracks().forEach(t => t.stop());
-      setCameraStream(null);
+
+    // Cleanup on page unload (beforeunload)
+    const handleBeforeUnload = () => {
+      stopCamera();
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     };
-  }, []);
+
+    // Cleanup on visibility change (tab switch/close)
+    const handleVisibilityChange = () => {
+      if (document.hidden && streamRef.current) {
+        // Optional: pause camera when tab hidden to save resources
+        // streamRef.current.getVideoTracks().forEach(t => t.enabled = false);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      stopCamera();
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [stopCamera]);
 
   useEffect(() => {
     setAnswer(""); 
     resetRec(); 
     setSub(false);
+    setSubmitError(null); // Clear any submission errors
     setIsListening(false);
     setTimeElapsed(0);
     setIsAnswering(false);
@@ -127,9 +157,17 @@ export default function Interview({
         timerRef.current = setInterval(() => {
           setTimeElapsed(prev => prev + 1);
         }, 1000);
-        
-        if (modeRef.current === "voice") {
-          startRecRef.current();
+
+        // Check current mode at callback time, not closure time
+        // User may have switched to text mode during TTS playback
+        const currentMode = modeRef.current;
+        if (currentMode === "voice" && audioEnabled) {
+          // Double-check: verify user didn't just switch modes
+          setTimeout(() => {
+            if (modeRef.current === "voice") {
+              startRecRef.current();
+            }
+          }, 50);
         }
       };
       
@@ -156,17 +194,26 @@ export default function Interview({
   const handleTextSubmit = async () => {
     if (!answer.trim() || submitting || loading || evaluating) return;
     setSub(true);
-    await onSubmitText(answer);
-    setSub(false);
+    setSubmitError(null);
+    try {
+      await onSubmitText(answer);
+    } catch (e) {
+      console.error("Text submission failed:", e);
+      setSubmitError(e.message || "Failed to submit answer. Please try again.");
+    } finally {
+      setSub(false);
+    }
   };
 
   const handleAudioSubmit = async () => {
     if (!audioBlob || submitting || loading || evaluating) return;
     setSub(true);
+    setSubmitError(null);
     try {
       await onSubmitAudio(audioBlob);
     } catch (e) {
       console.error("Audio submission failed:", e);
+      setSubmitError(e.message || "Failed to submit audio. Please try again.");
     } finally {
       setSub(false);
     }
@@ -405,6 +452,20 @@ export default function Interview({
                       Type Answer
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* Submit Error Display */}
+              {submitError && (
+                <div className="mb-4 p-3 bg-semantic-error-bg border border-semantic-error/20 rounded-sm flex items-center gap-2 text-sm text-semantic-error animate-in">
+                  <AlertTriangle size={16} />
+                  <span>{submitError}</span>
+                  <button 
+                    onClick={() => setSubmitError(null)}
+                    className="ml-auto text-xs hover:underline"
+                  >
+                    Dismiss
+                  </button>
                 </div>
               )}
 

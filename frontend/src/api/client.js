@@ -1,5 +1,5 @@
 /**
- * API client.
+ * API client with comprehensive error handling, timeouts, and retry logic.
  *
  * VITE_API_BASE — set in frontend/.env (local) or Vercel env vars (production).
  * Production example: VITE_API_BASE=https://your-space.hf.space/api
@@ -19,47 +19,196 @@ export const AUDIO_INPUT_HINT =
   import.meta.env.VITE_AUDIO_INPUT_HINT ||
   "Audio mode uses Whisper for speech-to-text. Speak clearly for best results.";
 
-async function req(path, options = {}) {
+// Request configuration
+const REQUEST_TIMEOUT = 30000; // 30 seconds default timeout
+const MAX_RETRIES = 2;
+const RETRY_DELAY = 1000; // 1 second between retries
+const RETRYABLE_STATUSES = [408, 429, 500, 502, 503, 504]; // Statuses that warrant retry
+
+/**
+ * Create an AbortController with timeout
+ */
+function createTimeoutController(timeoutMs = REQUEST_TIMEOUT) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return { controller, timeoutId };
+}
+
+/**
+ * Determine if an error is retryable
+ */
+function isRetryableError(error, status) {
+  // Network errors (no connection, DNS failure, etc.)
+  if (error.name === 'TypeError' || error.name === 'AbortError') {
+    return true;
+  }
+  // Server errors that might be transient
+  if (status && RETRYABLE_STATUSES.includes(status)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Sleep helper for retry delays
+ */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function reqWithRetry(path, options = {}, attempt = 0) {
   const token = localStorage.getItem("firebaseToken");
   const headers = { 
     "Content-Type": "application/json", 
     ...(token ? { "Authorization": `Bearer ${token}` } : {}),
     ...(options.headers || {}) 
   };
+
+  const { controller, timeoutId } = createTimeoutController(options.timeout);
   
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    const error = new Error(data.detail || data.message || `API error ${res.status}`);
-    error.status = res.status;
-    error.data = data;
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const error = new Error(data.detail || data.message || `API error ${res.status}`);
+      error.status = res.status;
+      error.data = data;
+      
+      // Check if we should retry
+      if (attempt < MAX_RETRIES && isRetryableError(error, res.status)) {
+        console.warn(`API request failed (attempt ${attempt + 1}), retrying...`, error.message);
+        await sleep(RETRY_DELAY * (attempt + 1)); // Exponential backoff
+        return reqWithRetry(path, options, attempt + 1);
+      }
+      
+      throw error;
+    }
+    
+    return res.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    // Handle abort/timeout specifically
+    if (error.name === 'AbortError') {
+      const timeoutError = new Error('Request timed out. Please check your connection and try again.');
+      timeoutError.status = 408;
+      timeoutError.isTimeout = true;
+      
+      if (attempt < MAX_RETRIES) {
+        console.warn(`Request timeout (attempt ${attempt + 1}), retrying...`);
+        await sleep(RETRY_DELAY * (attempt + 1));
+        return reqWithRetry(path, options, attempt + 1);
+      }
+      
+      throw timeoutError;
+    }
+    
+    // Handle network errors with retry
+    if (attempt < MAX_RETRIES && isRetryableError(error)) {
+      console.warn(`Network error (attempt ${attempt + 1}), retrying...`, error.message);
+      await sleep(RETRY_DELAY * (attempt + 1));
+      return reqWithRetry(path, options, attempt + 1);
+    }
+    
+    // Enhance network error message
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      error.message = 'Network error. Please check your internet connection and try again.';
+      error.isNetworkError = true;
+    }
+    
     throw error;
   }
-  return res.json();
 }
 
-async function reqMultipart(url, body) {
+async function reqMultipartWithRetry(url, body, attempt = 0) {
   const token = localStorage.getItem("firebaseToken");
   const headers = { 
     ...(token ? { "Authorization": `Bearer ${token}` } : {})
   };
 
-  const res = await fetch(url, { 
-    method: "POST", 
-    body,
-    headers
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    const error = new Error(data.detail || data.message || `API error ${res.status}`);
-    error.status = res.status;
-    error.data = data;
+  const { controller, timeoutId } = createTimeoutController(60000); // Longer timeout for file uploads
+
+  try {
+    const res = await fetch(url, { 
+      method: "POST", 
+      body,
+      headers,
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const error = new Error(data.detail || data.message || `API error ${res.status}`);
+      error.status = res.status;
+      error.data = data;
+      
+      // Check if we should retry (but be more conservative with file uploads)
+      if (attempt < MAX_RETRIES && isRetryableError(error, res.status) && res.status !== 413) {
+        console.warn(`Multipart request failed (attempt ${attempt + 1}), retrying...`, error.message);
+        await sleep(RETRY_DELAY * (attempt + 1));
+        return reqMultipartWithRetry(url, body, attempt + 1);
+      }
+      
+      throw error;
+    }
+    
+    return res.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      const timeoutError = new Error('Upload timed out. The file may be too large or your connection is slow.');
+      timeoutError.status = 408;
+      timeoutError.isTimeout = true;
+      throw timeoutError;
+    }
+    
+    if (attempt < MAX_RETRIES && isRetryableError(error)) {
+      console.warn(`Multipart network error (attempt ${attempt + 1}), retrying...`, error.message);
+      await sleep(RETRY_DELAY * (attempt + 1));
+      return reqMultipartWithRetry(url, body, attempt + 1);
+    }
+    
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      error.message = 'Network error during upload. Please check your connection and try again.';
+      error.isNetworkError = true;
+    }
+    
     throw error;
   }
-  return res.json();
+}
+
+// Maintain backward compatibility with original function names
+async function req(path, options = {}) {
+  return reqWithRetry(path, options);
+}
+
+async function reqMultipart(url, body) {
+  return reqMultipartWithRetry(url, body);
+}
+
+/**
+ * Check if an error is a network error (for UI handling)
+ */
+export function isNetworkError(error) {
+  return error?.isNetworkError === true || error?.isTimeout === true || 
+         error?.name === 'TypeError' || error?.name === 'AbortError';
+}
+
+/**
+ * Check if an error is retryable (for UI retry buttons)
+ */
+export function isRetryable(error) {
+  return isNetworkError(error) || RETRYABLE_STATUSES.includes(error?.status);
 }
 
 /** Map a MIME type string to a file extension for audio blobs. */

@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { api } from "../api/client";
+import { useAuth } from "../contexts/AuthContext";
+import { saveGuestInterview } from "@/lib/guestStorage";
 import "./Processing.css";
 
 const STEPS = [
@@ -10,6 +12,7 @@ const STEPS = [
 ];
 
 export default function Processing({ sessionId, onDone }) {
+  const { isGuest } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [error, setError] = useState(null);
   const [completedSteps, setCompletedSteps] = useState([]);
@@ -41,6 +44,15 @@ export default function Processing({ sessionId, onDone }) {
         const report = await api.getReport(sessionId);
         setCompletedSteps(prev => [...prev, "report"]);
 
+        // Save to guest storage for guest users
+        if (isGuest && report) {
+          try {
+            await saveGuestInterview(sessionId, report);
+          } catch (e) {
+            console.warn("Failed to save guest interview:", e);
+          }
+        }
+
         // Small delay for UX so user sees the last step complete
         setTimeout(() => onDone(report), 800);
       } catch (err) {
@@ -50,7 +62,7 @@ export default function Processing({ sessionId, onDone }) {
     };
 
     runAnalysis();
-  }, [sessionId, onDone]);
+  }, [sessionId, onDone, isGuest]);
 
   const handleRetry = () => {
     setError(null);

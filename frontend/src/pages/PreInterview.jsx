@@ -52,22 +52,37 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
 
   // Background question generation
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId) {
+      setGenError("No session found. Please go back and set up your interview again.");
+      setGenerating(false);
+      return;
+    }
     
     let cancelled = false;
+    const abortControllers = [];
+    
+    const createAbortableRequest = () => {
+      const controller = new AbortController();
+      abortControllers.push(controller);
+      return controller;
+    };
     
     const generateQuestions = async () => {
       try {
         setGenerating(true);
         
         // Post setup data to backend before generating plan
-        if (setupData) {
+        if (setupData && !cancelled) {
+          const jobController = createAbortableRequest();
           await api.setJobDescription({
             session_id: sessionId,
             job_role: setupData.jobRole || "",
             job_description: setupData.jobDescription || "",
             company: setupData.company || "",
           });
+          if (cancelled) return;
+          
+          const profileController = createAbortableRequest();
           await api.setCandidateProfile({
             session_id: sessionId,
             name: setupData.name || "",
@@ -75,6 +90,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
             experience: setupData.experience || "",
             education: setupData.education || "",
           });
+          if (cancelled) return;
         }
         
         const result = await api.generateDynamicInterview(sessionId);
@@ -89,20 +105,26 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
           }
         }
       } catch (e) {
+        if (cancelled) return;
         console.warn("Dynamic generation failed, falling back to static:", e);
-        if (!cancelled) {
-          try {
-            // FALLBACK: Generate static plan if dynamic fails
-            const fallback = await api.generatePlan(sessionId);
-            if (fallback.status === "ok") {
-              setQuestionsReady(true);
-              setGenError("Using standard questions (dynamic research failed)");
-            } else {
-              setGenError("Could not generate questions. Please try restarting.");
-            }
-          } catch (err) {
+        
+        try {
+          // FALLBACK: Generate static plan if dynamic fails
+          const fallback = await api.generatePlan(sessionId);
+          if (cancelled) return;
+          
+          if (fallback.status === "ok") {
+            setQuestionsReady(true);
+            setGenError("Using standard questions (dynamic research failed)");
+          } else {
+            setGenError("Could not generate questions. Please try restarting.");
+          }
+        } catch (err) {
+          if (!cancelled) {
             setGenError(err.message || "Failed to generate questions");
-          } finally {
+          }
+        } finally {
+          if (!cancelled) {
             setGenerating(false);
           }
         }
@@ -111,7 +133,17 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
     
     generateQuestions();
     
-    return () => { cancelled = true; };
+    return () => { 
+      cancelled = true;
+      // Abort any pending requests
+      abortControllers.forEach(controller => {
+        try {
+          controller.abort();
+        } catch (e) {
+          // Ignore abort errors
+        }
+      });
+    };
   }, [sessionId]);
 
   useEffect(() => {

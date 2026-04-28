@@ -82,7 +82,27 @@ export function InterviewProvider({ children }) {
       const recoverState = async () => {
         try {
           const status = await api.getSessionStatus(sid);
-          
+
+          // Handle expired sessions
+          if (status.status === "expired") {
+            console.warn("Session expired:", status.message);
+            sessionStorage.removeItem(SESSION_KEY);
+            sessionStorage.removeItem("ai_interview_step");
+            dispatch({ type: "SET_ERROR", v: "Your session has expired. Please start a new interview." });
+            dispatch({ type: "SET_STEP", v: "landing" });
+            return;
+          }
+
+          // Handle sessions that don't exist on backend (cleaned up or invalid)
+          if (status.status === "not_started" && storedStep === "interview") {
+            console.warn("Session not found on backend, clearing local state");
+            sessionStorage.removeItem(SESSION_KEY);
+            sessionStorage.removeItem("ai_interview_step");
+            dispatch({ type: "SET_ERROR", v: "Session not found. Please start a new interview." });
+            dispatch({ type: "SET_STEP", v: "landing" });
+            return;
+          }
+
           // If there's an active interview in progress
           if (status.has_active_question && status.current_question) {
             // Restore to interview step with current question
@@ -109,9 +129,16 @@ export function InterviewProvider({ children }) {
           // If no active question, user stays at their current step
         } catch (e) {
           console.warn("Failed to recover session state:", e);
+          // If 404, session doesn't exist - clear and redirect
+          if (e.status === 404) {
+            sessionStorage.removeItem(SESSION_KEY);
+            sessionStorage.removeItem("ai_interview_step");
+            dispatch({ type: "SET_ERROR", v: "Session not found. Please start a new interview." });
+            dispatch({ type: "SET_STEP", v: "landing" });
+          }
         }
       };
-      
+
       recoverState();
     }
   }, []);

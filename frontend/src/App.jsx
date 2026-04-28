@@ -12,7 +12,7 @@ import { api } from "./api/client";
 
 function App() {
   const iv = useInterview();
-  const { currentUser, loading: authLoading, loginWithGoogle } = useAuth();
+  const { currentUser, isGuest, loading: authLoading, loginWithGoogle } = useAuth();
   const [caps, setCaps] = useState({ mode: "CPU", llmMode: "api", audioEnabled: true });
 
   // 1. Route Guard: Auto-transition to dashboard if user is known
@@ -56,7 +56,8 @@ function App() {
 
   // FLOW: Dashboard
   if (iv.step === "dashboard") {
-    if (!currentUser) {
+    // Allow guests (isGuest=true) even if currentUser temporarily null during async restore
+    if (!currentUser && !isGuest) {
       iv.setStep("landing");
       return null;
     }

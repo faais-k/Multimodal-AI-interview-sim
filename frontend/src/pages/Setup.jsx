@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, Check, AlertCircle, ArrowRight, FileText, ChevronLeft } from "lucide-react";
 import { useInterview } from "../contexts/InterviewContext";
@@ -89,6 +89,22 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
   const [parseError, setParseError] = useState(null);
   const [showDetails, setShowDetails] = useState(null); // 'skills' | 'projects' | null
   const fileRef = useRef();
+
+  // Ensure session exists on mount (for direct navigation or refresh)
+  useEffect(() => {
+    const ensureSession = async () => {
+      if (!iv.sessionId) {
+        try {
+          const sessionRes = await api.createSession();
+          iv.setSession(sessionRes.session_id);
+        } catch (err) {
+          console.error("Failed to create session:", err);
+          setParseError("Failed to initialize session. Please refresh and try again.");
+        }
+      }
+    };
+    ensureSession();
+  }, []);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
