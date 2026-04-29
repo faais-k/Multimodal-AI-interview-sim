@@ -668,8 +668,11 @@ async def _persist_score(
         
         # Calculate derived metrics
         qtype = _infer_type(question_id, question_text)
-        weight = QUESTION_TYPE_WEIGHTS.get(qtype, 1.0)
+        config = QUESTION_TYPE_WEIGHTS.get(qtype, QUESTION_TYPE_WEIGHTS["technical"])
+        weight = config["weight"]
+        min_score = config["min_score"]
         weighted_score = round(raw_score * weight, 2)
+        needs_review = raw_score < min_score
         
         if override_obj:
             score_obj = {**override_obj, "is_completed": is_completed, "is_final": is_completed}
@@ -689,6 +692,8 @@ async def _persist_score(
                 "relevance_check": relevance_check,
                 "weighted_score": weighted_score,
                 "weight": weight,
+                "min_score": min_score,
+                "needs_human_review": needs_review,
                 "similarity": sim,
                 "top_matches": top_matches,
                 "filler_stats": filler_stats,
