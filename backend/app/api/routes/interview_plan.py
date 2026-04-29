@@ -447,10 +447,10 @@ async def create_interview_plan(session_id: str):
     questions.append({"id":"intro_1","type":"self_intro","question":_intro(candidate_name,job_role),"skill_target":"self_intro","source":"rule"})
 
     if resume_projects:
-        p1, s1 = _project_info(str(resume_projects[0]), 1)
+        p1, s1 = _project_info(resume_projects[0], 1)
         questions.append({"id":"project_1","type":"project","question":_project_q(p1,s1,job_role,expertise_level),"skill_target":p1,"source":"rule"})
         if len(resume_projects) > 1:
-            p2, s2 = _project_info(str(resume_projects[1]), 2)
+            p2, s2 = _project_info(resume_projects[1], 2)
             questions.append({"id":str(uuid.uuid4()),"type":"project","question":_project_q(p2,s2,job_role,expertise_level),"skill_target":p2,"source":"rule"})
     else:
         questions.append({"id":"project_1","type":"project","question":random.choice(["Walk me through the most technically challenging thing you've built and your exact contribution.","Tell me about a significant technical challenge you tackled — from coursework, open source, or self-learning."]),"skill_target":"project_experience","source":"rule"})

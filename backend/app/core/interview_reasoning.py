@@ -29,7 +29,11 @@ def detect_topic(
     for skill in skills:
         candidates.append(("skill", skill))
     for project in projects:
-        candidates.append(("project", project[:120]))
+        if isinstance(project, dict):
+            text = project.get("details", project.get("name", ""))
+            candidates.append(("project", text[:120]))
+        else:
+            candidates.append(("project", str(project)[:120]))
 
     if not candidates:
         return None
