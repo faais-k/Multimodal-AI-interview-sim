@@ -155,6 +155,10 @@ def encode_sentence(texts: Union[str, List[str]], convert_to_tensor: bool = True
     return get_sentence_transformer().encode(texts, convert_to_tensor=convert_to_tensor)
 
 
+# Alias for backward compatibility and internal consistency
+get_embeddings = encode_sentence
+
+
 # ── Whisper ASR (Optimized via faster-whisper) ────────────────────────────────
 
 

@@ -48,7 +48,13 @@ ALLOWED_TRANSITIONS = {
         SessionStatus.FAILED
     ],
     SessionStatus.REPORT_GENERATED: [SessionStatus.REPORT_GENERATED],  # Terminal idempotent
-    SessionStatus.FAILED: [SessionStatus.CREATED, SessionStatus.QUESTION_ACTIVE, SessionStatus.FAILED],
+    SessionStatus.FAILED: [
+        SessionStatus.CREATED, 
+        SessionStatus.QUESTION_ACTIVE, 
+        SessionStatus.ANSWER_PENDING, 
+        SessionStatus.SCORING_PENDING,
+        SessionStatus.FAILED
+    ],
     SessionStatus.TIMED_OUT: [SessionStatus.SCORING_PENDING, SessionStatus.QUESTION_ACTIVE, SessionStatus.TIMED_OUT],
 }
 
