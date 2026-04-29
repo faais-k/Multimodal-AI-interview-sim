@@ -280,9 +280,14 @@ async def generate_dynamic_interview(session_id: str, payload: dict = None):
     """
     background = payload.get("background", False) if payload else False
     if background:
-        from backend.app.worker import app as celery_app
-        task = celery_app.send_task("generate_dynamic_interview", args=[session_id])
-        return {"status": "accepted", "task_id": task.id, "message": "Question generation started in background"}
+        try:
+            from backend.app.worker import app as celery_app
+            task = celery_app.send_task("generate_dynamic_interview", args=[session_id])
+            return {"status": "accepted", "task_id": task.id, "message": "Question generation started in background"}
+        except Exception as e:
+            import logging
+            logging.error(f"⚠️ Celery task failed to enqueue: {e}. Falling back to sync mode.")
+            # Fall through to sync mode
     
     return await generate_dynamic_interview_logic(session_id)
 

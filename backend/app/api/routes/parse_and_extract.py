@@ -488,9 +488,14 @@ async def parse_and_extract_resume(
         raise
 
     if background:
-        from backend.app.worker import app as celery_app
-        task = celery_app.send_task("parse_and_extract_resume", args=[session_id, str(file_path), resume.filename])
-        return {"status": "accepted", "task_id": task.id, "message": "Resume parsing started in background"}
+        try:
+            from backend.app.worker import app as celery_app
+            task = celery_app.send_task("parse_and_extract_resume", args=[session_id, str(file_path), resume.filename])
+            return {"status": "accepted", "task_id": task.id, "message": "Resume parsing started in background"}
+        except Exception as e:
+            import logging
+            logging.error(f"⚠️ Celery task failed to enqueue: {e}. Falling back to sync mode.")
+            # Fall through to sync mode
 
     return await parse_and_extract_logic(session_id, file_path, resume.filename)
 
