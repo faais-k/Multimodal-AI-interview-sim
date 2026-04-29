@@ -16,6 +16,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
   const [generating, setGenerating] = useState(true);
   const [questionsReady, setQuestionsReady] = useState(false);
   const [genError, setGenError] = useState(null);
+  const [hfFallback, setHfFallback] = useState(false);
   const [skeletonEnabled, setSkeletonEnabled] = useState(true);
   const [testRecording, setTestRecording] = useState(false);
   const videoRef = useRef();
@@ -30,19 +31,40 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
     reset: resetRec
   } = useAudioRecorder();
 
-  // Camera/Mic setup
-  useEffect(() => {
-    (async () => {
-      try {
-        const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        streamRef.current = s;
-        setChecks({ camera: true, mic: true });
-        if (videoRef.current) videoRef.current.srcObject = s;
-      } catch (e) {
-        console.warn("Camera/mic:", e);
-        setCamError("Camera/mic not accessible. You can still proceed with text answers.");
+  const requestPermissions = async () => {
+    try {
+      setCamError(null);
+      const s = await navigator.mediaDevices.getUserMedia({ 
+        video: { width: 1280, height: 720 }, 
+        audio: true 
+      });
+      streamRef.current = s;
+      setChecks({ camera: true, mic: true });
+      if (videoRef.current) videoRef.current.srcObject = s;
+    } catch (e) {
+      console.warn("Camera/mic access failed:", e);
+      if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+        setCamError("Access denied. Please click the camera icon in your browser address bar to allow access.");
+      } else {
+        setCamError("Hardware not found or busy. Please check your camera and microphone connection.");
       }
-    })();
+    }
+  };
+
+  // Initial probe (some browsers allow this without interaction if already granted)
+  useEffect(() => {
+    const probe = async () => {
+      try {
+        const result = await navigator.permissions.query({ name: 'camera' });
+        if (result.state === 'granted') {
+          requestPermissions();
+        }
+      } catch (e) {
+        // Fallback for browsers that don't support permissions.query for camera
+        requestPermissions();
+      }
+    };
+    probe();
     return () => streamRef.current?.getTracks().forEach(t => t.stop());
   }, []);
 
@@ -99,6 +121,9 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
           if (result.status === "ok") {
             setQuestionsReady(true);
             setGenerating(false);
+            if (result.llm_fallback) {
+              setHfFallback(true);
+            }
           } else {
             // Unexpected status but not an exception
             throw new Error("Generation failed");
@@ -295,11 +320,24 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
                           </Badge>
                         </div>
                         <p className="text-sm text-text-secondary">
-                          {item.id === "camera" && (item.done ? "Webcam detected and responsive. Video feed active." : camError || "Waiting for camera access...")}
+                          {item.id === "camera" && (item.done ? "Webcam detected and responsive. Video feed active." : camError || "Requires camera access for proctoring.")}
                           {item.id === "mic" && (item.done ? "Microphone calibrated. Audio levels are good." : micWarning ? "Audio too quiet. Speak louder during the test." : "Please test your microphone before proceeding.")}
-                          {item.id === "questions" && (item.done ? "8 tailored questions ready. System design focus detected." : 
-                            genError ? `${genError} — Will use fallback questions.` : "Researching company • Analyzing resume...")}
+                          {item.id === "questions" && (item.done ? (hfFallback ? "8 tailored questions ready (Standard Quality)." : "8 tailored questions ready. System design focus detected.") : 
+                            genError ? `${genError} - Will use fallback questions.` : "Researching company • Analyzing resume...")}
                         </p>
+
+                        {item.id === "camera" && !item.done && (
+                          <div className="mt-3">
+                            <Button size="sm" onClick={requestPermissions} className="h-8 text-xs bg-veridian hover:bg-veridian-dark">
+                              <Video size={14} className="mr-1.5" /> Grant Camera & Mic Access
+                            </Button>
+                            {camError && (
+                              <p className="mt-2 text-xs text-semantic-error flex items-center gap-1">
+                                <AlertCircle size={12} /> {camError}
+                              </p>
+                            )}
+                          </div>
+                        )}
                         
                         {item.id === "mic" && checks.mic && (
                           <div className="mt-4 space-y-3">
@@ -344,14 +382,28 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
                 </motion.div>
               ))}
 
+              {hfFallback && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 bg-surface-overlay border border-border rounded-md flex items-start gap-3"
+                >
+                  <Info size={18} className="text-text-muted flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-text-secondary">
+                    <span className="font-medium">System Note:</span> Hugging Face Inference is currently at capacity. 
+                    We are falling back to <span className="text-veridian">local CPU models</span> for scoring and question selection. 
+                  </p>
+                </motion.div>
+              )}
+
               {genError && (
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="p-4 bg-semantic-warning-bg border border-semantic-warning/20 rounded-md flex items-start gap-3"
                 >
-                  <Info size={18} className="text-semantic-warning flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-semantic-warning">{genError} — You can still proceed with default questions.</p>
+                  <AlertCircle size={18} className="text-semantic-warning flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-semantic-warning">{genError} - You can still proceed with default questions.</p>
                 </motion.div>
               )}
 

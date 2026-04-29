@@ -97,6 +97,14 @@ _hf_api_circuit_opened_at = 0.0
 _HF_CIRCUIT_THRESHOLD = 5        # Open circuit after this many consecutive failures
 _HF_CIRCUIT_COOLDOWN = 300       # Seconds before retrying (5 minutes)
 
+def is_hf_circuit_open() -> bool:
+    """Return True if the HF API circuit is currently open (in fallback mode)."""
+    if _hf_api_circuit_open:
+        elapsed = time.time() - _hf_api_circuit_opened_at
+        if elapsed < _HF_CIRCUIT_COOLDOWN:
+            return True
+    return False
+
 
 # ── Sentence Transformer ─────────────────────────────────────────────────────
 
@@ -512,4 +520,5 @@ def get_model_info() -> dict:
             else "none"
         ),
         "asr_available": _asr_pipeline is not None,
+        "hf_circuit_open": is_hf_circuit_open(),
     }

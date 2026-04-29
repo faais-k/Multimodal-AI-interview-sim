@@ -404,12 +404,20 @@ async def generate_dynamic_interview(session_id: str):
         
         _write_json(sdir / "interview_plan.json", plan)
         
+        # Build preview and check for fallbacks
+        questions_preview = []
+        any_fallback = any(r.get("used_fallback", False) for r in results)
+        
+        from backend.app.core.ml_models import is_hf_circuit_open
+        hf_open = is_hf_circuit_open()
+
         return {
             "status": "ok",
             "session_id": session_id,
             "total_questions": len(questions),
             "expertise_level": expertise,
             "company_researched": bool(company),
+            "llm_fallback": any_fallback or hf_open,
             "questions_preview": [{"id": q["id"], "type": q["type"]} for q in questions]
         }
     except Exception as e:

@@ -521,6 +521,9 @@ async def score_text_answer(payload: dict):
 
             safe_qid = re.sub(r"[^a-zA-Z0-9_\-]", "_", question_id)[:80]
 
+            from backend.app.core.ml_models import is_hf_circuit_open
+            hf_open = is_hf_circuit_open()
+
             score_obj: Dict[str, Any] = {
                 "session_id":         session_id,
                 "question_id":        question_id,
@@ -531,6 +534,7 @@ async def score_text_answer(payload: dict):
                 "cosine_raw_score":   cosine_raw_score,
                 "scorer":             "llm" if llm_result else "cosine",
                 "scoring_method":     "llm_qwen" if llm_result else "cosine_similarity",
+                "llm_fallback":       (llm_result is None) and hf_open,
                 "llm_evaluation":     llm_result,
                 "relevance_check":    relevance_check,
                 "weighted_score":     weighted_score,
