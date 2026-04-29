@@ -378,6 +378,7 @@ async def aggregate_scores(
         "incomplete": incomplete,
         "needs_human_questions": needs_human_questions,
         "per_type_summary": per_type_summary,
+        "skills_analysis": skill_coverage,
         "skill_coverage": skill_coverage,
         "question_breakdown": question_breakdown,
         "posture_summary": posture_summary,

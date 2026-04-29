@@ -476,6 +476,10 @@ export default function Interview({
                     ref={textareaRef}
                     value={answer}
                     onChange={e => setAnswer(e.target.value)}
+                    onPaste={e => {
+                      e.preventDefault();
+                      alert("Pasting is disabled for security reasons. Please type your answer.");
+                    }}
                     placeholder="Structure your answer with:\n• The approach you'd take\n• Key technical decisions and trade-offs\n• How you'd handle specific constraints"
                     rows={6}
                     disabled={busy}

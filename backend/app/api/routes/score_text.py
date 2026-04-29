@@ -447,6 +447,53 @@ async def score_text_answer(payload: dict):
                     pass  # Corrupt cache — fall through and re-score
             try:
                 state = _load_state(session_id)
+                # Find the question text from state
+                question_text = ""
+                for q in state.get("questions_asked", []):
+                    if q.get("id") == question_id:
+                        question_text = q.get("question", "")
+                        break
+                if not question_text:
+                    # fallback to plan
+                    plan = _load_plan(session_id)
+                    for q in plan.get("questions", []):
+                        if q.get("id") == question_id:
+                            question_text = q.get("question", "")
+                            break
+
+                # ── Anti-Cheating: Self-Similarity Filter ──────────────────────────
+                # If the answer is too similar to the question itself, it's a cheat.
+                if question_text:
+                    from backend.app.core.ml_models import get_embeddings
+                    embed_model = get_embeddings()
+                    if embed_model:
+                        q_emb = embed_model.encode([question_text], convert_to_tensor=True)
+                        a_emb = embed_model.encode([answer_text], convert_to_tensor=True)
+                        from torch.nn.functional import cosine_similarity
+                        q_to_a_sim = float(cosine_similarity(q_emb, a_emb)[0])
+                        
+                        if q_to_a_sim > 0.7 and len(answer_text) > 10:
+                            plagiarism_report = {
+                                "session_id": session_id,
+                                "question_id": question_id,
+                                "raw_score": 0.0,
+                                "score": 0.0,
+                                "scoring_method": "plagiarism_detected",
+                                "scorer": "plagiarism_check",
+                                "similarity": q_to_a_sim,
+                                "needs_human_review": True,
+                                "llm_evaluation": {
+                                    "score": 0.0,
+                                    "what_was_missing": f"Plagiarism detected (Similarity: {q_to_a_sim:.2f}). Answer is too similar to the question text.",
+                                    "strengths": "None",
+                                    "weaknesses": "Copied question text."
+                                }
+                            }
+                            # Save and return immediately
+                            _save_score(session_id, question_id, plagiarism_report)
+                            await update_session_status(session_id, SessionStatus.QUESTION_ACTIVE)
+                            return plagiarism_report
+
             except FileNotFoundError:
                 raise HTTPException(
                     404, "Interview not started. Call /api/session/start_interview first."
