@@ -488,9 +488,21 @@ async def score_text_answer(payload: dict):
                             }
                         }
                         # Save and return immediately
-                        _save_score(session_id, question_id, plagiarism_report)
-                        await update_session_status(session_id, SessionStatus.QUESTION_ACTIVE)
-                        return plagiarism_report
+                        score_res = await _persist_score(
+                            session_id, 
+                            question_id, 
+                            question_text, 
+                            answer_text, 
+                            0.0, # raw_score
+                            0.0, # cosine_raw_score
+                            None, # llm_result
+                            {"relevant": False, "reason": "Plagiarism detected"}, # relevance_check
+                            "plagiarism", # detected_topic
+                            0.0, # similarity
+                            [], # top_matches
+                            plagiarism_report # override_obj
+                        )
+                        return score_res
 
             except FileNotFoundError:
                 raise HTTPException(
@@ -577,48 +589,87 @@ async def score_text_answer(payload: dict):
 
         record_answer_score(score=raw_score, scorer="llm" if llm_result else "cosine")
 
-        # ── SCOPE 2 — write lock (~5ms) ───────────────────────────────────────
-        # record_answer() re-reads state internally to capture any updates
-        # that occurred during ML inference between scope 1 and scope 2.
-        # Both record_answer and file write happen atomically under this lock.
-        async with interview_flow.get_state_lock(session_id):
-            safe_qid = re.sub(r"[^a-zA-Z0-9_\-]", "_", question_id)[:80]
-            out_dir = _storage_dir() / session_id / "scores"
-            score_path = out_dir / f"{safe_qid}.json"
-            if score_path.exists():
-                try:
-                    cached = _load_json(score_path)
-                    return {"status": "ok", "cached": True, **cached}
-                except Exception:
-                    pass
+        return await _persist_score(
+            session_id,
+            question_id,
+            question_text,
+            answer_text,
+            raw_score,
+            cosine_raw_score,
+            llm_result,
+            relevance_check,
+            detected_topic,
+            sim,
+            top_matches
+        )
 
-            latest_state = interview_flow.read_state(_storage_dir(), session_id)
-            if question_id in latest_state.get("answers", {}):
+async def _persist_score(
+    session_id: str,
+    question_id: str,
+    question_text: str,
+    answer_text: str,
+    raw_score: float,
+    cosine_raw_score: float,
+    llm_result: Optional[dict],
+    relevance_check: dict,
+    detected_topic: str,
+    sim: float,
+    top_matches: list,
+    override_obj: Optional[dict] = None
+) -> dict:
+    from backend.app.core.scoring_config import QUESTION_TYPE_WEIGHTS
+    from backend.app.core.ml_models import is_hf_circuit_open
+    
+    # ── SCOPE 2 — write lock (~5ms) ───────────────────────────────────────
+    async with interview_flow.get_state_lock(session_id):
+        safe_qid = re.sub(r"[^a-zA-Z0-9_\-]", "_", question_id)[:80]
+        out_dir = _storage_dir() / session_id / "scores"
+        score_path = out_dir / f"{safe_qid}.json"
+        
+        # Check cache (only for non-plagiarism or if we want to skip)
+        if score_path.exists() and not override_obj:
+            try:
+                cached = _load_json(score_path)
+                return {"status": "ok", "cached": True, **cached}
+            except Exception:
+                pass
+
+        latest_state = interview_flow.read_state(_storage_dir(), session_id)
+        if question_id in latest_state.get("answers", {}):
+            # If already answered, don't error out here if it's plagiarism check
+            if not override_obj:
                 raise HTTPException(
                     status_code=409,
                     detail="Question has already been answered or skipped.",
                 )
 
-            is_completed = interview_flow.record_answer(
-                _storage_dir(),
-                session_id,
-                question_id,
-                question_text,
-                answer_text,
-                raw_score,
-                detected_topic=detected_topic,
-            )
+        # Record in state
+        is_completed = interview_flow.record_answer(
+            _storage_dir(),
+            session_id,
+            question_id,
+            question_text,
+            answer_text,
+            raw_score,
+            detected_topic=detected_topic,
+        )
 
-            from backend.app.core.ml_models import is_hf_circuit_open
-
-            hf_open = is_hf_circuit_open()
-
-            score_obj: Dict[str, Any] = {
+        hf_open = is_hf_circuit_open()
+        
+        # Calculate derived metrics
+        qtype = _infer_type(question_id, question_text)
+        weight = QUESTION_TYPE_WEIGHTS.get(qtype, 1.0)
+        weighted_score = round(raw_score * weight, 2)
+        
+        if override_obj:
+            score_obj = {**override_obj, "is_completed": is_completed, "is_final": is_completed}
+        else:
+            filler_stats = analyse_fillers(answer_text)
+            score_obj = {
                 "session_id": session_id,
                 "question_id": question_id,
                 "safe_question_id": safe_qid,
                 "question_type": qtype,
-                "skill_target": skill_target,
                 "raw_score": raw_score,
                 "cosine_raw_score": cosine_raw_score,
                 "scorer": "llm" if llm_result else "cosine",
@@ -628,26 +679,23 @@ async def score_text_answer(payload: dict):
                 "relevance_check": relevance_check,
                 "weighted_score": weighted_score,
                 "weight": weight,
-                "min_score": min_score,
-                "needs_human_review": needs_review,
                 "similarity": sim,
                 "top_matches": top_matches,
                 "filler_stats": filler_stats,
                 "is_completed": is_completed,
-                "is_final": is_completed,  # For frontend compatibility
+                "is_final": is_completed,
             }
 
-            from backend.app.core.storage import write_json_atomic
+        from backend.app.core.storage import write_json_atomic
+        write_json_atomic(score_path, score_obj)
 
-            write_json_atomic(score_path, score_obj)
+        # Transition state after scoring
+        if is_completed:
+            await update_session_status(session_id, SessionStatus.INTERVIEW_COMPLETE)
+        else:
+            await update_session_status(session_id, SessionStatus.QUESTION_ACTIVE)
 
-            # Transition state after scoring
-            if is_completed:
-                await update_session_status(session_id, SessionStatus.INTERVIEW_COMPLETE)
-            else:
-                await update_session_status(session_id, SessionStatus.QUESTION_ACTIVE)
-
-            return {"status": "ok", **score_obj}
+        return {"status": "ok", **score_obj}
         # ── SCOPE 2 RELEASED ──────────────────────────────────────────────────
 
     except HTTPException as e:
