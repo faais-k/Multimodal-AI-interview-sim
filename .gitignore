@@ -64,3 +64,9 @@ graphify_help*.txt
 .agents/
 AUDIT_REPORT.md
 README_NEW.md
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+pytest_report.html

@@ -73,10 +73,13 @@ def get_cors_origins() -> list:
     # No explicit config — allow all origins but warn in production
     app_stage = os.getenv("APP_STAGE", "development").lower()
     if app_stage == "production":
-        logger.warning(
-            "ALLOWED_ORIGINS is not set. Defaulting to allow all origins. "
-            "Set ALLOWED_ORIGINS=https://your-frontend.vercel.app for production."
+        logger.error(
+            "ALLOWED_ORIGINS is not set in PRODUCTION. Refusing all origins for safety. "
+            "Set ALLOWED_ORIGINS=https://your-frontend.vercel.app"
         )
+        return []
+    
+    logger.warning("No ALLOWED_ORIGINS set. Defaulting to allow all origins in development.")
     return ["*"]
 
 
