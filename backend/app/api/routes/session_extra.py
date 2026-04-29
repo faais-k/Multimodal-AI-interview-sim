@@ -264,6 +264,8 @@ async def skip_question(session_id: str, question_id: str = None):
             write_state(storage, session_id, state)
 
             from backend.app.core import interview_flow
+            from backend.app.models.session import SessionStatus
+            from backend.app.core.db_ops import update_session_status
 
             plan = _read_json(storage / session_id / "interview_plan.json")
             decision = interview_flow._decide_next_read(storage, session_id, plan)
@@ -284,12 +286,17 @@ async def skip_question(session_id: str, question_id: str = None):
 
             if isinstance(next_q, dict) and "id" in next_q:
                 next_question = next_q
-                next_status = "skipped"
+                next_status = "question_active"
+                await update_session_status(session_id, SessionStatus.QUESTION_ACTIVE)
             else:
                 next_question = None
-                next_status = (
-                    next_q.get("status", "completed") if isinstance(next_q, dict) else "completed"
-                )
+                raw_status = next_q.get("status", "interview_complete") if isinstance(next_q, dict) else "interview_complete"
+                # Map string status to enum
+                if raw_status == "completed" or raw_status == "interview_complete":
+                    await update_session_status(session_id, SessionStatus.INTERVIEW_COMPLETE)
+                    next_status = "interview_complete"
+                else:
+                    next_status = raw_status
 
         return {
             "status": next_status,

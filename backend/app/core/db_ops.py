@@ -20,14 +20,36 @@ logger = logging.getLogger(__name__)
 ALLOWED_TRANSITIONS = {
     SessionStatus.CREATED: [SessionStatus.PREFLIGHT_COMPLETE, SessionStatus.FAILED],
     SessionStatus.PREFLIGHT_COMPLETE: [SessionStatus.QUESTION_ACTIVE, SessionStatus.FAILED],
-    SessionStatus.QUESTION_ACTIVE: [SessionStatus.ANSWER_PENDING, SessionStatus.INTERVIEW_COMPLETE, SessionStatus.FAILED],
-    SessionStatus.ANSWER_PENDING: [SessionStatus.SCORING_PENDING, SessionStatus.FAILED, SessionStatus.TIMED_OUT],
-    SessionStatus.SCORING_PENDING: [SessionStatus.QUESTION_ACTIVE, SessionStatus.FOLLOWUP_PENDING, SessionStatus.INTERVIEW_COMPLETE, SessionStatus.FAILED, SessionStatus.TIMED_OUT],
+    SessionStatus.QUESTION_ACTIVE: [
+        SessionStatus.QUESTION_ACTIVE,    # Idempotent re-calls
+        SessionStatus.ANSWER_PENDING,    # Audio answer start
+        SessionStatus.SCORING_PENDING,   # Text answer start
+        SessionStatus.INTERVIEW_COMPLETE,# Skip/Completion
+        SessionStatus.REPORT_GENERATED,  # Direct completion
+        SessionStatus.FAILED
+    ],
+    SessionStatus.ANSWER_PENDING: [
+        SessionStatus.SCORING_PENDING, 
+        SessionStatus.QUESTION_ACTIVE,   # Fallback/Recovery
+        SessionStatus.FAILED, 
+        SessionStatus.TIMED_OUT
+    ],
+    SessionStatus.SCORING_PENDING: [
+        SessionStatus.QUESTION_ACTIVE, 
+        SessionStatus.FOLLOWUP_PENDING, 
+        SessionStatus.INTERVIEW_COMPLETE, 
+        SessionStatus.FAILED, 
+        SessionStatus.TIMED_OUT
+    ],
     SessionStatus.FOLLOWUP_PENDING: [SessionStatus.QUESTION_ACTIVE, SessionStatus.FAILED],
-    SessionStatus.INTERVIEW_COMPLETE: [SessionStatus.REPORT_GENERATED, SessionStatus.FAILED],
-    SessionStatus.REPORT_GENERATED: [],  # Terminal state
-    SessionStatus.FAILED: [SessionStatus.CREATED, SessionStatus.QUESTION_ACTIVE],  # Allow retries
-    SessionStatus.TIMED_OUT: [SessionStatus.SCORING_PENDING, SessionStatus.QUESTION_ACTIVE], # Allow recovery
+    SessionStatus.INTERVIEW_COMPLETE: [
+        SessionStatus.INTERVIEW_COMPLETE, # Idempotent
+        SessionStatus.REPORT_GENERATED, 
+        SessionStatus.FAILED
+    ],
+    SessionStatus.REPORT_GENERATED: [SessionStatus.REPORT_GENERATED],  # Terminal idempotent
+    SessionStatus.FAILED: [SessionStatus.CREATED, SessionStatus.QUESTION_ACTIVE, SessionStatus.FAILED],
+    SessionStatus.TIMED_OUT: [SessionStatus.SCORING_PENDING, SessionStatus.QUESTION_ACTIVE, SessionStatus.TIMED_OUT],
 }
 
 

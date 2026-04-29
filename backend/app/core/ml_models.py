@@ -55,8 +55,8 @@ _SENTENCE_MODEL_GPU = "sentence-transformers/all-mpnet-base-v2"
 _SENTENCE_MODEL_CPU = "sentence-transformers/all-MiniLM-L6-v2"
 SENTENCE_MODEL_NAME = _SENTENCE_MODEL_GPU if GPU_AVAILABLE else _SENTENCE_MODEL_CPU
 
-_ASR_MODEL_GPU = "openai/whisper-large-v3-turbo"
-_ASR_MODEL_CPU = "openai/whisper-tiny"
+_ASR_MODEL_GPU = "Systran/faster-whisper-large-v3-turbo"
+_ASR_MODEL_CPU = "Systran/faster-whisper-tiny"
 ASR_MODEL_NAME = _ASR_MODEL_GPU if GPU_AVAILABLE else _ASR_MODEL_CPU
 
 LLM_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
