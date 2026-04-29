@@ -295,6 +295,7 @@ export function InterviewProvider({ children }) {
           dispatch({ type: "SET_QUESTION", v: next.question, total: next.total_questions || state.totalQuestions });
         }
       }
+      setEvaluating(false);
       return res;
     } catch (e) {
       // If it's a timeout or network error, we DON'T stop evaluating.
@@ -335,6 +336,7 @@ export function InterviewProvider({ children }) {
           dispatch({ type: "SET_QUESTION", v: next.question, total: next.total_questions || state.totalQuestions });
         }
       }
+      setEvaluating(false);
       return res;
     } catch (e) {
       if (e.status === 408 || e.isTimeout || e.isNetworkError) {
