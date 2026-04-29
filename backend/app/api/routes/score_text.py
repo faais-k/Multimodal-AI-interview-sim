@@ -468,7 +468,7 @@ async def score_text_answer(payload: dict):
                     q_emb = get_embeddings(question_text, convert_to_tensor=True)
                     a_emb = get_embeddings(answer_text, convert_to_tensor=True)
                     from torch.nn.functional import cosine_similarity
-                    q_to_a_sim = float(cosine_similarity(q_emb, a_emb)[0])
+                    q_to_a_sim = float(cosine_similarity(q_emb.unsqueeze(0), a_emb.unsqueeze(0))[0])
                         
                     if q_to_a_sim > 0.7 and len(answer_text) > 10:
                         plagiarism_report = {
