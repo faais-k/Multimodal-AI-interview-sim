@@ -55,8 +55,8 @@ _SENTENCE_MODEL_GPU = "sentence-transformers/all-mpnet-base-v2"
 _SENTENCE_MODEL_CPU = "sentence-transformers/all-MiniLM-L6-v2"
 SENTENCE_MODEL_NAME = _SENTENCE_MODEL_GPU if GPU_AVAILABLE else _SENTENCE_MODEL_CPU
 
-_ASR_MODEL_GPU = "large-v3"  # faster-whisper optimized
-_ASR_MODEL_CPU = "tiny"
+_ASR_MODEL_GPU = "openai/whisper-large-v3-turbo"
+_ASR_MODEL_CPU = "openai/whisper-tiny"
 ASR_MODEL_NAME = _ASR_MODEL_GPU if GPU_AVAILABLE else _ASR_MODEL_CPU
 
 LLM_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
@@ -155,32 +155,37 @@ def encode_sentence(texts: Union[str, List[str]], convert_to_tensor: bool = True
     return get_sentence_transformer().encode(texts, convert_to_tensor=convert_to_tensor)
 
 
-# ── Whisper ASR (faster-whisper) ──────────────────────────────────────────────
+# ── Whisper ASR (Optimized via faster-whisper) ────────────────────────────────
 
 
 def load_asr_model() -> None:
+    """Load Whisper ASR using the faster-whisper (CTranslate2) engine."""
     global _asr_pipeline
     if _asr_pipeline is None:
         with _asr_lock:
             if _asr_pipeline is None:
-                print(f"📥 Loading faster-whisper ({ASR_MODEL_NAME})…")
+                print(f"📥 Loading Faster-Whisper ({ASR_MODEL_NAME})…")
                 try:
+                    import torch
                     from faster_whisper import WhisperModel
 
-                    device = "cuda" if GPU_AVAILABLE else "cpu"
-                    # compute_type: float16 for GPU, int8 for CPU (much faster/smaller)
+                    device = "cuda" if torch.cuda.is_available() else "cpu"
+                    # int8 is safe and much faster on CPU; float16 is optimal for GPU
                     compute_type = "float16" if device == "cuda" else "int8"
 
+                    # ASR_MODEL_NAME is usually a HF model ID like "openai/whisper-tiny"
+                    # faster-whisper handles these automatically.
                     _asr_pipeline = WhisperModel(
-                        ASR_MODEL_NAME, device=device, compute_type=compute_type
+                        ASR_MODEL_NAME,
+                        device=device,
+                        compute_type=compute_type,
+                        download_root=os.path.join(os.getenv("STORAGE_DIR", "/tmp"), "models"),
                     )
                     print(
-                        f"✅ faster-whisper ready ({ASR_MODEL_NAME}, device={device}, compute_type={compute_type})"
+                        f"✅ Faster-Whisper ready ({ASR_MODEL_NAME}, device={device}, compute={compute_type})"
                     )
                 except Exception as exc:
-                    print(
-                        f"⚠️  faster-whisper load failed: {exc}. ASR endpoints will be unavailable."
-                    )
+                    print(f"⚠️  Faster-Whisper load failed: {exc}")
                     _asr_pipeline = None
 
 
@@ -191,29 +196,32 @@ def get_asr_model() -> Optional[Any]:
 
 
 def transcribe_audio(audio_path: str) -> dict:
-    """Transcribe audio using faster-whisper.
-    Returns {"text": str, "chunks": list}.
-    """
+    """Transcribe audio using faster-whisper. Returns {"text": str, "chunks": list}."""
     model = get_asr_model()
     if model is None:
         raise RuntimeError("ASR model unavailable. Check server logs.")
 
-    # beam_size=5 is standard for quality, can reduce to 1 for speed
-    segments, info = model.transcribe(audio_path, beam_size=5)
+    # beam_size=5 is a good balance of accuracy/speed
+    segments, info = model.transcribe(audio_path, beam_size=5, word_timestamps=True)
 
     full_text = []
     chunks = []
-
     for segment in segments:
         full_text.append(segment.text)
         chunks.append(
             {
                 "text": segment.text,
-                "timestamp": (segment.start, segment.end),
+                "start": segment.start,
+                "end": segment.end,
             }
         )
 
-    return {"text": " ".join(full_text).strip(), "chunks": chunks}
+    return {
+        "text": "".join(full_text).strip(),
+        "chunks": chunks,
+        "language": info.language,
+        "duration": info.duration,
+    }
 
 
 # ── LLM — GPU: local Qwen2.5-7B | CPU: HF Inference API ─────────────────────

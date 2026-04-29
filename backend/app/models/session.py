@@ -10,3 +10,5 @@ class SessionStatus(str, Enum):
     FOLLOWUP_PENDING = "followup_pending"  # System is preparing follow-up question
     INTERVIEW_COMPLETE = "interview_complete"  # All planned questions answered
     REPORT_GENERATED = "report_generated"  # Final report compiled and stored
+    FAILED = "failed"  # Processing failed (e.g. LLM/ASR error)
+    TIMED_OUT = "timed_out"  # Processing took too long

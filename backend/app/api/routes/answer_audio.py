@@ -123,30 +123,9 @@ async def answer_audio(session_id: str, question_id: str, file: UploadFile = Fil
 
         asr_path = _normalise_audio_for_asr(dest_path)
 
-        # ── Background Task Migration ──────────────────────────────────────────
-        # Instead of blocking the HTTP request for ASR and scoring, we now
-        # offload the work to a Celery worker.
+        gpu_ok = is_gpu_available()
+        timeout = ASR_TIMEOUT_GPU if gpu_ok else ASR_TIMEOUT_CPU
         try:
-            from backend.app.worker import process_audio_answer_task
-
-            task = process_audio_answer_task.delay(
-                session_id=session_id,
-                question_id=question_id,
-                audio_path=str(asr_path),
-            )
-
-            return {
-                "status": "accepted",
-                "task_id": task.id,
-                "message": "Audio answer received. Transcription and scoring started in background.",
-            }
-        except Exception as e:
-            # Fallback to sync mode if Celery/Redis is unavailable
-            print(f"⚠️ Celery task failed to enqueue: {e}. Falling back to sync mode.")
-
-            gpu_ok = is_gpu_available()
-            timeout = ASR_TIMEOUT_GPU if gpu_ok else ASR_TIMEOUT_CPU
-
             start_time = time.monotonic()
             asr_result = await asyncio.wait_for(
                 asyncio.to_thread(transcribe_audio, str(asr_path)),
@@ -157,28 +136,57 @@ async def answer_audio(session_id: str, question_id: str, file: UploadFile = Fil
             from backend.app.core.metrics import record_asr_transcription
 
             record_asr_transcription(outcome="success", latency_s=latency_s)
+
             transcript = asr_result.get("text", "").strip()
+        except asyncio.TimeoutError:
+            from backend.app.core.metrics import record_asr_transcription
 
-            if not transcript:
-                raise HTTPException(
-                    status_code=422,
-                    detail="Transcription produced empty text. Please speak clearly.",
-                )
-
-            scored = await score_text_answer(
-                {
-                    "session_id": session_id,
-                    "question_id": question_id,
-                    "answer_text": transcript,
-                }
+            record_asr_transcription(outcome="timeout", latency_s=timeout)
+            raise HTTPException(
+                status_code=504,
+                detail=(
+                    f"Audio transcription timed out after {timeout}s. "
+                    "Please try a shorter recording or use text answer mode."
+                ),
             )
-            scored["transcript"] = transcript
-            scored["audio_path"] = str(dest_path)
-            scored["scoring_method"] = "whisper_asr_sync_fallback"
-            return scored
+        except Exception as exc:
+            from backend.app.core.metrics import record_asr_transcription
 
-    except HTTPException:
+            record_asr_transcription(outcome="error", latency_s=0.0)
+            print("ASR error:", exc, traceback.format_exc())
+            raise HTTPException(
+                status_code=500, detail=f"ASR transcription failed: {str(exc)[:200]}"
+            )
+
+        if not transcript:
+            await update_session_status(session_id, SessionStatus.FAILED, extra={"error": "Empty transcription"})
+            raise HTTPException(
+                status_code=422,
+                detail="Transcription produced empty text. Please speak clearly and re-record.",
+            )
+
+        # Transition: ASR done → scoring pending
+        await update_session_status(session_id, SessionStatus.SCORING_PENDING)
+
+        scored = await score_text_answer(
+            {
+                "session_id": session_id,
+                "question_id": question_id,
+                "answer_text": transcript,
+            }
+        )
+        scored["transcript"] = transcript
+        scored["audio_path"] = str(dest_path)
+        scored["scoring_method"] = "whisper_asr"
+        scored["audio_model"] = "whisper-large-v3-turbo" if gpu_ok else "whisper-tiny"
+        return scored
+
+    except HTTPException as e:
+        # Mark as failed if it's a 5xx error
+        if e.status_code >= 500:
+            await update_session_status(session_id, SessionStatus.FAILED, extra={"error": e.detail})
         raise
     except Exception as exc:
         print("Error in /answer/audio:", exc, traceback.format_exc())
+        await update_session_status(session_id, SessionStatus.FAILED, extra={"error": str(exc)})
         raise HTTPException(status_code=500, detail=f"Internal error: {exc}")

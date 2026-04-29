@@ -447,14 +447,28 @@ def _extract_top_skills(skills: List[str], n: int = 10) -> List[str]:
 
 
 @router.post("/parse-and-extract")
-async def parse_and_extract_resume(
-    session_id: str = Form(...), 
-    resume: UploadFile = File(...),
-    background: bool = Form(False)
-):
+async def parse_and_extract_resume(session_id: str = Form(...), resume: UploadFile = File(...)):
     """
-    Main endpoint for resume parse and extract. Supports background processing.
+    Parse uploaded resume and return structured data for form autofill.
+
+    Returns:
+    - name: Extracted candidate name
+    - email: Email address
+    - phone: Phone number
+    - skills: List of technical skills
+    - projects: List of projects with descriptions
+    - education_summary: Education summary string
+    - experience_years: Estimated years of experience
+    - expertise_level: Inferred level (fresher/intermediate/experienced)
+    - latest_role: Latest job title if available
+    - raw_text_excerpt: First 1000 chars of extracted text for verification
     """
+    from backend.app.api.routes.parse_resume import (
+        build_parsed_schema,
+        _extract_pdf_text,
+        _extract_page_text_column_aware,
+    )
+
     validate_session_id(session_id)
 
     # Save uploaded file
@@ -487,117 +501,84 @@ async def parse_and_extract_resume(
         temp_path.unlink(missing_ok=True)
         raise
 
-    if background:
-        try:
-            from backend.app.worker import app as celery_app
-            task = celery_app.send_task("parse_and_extract_resume", args=[session_id, str(file_path), resume.filename])
-            return {"status": "accepted", "task_id": task.id, "message": "Resume parsing started in background"}
-        except Exception as e:
-            import logging
-            logging.error(f"⚠️ Celery task failed to enqueue: {e}. Falling back to sync mode.")
-            # Fall through to sync mode
+    # Extract text based on file type
+    raw_text = ""
+    try:
+        if file_path.suffix.lower() == ".pdf":
+            import pdfplumber
 
-    return await parse_and_extract_logic(session_id, file_path, resume.filename)
+            with pdfplumber.open(file_path) as pdf:
+                pages_text = []
+                for page in pdf.pages:
+                    t = _extract_page_text_column_aware(page)
+                    if t:
+                        pages_text.append(t)
+                raw_text = "\n".join(pages_text)
+        elif file_path.suffix.lower() in (".docx", ".doc"):
+            import docx2txt
 
+            raw_text = docx2txt.process(str(file_path))
+        else:
+            raw_text = file_path.read_text(encoding="utf-8", errors="ignore")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to extract text: {e}")
 
-async def parse_and_extract_logic(session_id: str, file_path: Path, filename: str):
-    """
-    Core logic for parsing and extracting resume data.
-    """
-    from backend.app.api.routes.parse_resume import (
-        build_parsed_schema,
-        _extract_page_text_column_aware,
+    if not raw_text or not raw_text.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="Could not extract text from resume. File may be image-based or corrupted.",
+        )
+
+    # Parse the resume
+    parsed = build_parsed_schema(resume.filename, raw_text)
+
+    if "error" in parsed:
+        raise HTTPException(status_code=422, detail=parsed["error"])
+
+    # Extract additional fields for autofill
+    name = parsed.get("name") or _extract_name_from_text(raw_text)
+    exp_years = _extract_experience_years(raw_text)
+    expertise = _infer_expertise_level(raw_text, exp_years)
+    latest_role = _extract_latest_role(raw_text)
+    edu_summary = _extract_education_summary(parsed.get("education", []))
+
+    # Save parsed data for later use
+    parsed.update(
+        {
+            "experience_years": exp_years,
+            "inferred_expertise": expertise,
+            "latest_role": latest_role,
+        }
     )
 
-    try:
-        sdir = _storage_dir() / session_id
-        
-        # Extract text based on file type
-        raw_text = ""
-        try:
-            if file_path.suffix.lower() == ".pdf":
-                import pdfplumber
+    out_file = sdir / "parsed_resume.json"
+    out_file.write_text(json.dumps(parsed, indent=2, ensure_ascii=False), encoding="utf-8")
 
-                with pdfplumber.open(file_path) as pdf:
-                    pages_text = []
-                    for page in pdf.pages:
-                        t = _extract_page_text_column_aware(page)
-                        if t:
-                            pages_text.append(t)
-                    raw_text = "\n".join(pages_text)
-            elif file_path.suffix.lower() in (".docx", ".doc"):
-                import docx2txt
+    # Format projects for UI
+    projects_data = _format_projects_for_display(parsed.get("projects", []))
 
-                raw_text = docx2txt.process(str(file_path))
-            else:
-                raw_text = file_path.read_text(encoding="utf-8", errors="ignore")
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to extract text: {e}")
+    # Get top skills
+    top_skills = _extract_top_skills(parsed.get("skills", []))
 
-        if not raw_text or not raw_text.strip():
-            raise HTTPException(
-                status_code=422,
-                detail="Could not extract text from resume. File may be image-based or corrupted.",
-            )
-
-        # Parse the resume
-        parsed = build_parsed_schema(filename, raw_text)
-
-        if "error" in parsed:
-            raise HTTPException(status_code=422, detail=parsed["error"])
-
-        # Extract additional fields for autofill
-        name = parsed.get("name") or _extract_name_from_text(raw_text)
-        exp_years = _extract_experience_years(raw_text)
-        expertise = _infer_expertise_level(raw_text, exp_years)
-        latest_role = _extract_latest_role(raw_text)
-        edu_summary = _extract_education_summary(parsed.get("education", []))
-
-        # Save parsed data for later use
-        parsed.update(
-            {
-                "experience_years": exp_years,
-                "inferred_expertise": expertise,
-                "latest_role": latest_role,
-            }
-        )
-
-        out_file = sdir / "parsed_resume.json"
-        out_file.write_text(json.dumps(parsed, indent=2, ensure_ascii=False), encoding="utf-8")
-
-        # Format projects for UI
-        projects_data = _format_projects_for_display(parsed.get("projects", []))
-
-        # Get top skills
-        top_skills = _extract_top_skills(parsed.get("skills", []))
-
-        return {
-            "status": "ok",
-            "extracted": {
-                "name": name,
-                "email": parsed.get("email"),
-                "phone": parsed.get("phones", [None])[0],
-                "skills": top_skills,
-                "all_skills": parsed.get("skills", []),
-                "projects": projects_data.get("projects", []),
-                "projects_meta": {
-                    "total_found": projects_data.get("total_projects_found", 0),
-                    "extraction_quality": projects_data.get("extraction_quality", "unknown"),
-                    "average_confidence": projects_data.get("average_confidence", 0),
-                },
-                "education_summary": edu_summary,
-                "experience_years": exp_years,
-                "expertise_level": expertise,
-                "latest_role": latest_role,
+    return {
+        "status": "ok",
+        "extracted": {
+            "name": name,
+            "email": parsed.get("email"),
+            "phone": parsed.get("phones", [None])[0],
+            "skills": top_skills,
+            "all_skills": parsed.get("skills", []),
+            "projects": projects_data.get("projects", []),  # Array for frontend compatibility
+            "projects_meta": {  # Additional metadata if needed
+                "total_found": projects_data.get("total_projects_found", 0),
+                "extraction_quality": projects_data.get("extraction_quality", "unknown"),
+                "average_confidence": projects_data.get("average_confidence", 0),
             },
-            "raw_excerpt": raw_text[:1000],
-            "session_id": session_id,
-        }
-    except Exception as e:
-        import logging
-        logging.exception(f"Error in parse_and_extract_logic for session {session_id}: {e}")
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=500, detail=f"Resume parsing failed: {str(e)}"
-        )
+            "education_summary": edu_summary,
+            "experience_years": exp_years,
+            "expertise_level": expertise,
+            "latest_role": latest_role,
+        },
+        "raw_excerpt": raw_text[:1000],
+        "session_id": session_id,
+    }

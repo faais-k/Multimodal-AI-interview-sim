@@ -397,38 +397,6 @@ Scoring guide for raw_score:
 
 
 @router.post("/score/text")
-async def score_text_endpoint(payload: dict):
-    """Main endpoint for text scoring. Supports background processing."""
-    background = payload.get("background", False)
-    if background:
-        session_id = payload.get("session_id")
-        question_id = payload.get("question_id")
-        answer_text = (payload.get("answer_text") or "").strip()
-
-        # Simple validation before enqueuing
-        if not session_id or not question_id:
-            raise HTTPException(400, "session_id and question_id are required")
-
-        # Enqueue background task
-        try:
-            from backend.app.worker import score_text_answer_task
-
-            task = score_text_answer_task.delay(
-                session_id=session_id,
-                question_id=question_id,
-                answer_text=answer_text,
-            )
-            return {
-                "status": "accepted",
-                "task_id": task.id,
-                "message": "Text answer received. Scoring started in background.",
-            }
-        except Exception as e:
-            print(f"⚠️ Celery task failed: {e}. Falling back to sync mode.")
-
-    return await score_text_answer(payload)
-
-
 async def score_text_answer(payload: dict):
     try:
         session_id = payload.get("session_id")
@@ -641,8 +609,11 @@ async def score_text_answer(payload: dict):
             return {"status": "ok", **score_obj}
         # ── SCOPE 2 RELEASED ──────────────────────────────────────────────────
 
-    except HTTPException:
+    except HTTPException as e:
+        if e.status_code >= 500:
+            await update_session_status(session_id, SessionStatus.FAILED, extra={"error": e.detail})
         raise
-    except Exception:
-        print(traceback.format_exc())
-        raise HTTPException(500, "Internal error scoring answer")
+    except Exception as exc:
+        print("Scoring error:", exc, traceback.format_exc())
+        await update_session_status(session_id, SessionStatus.FAILED, extra={"error": str(exc)})
+        raise HTTPException(500, f"Scoring engine error: {exc}")

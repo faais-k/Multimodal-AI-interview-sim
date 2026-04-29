@@ -117,16 +117,22 @@ async def get_session_status(session_id: str):
                 "message": "Session expired after 24 hours of inactivity",
             }
 
-    # Load interview state
+    # Load interview state from JSON (legacy/fallback)
     state = _read_json(sdir / "interview_state.json")
     plan = _read_json(sdir / "interview_plan.json")
 
+    # Load machine state from DB (modern/reliable)
+    from backend.app.core.db_ops import get_session_status_db
+    db_state = await get_session_status_db(session_id) or {}
+    status_str = db_state.get("status", "active" if not state.get("completed") else "completed")
+
     if not state:
         return {
-            "status": "not_started",
+            "status": status_str,
             "session_id": session_id,
             "has_active_question": False,
             "is_completed": False,
+            "error": db_state.get("error"),
         }
 
     # Get current question info
@@ -148,7 +154,7 @@ async def get_session_status(session_id: str):
             has_active_question = True
 
     return {
-        "status": "active" if not state.get("completed") else "completed",
+        "status": status_str,
         "session_id": session_id,
         "current_question": current_question,
         "question_number": len(questions_asked),
@@ -156,7 +162,9 @@ async def get_session_status(session_id: str):
         "questions_asked_count": len(questions_asked),
         "stage": state.get("cursor", {}).get("stage", "intro"),
         "has_active_question": has_active_question,
-        "is_completed": state.get("completed", False),
+        "is_completed": state.get("completed", False) or status_str in ["interview_complete", "report_generated"],
+        "error": db_state.get("error"),
+        "last_activity": db_state.get("last_activity_at"),
     }
 
 

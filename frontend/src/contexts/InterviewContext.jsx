@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useCallback, useReducer, useEffect, useRef } from "react";
-import { api, waitForTask } from "../api/client";
+import { api } from "../api/client";
 
 const InterviewContext = createContext();
 
@@ -73,6 +73,57 @@ export function InterviewProvider({ children }) {
   const setStep       = v => dispatch({ type: "SET_STEP",       v });
   const setReport     = v => dispatch({ type: "SET_REPORT",     v });
   const setSession    = v => dispatch({ type: "SET_SESSION",    v });
+
+  // Adaptive Polling Logic
+  useEffect(() => {
+    let timer;
+    let pollCount = 0;
+
+    const pollStatus = async () => {
+      if (!state.sessionId || !state.evaluating) return;
+
+      try {
+        pollCount++;
+        const status = await api.getSessionStatus(state.sessionId);
+
+        // If backend says question is active again, or interview is complete
+        if (status.status === "question_active" || status.status === "followup_pending") {
+          const next = await api.nextQuestion(state.sessionId);
+          if (next.status === "completed" || next.status === "awaiting_wrapup_answer" || !next.question) {
+            setStep("processing");
+          } else {
+            dispatch({ type: "SET_QUESTION", v: next.question, total: next.total_questions || state.totalQuestions });
+          }
+        } else if (status.status === "interview_complete" || status.status === "report_generated") {
+          setStep("processing");
+        } else if (status.status === "failed") {
+          setError(status.error || "The evaluation failed. Please try again or contact support.");
+          setEvaluating(false);
+        } else {
+          // Still pending (answer_pending or scoring_pending)
+          scheduleNext();
+        }
+      } catch (e) {
+        console.warn("Polling error:", e);
+        scheduleNext();
+      }
+    };
+
+    const scheduleNext = () => {
+      if (!state.evaluating) return;
+      // Adaptive interval: 1s for first 10 tries, then 2s, then 5s
+      const interval = pollCount < 10 ? 1000 : pollCount < 20 ? 2000 : 5000;
+      timer = setTimeout(pollStatus, interval);
+    };
+
+    if (state.evaluating) {
+      scheduleNext();
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [state.evaluating, state.sessionId, state.totalQuestions]);
 
   // Load session from storage on mount and recover state from backend
   useEffect(() => {
@@ -202,45 +253,33 @@ export function InterviewProvider({ children }) {
     submitInFlightRef.current = true;
     setEvaluating(true);
     try {
-      let res = await api.scoreText({
+      const res = await api.scoreText({
         session_id: state.sessionId,
         question_id: state.question.id,
-        answer_text: text,
+        answer_text: text
       });
-
-      // Handle background task polling
-      if (res.status === "accepted" && res.task_id) {
-        const taskResult = await waitForTask(res.task_id);
-        if (taskResult.status === "ok") {
-          res = taskResult.result;
-        } else {
-          throw new Error(taskResult.message || "Background evaluation failed.");
-        }
-      }
-
+      
       if (res.is_final || res.is_completed) {
         setStep("processing");
       } else {
         const next = await api.nextQuestion(state.sessionId);
-        if (
-          next.status === "completed" ||
-          next.status === "awaiting_wrapup_answer" ||
-          !next.question
-        ) {
+        if (next.status === "completed" || next.status === "awaiting_wrapup_answer" || !next.question) {
           setStep("processing");
         } else {
-          dispatch({
-            type: "SET_QUESTION",
-            v: next.question,
-            total: next.total_questions || state.totalQuestions,
-          });
+          dispatch({ type: "SET_QUESTION", v: next.question, total: next.total_questions || state.totalQuestions });
         }
       }
     } catch (e) {
-      setError(e.message || "Evaluation failed.");
+      // If it's a timeout or network error, we DON'T stop evaluating.
+      // We let the polling effect take over to see if it eventually completes.
+      if (e.status === 408 || e.isTimeout || e.isNetworkError) {
+        console.warn("Submission timed out/failed, but staying in evaluating state for polling recovery.");
+      } else {
+        setError(e.message || "Evaluation failed.");
+        setEvaluating(false);
+      }
     } finally {
       submitInFlightRef.current = false;
-      setEvaluating(false);
     }
   }, [state.sessionId, state.question, state.totalQuestions]);
 
@@ -250,41 +289,27 @@ export function InterviewProvider({ children }) {
     submitInFlightRef.current = true;
     setEvaluating(true);
     try {
-      let res = await api.scoreAudio(state.sessionId, state.question.id, blob);
-
-      // Handle background task polling
-      if (res.status === "accepted" && res.task_id) {
-        const taskResult = await waitForTask(res.task_id);
-        if (taskResult.status === "ok") {
-          res = taskResult.result;
-        } else {
-          throw new Error(taskResult.message || "Audio processing failed.");
-        }
-      }
-
+      const res = await api.scoreAudio(state.sessionId, state.question.id, blob);
+      
       if (res.is_final || res.is_completed) {
         setStep("processing");
       } else {
         const next = await api.nextQuestion(state.sessionId);
-        if (
-          next.status === "completed" ||
-          next.status === "awaiting_wrapup_answer" ||
-          !next.question
-        ) {
+        if (next.status === "completed" || next.status === "awaiting_wrapup_answer" || !next.question) {
           setStep("processing");
         } else {
-          dispatch({
-            type: "SET_QUESTION",
-            v: next.question,
-            total: next.total_questions || state.totalQuestions,
-          });
+          dispatch({ type: "SET_QUESTION", v: next.question, total: next.total_questions || state.totalQuestions });
         }
       }
     } catch (e) {
-      setError(e.message || "Audio evaluation failed.");
+      if (e.status === 408 || e.isTimeout || e.isNetworkError) {
+        console.warn("Audio submission timed out/failed, staying in evaluating state for polling recovery.");
+      } else {
+        setError(e.message || "Audio evaluation failed.");
+        setEvaluating(false);
+      }
     } finally {
       submitInFlightRef.current = false;
-      setEvaluating(false);
     }
   }, [state.sessionId, state.question, state.totalQuestions]);
 

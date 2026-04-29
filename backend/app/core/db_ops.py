@@ -16,6 +16,20 @@ from backend.app.models.session import SessionStatus
 # Configure module-level logger
 logger = logging.getLogger(__name__)
 
+# Legal state machine transitions to enforce consistency
+ALLOWED_TRANSITIONS = {
+    SessionStatus.CREATED: [SessionStatus.PREFLIGHT_COMPLETE, SessionStatus.FAILED],
+    SessionStatus.PREFLIGHT_COMPLETE: [SessionStatus.QUESTION_ACTIVE, SessionStatus.FAILED],
+    SessionStatus.QUESTION_ACTIVE: [SessionStatus.ANSWER_PENDING, SessionStatus.INTERVIEW_COMPLETE, SessionStatus.FAILED],
+    SessionStatus.ANSWER_PENDING: [SessionStatus.SCORING_PENDING, SessionStatus.FAILED, SessionStatus.TIMED_OUT],
+    SessionStatus.SCORING_PENDING: [SessionStatus.QUESTION_ACTIVE, SessionStatus.FOLLOWUP_PENDING, SessionStatus.INTERVIEW_COMPLETE, SessionStatus.FAILED, SessionStatus.TIMED_OUT],
+    SessionStatus.FOLLOWUP_PENDING: [SessionStatus.QUESTION_ACTIVE, SessionStatus.FAILED],
+    SessionStatus.INTERVIEW_COMPLETE: [SessionStatus.REPORT_GENERATED, SessionStatus.FAILED],
+    SessionStatus.REPORT_GENERATED: [],  # Terminal state
+    SessionStatus.FAILED: [SessionStatus.CREATED, SessionStatus.QUESTION_ACTIVE],  # Allow retries
+    SessionStatus.TIMED_OUT: [SessionStatus.SCORING_PENDING, SessionStatus.QUESTION_ACTIVE], # Allow recovery
+}
+
 
 def _log_db_error(operation: str, session_id: str, exception: Exception) -> None:
     """
@@ -87,22 +101,50 @@ async def update_session_status(
     session_id: str,
     status: SessionStatus,
     extra: Dict[str, Any] = None,
+    force: bool = False,
 ) -> None:
-    """Update session status: created → active → completed."""
+    """Update session status with transition validation and heartbeats."""
     from backend.app.core.metrics import record_interview_event
-
-    if status == SessionStatus.INTERVIEW_COMPLETE:
-        record_interview_event("completed")
-    elif status == SessionStatus.REPORT_GENERATED:
-        record_interview_event("reported")
 
     if not db_available():
         return
+
     try:
         db = get_db()
-        update = {"status": status, "updated_at": datetime.utcnow()}
+        current_session = await db.sessions.find_one({"session_id": session_id})
+        old_status = current_session.get("status") if current_session else None
+
+        # 1. Transition Validation (unless forced or new session)
+        if old_status and not force:
+            allowed = ALLOWED_TRANSITIONS.get(SessionStatus(old_status), [])
+            if status not in allowed:
+                logger.warning(
+                    f"⚠️ Illegal transition attempt for {session_id}: {old_status} -> {status}"
+                )
+                # In production, we might raise an error here. For now, we log and allow if it's FAILED.
+                if status != SessionStatus.FAILED:
+                    return
+
+        # 2. Heartbeats & Timestamps
+        now = datetime.utcnow()
+        update = {
+            "status": status,
+            "updated_at": now,
+            "last_activity_at": now,
+        }
+
+        # Track when we start heavy work (ASR/LLM)
+        if status in [SessionStatus.ANSWER_PENDING, SessionStatus.SCORING_PENDING]:
+            update["processing_started_at"] = now
+
+        if status == SessionStatus.INTERVIEW_COMPLETE:
+            record_interview_event("completed")
+        elif status == SessionStatus.REPORT_GENERATED:
+            record_interview_event("reported")
+
         if extra:
             update.update(extra)
+
         await db.sessions.update_one(
             {"session_id": session_id},
             {"$set": update},
@@ -110,6 +152,19 @@ async def update_session_status(
         )
     except Exception as e:
         _log_db_error("update_session_status", session_id, e)
+
+
+async def get_session_status_db(session_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieve the current session document (status, timestamps, extra)."""
+    if not db_available():
+        return None
+    try:
+        db = get_db()
+        doc = await db.sessions.find_one({"session_id": session_id}, {"_id": 0})
+        return doc
+    except Exception as e:
+        _log_db_error("get_session_status_db", session_id, e)
+        return None
 
 
 async def save_final_report(
