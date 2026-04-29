@@ -97,36 +97,32 @@ def _find_asked_question(state: dict, question_id: str) -> dict:
 
 def _infer_type(question_id: str, question_text: str) -> str:
     qid = question_id.lower()
-    if qid.startswith("intro"):
+    
+    # Prioritise ID-based checks (most reliable)
+    if qid.startswith("intro_") or "self_intro" in qid:
         return "self_intro"
-    if qid.startswith("project"):
+    if qid.startswith("project_"):
         return "project"
-    if qid.startswith("followup"):
+    if qid.startswith("followup_"):
         return "followup"
-    if qid.startswith("wrapup"):
+    if qid.startswith("wrapup_") or "wrapup" in qid:
         return "wrapup"
-    if qid.startswith("behavioral"):
+    if qid.startswith("behavioral_") or "behavioral" in qid:
         return "hr"
-    if qid.startswith("critical"):
+    if qid.startswith("critical_"):
         return "critical"
-    if qid.startswith("warmup"):
+    if qid.startswith("warmup_"):
         return "warmup"
+        
+    # Keyword fallback for dynamically generated questions
+    qtext_lower = question_text.lower()
     tech_kws = [
-        "explain",
-        "how",
-        "design",
-        "architecture",
-        "implement",
-        "build",
-        "describe",
-        "walk",
-        "tell",
-        "what",
-        "why",
-        "when",
+        "explain", "how", "design", "architecture", "implement", 
+        "build", "complexity", "database", "scaling", "algorithm"
     ]
-    if any(k in question_text.lower() for k in tech_kws):
+    if any(k in qtext_lower for k in tech_kws):
         return "technical"
+        
     return "technical"
 
 
