@@ -26,6 +26,7 @@ from backend.app.api.routes.cleanup import router as cleanup_router
 from backend.app.api.routes.admin import router as admin_router
 from backend.app.api.routes.user import router as user_router
 from backend.app.api.routes.metrics_route import router as metrics_router
+from backend.app.api.routes.tasks import router as tasks_router
 from backend.app.core.ml_models import load_models
 from backend.app.core.database import connect_db, disconnect_db
 from backend.app.core.auth import init_firebase
@@ -192,6 +193,7 @@ app.include_router(cleanup_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(user_router, prefix="/api/user", tags=["User"])
 app.include_router(metrics_router, prefix="/api")
+app.include_router(tasks_router, prefix="/api")
 
 
 @app.get("/")

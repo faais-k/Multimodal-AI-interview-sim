@@ -274,12 +274,22 @@ Requirements:
 
 
 @router.post("/interview/generate-dynamic/{session_id}")
-async def generate_dynamic_interview(session_id: str):
+async def generate_dynamic_interview(session_id: str, payload: dict = None):
     """
-    Generate a complete dynamic interview plan using LLM.
+    Main endpoint for dynamic interview generation. Supports background processing.
+    """
+    background = payload.get("background", False) if payload else False
+    if background:
+        from backend.app.worker import app as celery_app
+        task = celery_app.send_task("generate_dynamic_interview", args=[session_id])
+        return {"status": "accepted", "task_id": task.id, "message": "Question generation started in background"}
+    
+    return await generate_dynamic_interview_logic(session_id)
 
-    This is called during the permissions page (background generation)
-    while the user is setting up camera/mic permissions.
+
+async def generate_dynamic_interview_logic(session_id: str):
+    """
+    Core logic for generating a complete dynamic interview plan using LLM.
     """
     try:
         validate_session_id(session_id)
@@ -430,7 +440,6 @@ async def generate_dynamic_interview(session_id: str):
         await update_session_status(session_id, SessionStatus.PREFLIGHT_COMPLETE)
 
         # Build preview and check for fallbacks
-        questions_preview = []
         any_fallback = any(r.get("used_fallback", False) for r in results)
 
         from backend.app.core.ml_models import is_hf_circuit_open
@@ -451,6 +460,8 @@ async def generate_dynamic_interview(session_id: str):
 
         logging.exception(f"Error in dynamic generation for session {session_id}: {e}")
         # Preserve HTTP 500 so frontend knows it failed and can fallback
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500, detail=f"Dynamic interview generation failed: {str(e)}"
         )

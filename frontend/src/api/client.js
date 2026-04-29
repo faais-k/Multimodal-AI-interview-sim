@@ -211,6 +211,33 @@ export function isRetryable(error) {
   return isNetworkError(error) || RETRYABLE_STATUSES.includes(error?.status);
 }
 
+/**
+ * Poll for background task completion
+ */
+export async function waitForTask(taskId, onProgress) {
+  let attempts = 0;
+  const maxAttempts = 120; // 10 minutes at 5s interval
+  const interval = 5000; // 5 seconds
+
+  while (attempts < maxAttempts) {
+    const statusData = await api.pollTaskStatus(taskId);
+    if (onProgress) onProgress(statusData);
+
+    if (statusData.status === "SUCCESS") {
+      return statusData.result;
+    } else if (statusData.status === "FAILURE") {
+      throw new Error(statusData.error || "Background task failed");
+    } else if (statusData.status === "REVOKED") {
+      throw new Error("Task was cancelled or revoked.");
+    }
+
+    await sleep(interval);
+    attempts++;
+  }
+
+  throw new Error("Background task timed out. Please try again or contact support.");
+}
+
 /** Map a MIME type string to a file extension for audio blobs. */
 function audioExtFromMime(mimeType) {
   if (!mimeType) return ".webm";
@@ -234,15 +261,20 @@ export const api = {
   parseResume:         (sid)     => req(`/parse/resume/${sid}`,         { method: "POST" }),
   
   // New: Parse and extract for resume autofill
-  parseAndExtract: (sid, file) => {
+  parseAndExtract: (sid, file, background = false) => {
     const fd = new FormData();
     fd.append("session_id", sid);
     fd.append("resume", file);
+    if (background) fd.append("background", "true");
     return reqMultipart(`${API_BASE}/parse-and-extract`, fd);
   },
   
   // New: Dynamic interview generation (company research + LLM questions)
-  generateDynamicInterview: (sid) => req(`/interview/generate-dynamic/${sid}`, { method: "POST" }),
+  generateDynamicInterview: (sid, background = false) => 
+    req(`/interview/generate-dynamic/${sid}`, { 
+      method: "POST", 
+      body: background ? JSON.stringify({ background: true }) : undefined 
+    }),
   
   setJobDescription:   (payload) => req("/session/job_description",     { method: "POST", body: JSON.stringify(payload) }),
   setCandidateProfile: (payload) => req("/session/candidate_profile",   { method: "POST", body: JSON.stringify(payload) }),
@@ -274,4 +306,7 @@ export const api = {
   // Session state recovery and skip support
   getSessionStatus: (sid)  => req(`/session/status/${encodeURIComponent(sid)}`),
   skipQuestion: (sid, qid) => req(`/session/skip/${encodeURIComponent(sid)}?question_id=${encodeURIComponent(qid || "")}`, { method: "POST" }),
+
+  // Background Task Polling
+  pollTaskStatus: (taskId) => req(`/tasks/${taskId}`),
 };

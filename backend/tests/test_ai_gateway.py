@@ -21,6 +21,25 @@ def make_mock_provider(response: str = "This is a test question.", raises=None):
     return _provider
 
 
+def test_hf_provider_requests_errors_instead_of_hidden_fallback():
+    """The gateway HF provider must not treat legacy text fallbacks as success."""
+    from backend.app.core.ai_gateway import _call_hf_api
+
+    calls = {}
+
+    def fake_hf_generate(prompt, max_new_tokens, temperature, fallback_on_error=True):
+        calls["fallback_on_error"] = fallback_on_error
+        raise RuntimeError("HF credits depleted")
+
+    with patch("backend.app.core.ml_models.is_hf_circuit_open", return_value=False), patch(
+        "backend.app.core.ml_models._hf_api_generate", side_effect=fake_hf_generate
+    ):
+        with pytest.raises(RuntimeError):
+            _call_hf_api("prompt", 10, 0.0)
+
+    assert calls["fallback_on_error"] is False
+
+
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio

@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useCallback, useReducer, useEffect } from "react";
-import { api } from "../api/client";
+import React, { createContext, useContext, useCallback, useReducer, useEffect, useRef } from "react";
+import { api, waitForTask } from "../api/client";
 
 const InterviewContext = createContext();
 
@@ -63,6 +63,9 @@ function reducer(s, a) {
 
 export function InterviewProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, INIT);
+  const startInFlightRef = useRef(false);
+  const submitInFlightRef = useRef(false);
+  const skipInFlightRef = useRef(false);
 
   const setLoading    = v => dispatch({ type: "SET_LOADING",    v });
   const setEvaluating = v => dispatch({ type: "SET_EVALUATING", v });
@@ -173,6 +176,8 @@ export function InterviewProvider({ children }) {
 
   const startInterview = useCallback(async () => {
     if (!state.sessionId) return;
+    if (startInFlightRef.current) return;
+    startInFlightRef.current = true;
     setLoading(true);
     try {
       await api.startInterview(state.sessionId);
@@ -186,55 +191,99 @@ export function InterviewProvider({ children }) {
       }
     } catch (e) {
       setError(e.message || "Could not start interview.");
+    } finally {
+      startInFlightRef.current = false;
     }
   }, [state.sessionId]);
 
   const submitText = useCallback(async (text) => {
     if (!state.sessionId || !state.question) return;
+    if (submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
     setEvaluating(true);
     try {
-      const res = await api.scoreText({
+      let res = await api.scoreText({
         session_id: state.sessionId,
         question_id: state.question.id,
-        answer_text: text
+        answer_text: text,
       });
-      
+
+      // Handle background task polling
+      if (res.status === "accepted" && res.task_id) {
+        const taskResult = await waitForTask(res.task_id);
+        if (taskResult.status === "ok") {
+          res = taskResult.result;
+        } else {
+          throw new Error(taskResult.message || "Background evaluation failed.");
+        }
+      }
+
       if (res.is_final || res.is_completed) {
         setStep("processing");
       } else {
         const next = await api.nextQuestion(state.sessionId);
-        if (next.status === "completed" || next.status === "awaiting_wrapup_answer" || !next.question) {
+        if (
+          next.status === "completed" ||
+          next.status === "awaiting_wrapup_answer" ||
+          !next.question
+        ) {
           setStep("processing");
         } else {
-          dispatch({ type: "SET_QUESTION", v: next.question, total: next.total_questions || state.totalQuestions });
+          dispatch({
+            type: "SET_QUESTION",
+            v: next.question,
+            total: next.total_questions || state.totalQuestions,
+          });
         }
       }
     } catch (e) {
       setError(e.message || "Evaluation failed.");
     } finally {
+      submitInFlightRef.current = false;
       setEvaluating(false);
     }
   }, [state.sessionId, state.question, state.totalQuestions]);
 
   const submitAudio = useCallback(async (blob) => {
     if (!state.sessionId || !state.question) return;
+    if (submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
     setEvaluating(true);
     try {
-      const res = await api.scoreAudio(state.sessionId, state.question.id, blob);
-      
+      let res = await api.scoreAudio(state.sessionId, state.question.id, blob);
+
+      // Handle background task polling
+      if (res.status === "accepted" && res.task_id) {
+        const taskResult = await waitForTask(res.task_id);
+        if (taskResult.status === "ok") {
+          res = taskResult.result;
+        } else {
+          throw new Error(taskResult.message || "Audio processing failed.");
+        }
+      }
+
       if (res.is_final || res.is_completed) {
         setStep("processing");
       } else {
         const next = await api.nextQuestion(state.sessionId);
-        if (next.status === "completed" || next.status === "awaiting_wrapup_answer" || !next.question) {
+        if (
+          next.status === "completed" ||
+          next.status === "awaiting_wrapup_answer" ||
+          !next.question
+        ) {
           setStep("processing");
         } else {
-          dispatch({ type: "SET_QUESTION", v: next.question, total: next.total_questions || state.totalQuestions });
+          dispatch({
+            type: "SET_QUESTION",
+            v: next.question,
+            total: next.total_questions || state.totalQuestions,
+          });
         }
       }
     } catch (e) {
       setError(e.message || "Audio evaluation failed.");
     } finally {
+      submitInFlightRef.current = false;
       setEvaluating(false);
     }
   }, [state.sessionId, state.question, state.totalQuestions]);
@@ -246,6 +295,8 @@ export function InterviewProvider({ children }) {
 
   const skipQuestion = useCallback(async () => {
     if (!state.sessionId || !state.question) return;
+    if (skipInFlightRef.current || submitInFlightRef.current) return;
+    skipInFlightRef.current = true;
     setEvaluating(true);
     try {
       // Use formal skip endpoint that properly updates backend state
@@ -262,6 +313,7 @@ export function InterviewProvider({ children }) {
     } catch (e) {
       setError(e.message || "Failed to skip question.");
     } finally {
+      skipInFlightRef.current = false;
       setEvaluating(false);
     }
   }, [state.sessionId, state.question, state.totalQuestions, state.questionNumber]);

@@ -121,7 +121,14 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
       const sessionId = sessionRes.session_id;
       iv.setSession(sessionId);
 
-      const parseRes = await api.parseAndExtract(sessionId, selectedFile);
+      // Import polling helper
+      const { waitForTask } = await import("../api/client");
+
+      let parseRes = await api.parseAndExtract(sessionId, selectedFile, true);
+      
+      if (parseRes.status === "accepted" && parseRes.task_id) {
+        parseRes = await waitForTask(parseRes.task_id);
+      }
       
       if (parseRes.status === "ok") {
         setParsedData(parseRes);
@@ -145,7 +152,7 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
     } finally {
       setParsing(false);
     }
-  }, []);
+  }, [form.jobRole, iv]);
 
   const handleDrop = e => {
     e.preventDefault();

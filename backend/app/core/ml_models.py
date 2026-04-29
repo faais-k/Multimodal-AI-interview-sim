@@ -32,6 +32,8 @@ import threading
 import time
 from typing import Any, List, Optional, Union
 
+logger = logging.getLogger(__name__)
+
 # ── GPU detection (computed once at import time) ──────────────────────────────
 
 
@@ -53,8 +55,8 @@ _SENTENCE_MODEL_GPU = "sentence-transformers/all-mpnet-base-v2"
 _SENTENCE_MODEL_CPU = "sentence-transformers/all-MiniLM-L6-v2"
 SENTENCE_MODEL_NAME = _SENTENCE_MODEL_GPU if GPU_AVAILABLE else _SENTENCE_MODEL_CPU
 
-_ASR_MODEL_GPU = "openai/whisper-large-v3-turbo"
-_ASR_MODEL_CPU = "openai/whisper-tiny"
+_ASR_MODEL_GPU = "large-v3"  # faster-whisper optimized
+_ASR_MODEL_CPU = "tiny"
 ASR_MODEL_NAME = _ASR_MODEL_GPU if GPU_AVAILABLE else _ASR_MODEL_CPU
 
 LLM_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
@@ -153,7 +155,7 @@ def encode_sentence(texts: Union[str, List[str]], convert_to_tensor: bool = True
     return get_sentence_transformer().encode(texts, convert_to_tensor=convert_to_tensor)
 
 
-# ── Whisper ASR ───────────────────────────────────────────────────────────────
+# ── Whisper ASR (faster-whisper) ──────────────────────────────────────────────
 
 
 def load_asr_model() -> None:
@@ -161,48 +163,57 @@ def load_asr_model() -> None:
     if _asr_pipeline is None:
         with _asr_lock:
             if _asr_pipeline is None:
-                print(f"📥 Loading Whisper ASR ({ASR_MODEL_NAME})…")
+                print(f"📥 Loading faster-whisper ({ASR_MODEL_NAME})…")
                 try:
-                    import torch
-                    from transformers import pipeline as hf_pipeline
+                    from faster_whisper import WhisperModel
 
-                    device = "cuda" if torch.cuda.is_available() else "cpu"
-                    torch_dtype = torch.float16 if device == "cuda" else torch.float32
-                    _asr_pipeline = hf_pipeline(
-                        "automatic-speech-recognition",
-                        model=ASR_MODEL_NAME,
-                        device=device,
-                        torch_dtype=torch_dtype,
-                        chunk_length_s=30,
-                        stride_length_s=5,
-                        return_timestamps=True,
+                    device = "cuda" if GPU_AVAILABLE else "cpu"
+                    # compute_type: float16 for GPU, int8 for CPU (much faster/smaller)
+                    compute_type = "float16" if device == "cuda" else "int8"
+
+                    _asr_pipeline = WhisperModel(
+                        ASR_MODEL_NAME, device=device, compute_type=compute_type
                     )
-                    print(f"✅ Whisper ASR ready ({ASR_MODEL_NAME}, device={device})")
+                    print(
+                        f"✅ faster-whisper ready ({ASR_MODEL_NAME}, device={device}, compute_type={compute_type})"
+                    )
                 except Exception as exc:
-                    print(f"⚠️  Whisper load failed: {exc}. ASR endpoints will be unavailable.")
+                    print(
+                        f"⚠️  faster-whisper load failed: {exc}. ASR endpoints will be unavailable."
+                    )
                     _asr_pipeline = None
 
 
-def get_asr_pipeline() -> Optional[Any]:
+def get_asr_model() -> Optional[Any]:
     if _asr_pipeline is None:
         load_asr_model()
     return _asr_pipeline
 
 
 def transcribe_audio(audio_path: str) -> dict:
-    """Transcribe audio. Returns {"text": str, "chunks": list}.
-    Raises RuntimeError if ASR unavailable."""
-    asr = get_asr_pipeline()
-    if asr is None:
+    """Transcribe audio using faster-whisper.
+    Returns {"text": str, "chunks": list}.
+    """
+    model = get_asr_model()
+    if model is None:
         raise RuntimeError("ASR model unavailable. Check server logs.")
-    result = asr(audio_path)
-    if isinstance(result, dict):
-        text = result.get("text", "").strip()
-        chunks = result.get("chunks", [])
-    else:
-        text = str(result).strip()
-        chunks = []
-    return {"text": text, "chunks": chunks}
+
+    # beam_size=5 is standard for quality, can reduce to 1 for speed
+    segments, info = model.transcribe(audio_path, beam_size=5)
+
+    full_text = []
+    chunks = []
+
+    for segment in segments:
+        full_text.append(segment.text)
+        chunks.append(
+            {
+                "text": segment.text,
+                "timestamp": (segment.start, segment.end),
+            }
+        )
+
+    return {"text": " ".join(full_text).strip(), "chunks": chunks}
 
 
 # ── LLM — GPU: local Qwen2.5-7B | CPU: HF Inference API ─────────────────────
@@ -322,11 +333,18 @@ def _hf_api_fallback(prompt: str) -> str:
     return "The candidate demonstrates solid technical proficiency and communication skills."
 
 
-def _hf_api_generate(prompt: str, max_new_tokens: int = 512, temperature: float = 0.0) -> str:
+def _hf_api_generate(
+    prompt: str,
+    max_new_tokens: int = 512,
+    temperature: float = 0.0,
+    fallback_on_error: bool = True,
+) -> str:
     """Call HuggingFace Inference API for text generation using InferenceClient.
 
     Uses the chat completions endpoint via the official Python client.
-    Returns descriptive fallback on any failure — never raises.
+    Legacy direct callers receive descriptive fallbacks by default. The AI
+    gateway passes fallback_on_error=False so provider failures can be routed to
+    the next provider or template fallback instead of being counted as success.
     """
     global _hf_api_failure_count, _hf_api_circuit_open, _hf_api_circuit_opened_at
 
@@ -337,6 +355,8 @@ def _hf_api_generate(prompt: str, max_new_tokens: int = 512, temperature: float 
             logging.getLogger(__name__).debug(
                 f"HF API circuit open ({int(_HF_CIRCUIT_COOLDOWN - elapsed)}s remaining) — using fallback"
             )
+            if not fallback_on_error:
+                raise RuntimeError("HF API circuit is open")
             return _hf_api_fallback(prompt)
         # Cooldown elapsed — try again (half-open state)
         logging.getLogger(__name__).info("HF API circuit half-open — retrying")
@@ -349,6 +369,8 @@ def _hf_api_generate(prompt: str, max_new_tokens: int = 512, temperature: float 
             "HF_TOKEN not set - using LLM fallback. "
             "Set HF_TOKEN environment variable for full LLM features."
         )
+        if not fallback_on_error:
+            raise RuntimeError("HF_TOKEN not set")
         return _hf_api_fallback(prompt)
 
     try:
@@ -393,6 +415,10 @@ def _hf_api_generate(prompt: str, max_new_tokens: int = 512, temperature: float 
                         f"HF API circuit breaker OPENED after {_hf_api_failure_count} failures — "
                         f"using fallbacks for {_HF_CIRCUIT_COOLDOWN}s"
                     )
+                if not fallback_on_error:
+                    raise RuntimeError(
+                        f"HF API error {e.response.status_code}: {e.server_message}"
+                    )
                 return _hf_api_fallback(prompt)
             except Exception as e:
                 print(f"⚠️  HF API exception: {e}")
@@ -407,10 +433,14 @@ def _hf_api_generate(prompt: str, max_new_tokens: int = 512, temperature: float 
                 if attempt == 0:
                     time.sleep(2)
                     continue
+                if not fallback_on_error:
+                    raise RuntimeError(f"HF API exception: {e}")
                 return _hf_api_fallback(prompt)
 
     except Exception as exc:
         print(f"⚠️  HF API error: {exc}")
+        if not fallback_on_error:
+            raise
         return _hf_api_fallback(prompt)
 
 

@@ -137,6 +137,18 @@ def _last_candidate_turn(state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _current_unanswered_question(state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Return the latest served question if it still needs an answer."""
+    asked = state.get("questions_asked", [])
+    if not asked:
+        return None
+    last_q = asked[-1]
+    last_id = last_q.get("id")
+    if last_id and last_id not in state.get("answers", {}):
+        return last_q
+    return None
+
+
 def _store_question(state: Dict[str, Any], q: Dict[str, Any]) -> None:
     state["questions_asked"].append(
         {
@@ -680,6 +692,13 @@ def _decide_next_write(
     state = read_state(storage_dir, session_id)
     action = decision["action"]
 
+    # Idempotency guard for concurrent /next_question calls. If another request
+    # already served a question while this request was resolving LLM text, return
+    # that active question instead of writing a duplicate or ending the interview.
+    current_q = _current_unanswered_question(state)
+    if current_q:
+        return current_q
+
     if action in ("completed", "awaiting_wrapup"):
         return decision["payload"]
 
@@ -695,7 +714,27 @@ def _decide_next_write(
         asked = {t["text"].lower() for t in state["turns"] if t["role"] == "interviewer"}
         if resolved_q_text and resolved_q_text.lower() in asked:
             # Already asked — skip this follow-up silently
-            return {"status": "completed", "message": "No new follow-up available."}
+            alternates = [
+                f"What would you improve next time when working with {topic}?",
+                f"How did you validate your approach for {topic}?",
+                f"What trade-off did you make while working with {topic}?",
+            ]
+            resolved_q_text = next((q for q in alternates if q.lower() not in asked), None)
+            if not resolved_q_text:
+                asked_ids = {q["id"] for q in state.get("questions_asked", [])}
+                for plan_q in plan.get("questions", []):
+                    if plan_q.get("id") not in asked_ids:
+                        q = dict(plan_q)
+                        if q.get("type") == "wrapup" or str(q.get("id", "")).startswith("wrapup"):
+                            q["is_final"] = True
+                            state["wrapup_asked"] = True
+                        _store_question(state, q)
+                        write_state(storage_dir, session_id, state)
+                        return q
+                return {
+                    "status": "awaiting_wrapup_answer",
+                    "message": "Please submit your answer to complete the interview.",
+                }
 
         q = {
             "id": f"followup_{safe_topic}_{len(state['turns'])}",

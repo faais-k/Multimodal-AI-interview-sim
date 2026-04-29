@@ -8,6 +8,7 @@ python-multipart==0.0.20
 sentence-transformers==4.1.0
 # ASR: whisper-large-v3-turbo (8x faster than large-v3, near-identical accuracy)
 transformers==4.51.3
+faster-whisper==1.0.3
 # torch/torchaudio: use >= so HF Space can install the right CUDA build
 torch>=2.5.0
 torchaudio>=2.5.0
@@ -39,6 +40,10 @@ bitsandbytes>=0.43.0
 pydantic>=2.9.0
 python-dotenv==1.1.0
 jiwer==3.1.0
+
+# ── Task Queue ───────────────────────────────────────────────────────────────
+celery==5.4.0
+redis==5.2.1
 
 # ── MongoDB async driver ─────────────────────────────────────────────────────
 motor>=3.3.0

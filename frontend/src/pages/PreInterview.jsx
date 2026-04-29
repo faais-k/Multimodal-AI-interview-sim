@@ -84,6 +84,9 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
       try {
         setGenerating(true);
         
+        // Import polling helper
+        const { waitForTask } = await import("../api/client");
+        
         // Post setup data to backend before generating plan
         if (setupData && !cancelled) {
           const jobController = createAbortableRequest();
@@ -106,7 +109,13 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
           if (cancelled) return;
         }
         
-        const result = await api.generateDynamicInterview(sessionId);
+        // Start background generation
+        let result = await api.generateDynamicInterview(sessionId, true);
+        
+        if (result.status === "accepted" && result.task_id) {
+          // Poll for completion
+          result = await waitForTask(result.task_id);
+        }
         
         if (!cancelled) {
           if (result.status === "ok") {

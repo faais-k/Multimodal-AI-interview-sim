@@ -70,7 +70,12 @@ def _call_hf_api(prompt: str, max_tokens: int, temperature: float) -> str:
 
     if is_hf_circuit_open():
         raise RuntimeError("HF API circuit is open — skipping")
-    result = _hf_api_generate(prompt, max_new_tokens=max_tokens, temperature=temperature)
+    result = _hf_api_generate(
+        prompt,
+        max_new_tokens=max_tokens,
+        temperature=temperature,
+        fallback_on_error=False,
+    )
     if not result or len(result.strip()) < 5:
         raise ValueError("HF API returned empty or trivial response")
     return result.strip()

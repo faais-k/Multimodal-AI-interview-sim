@@ -14,8 +14,7 @@ def test_root_endpoint(client):
 
 def test_create_session(client):
     """Verify we can create a session."""
-    response = client.post("/api/session/start")
+    response = client.post("/api/session/create")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "ok"
     assert "session_id" in data

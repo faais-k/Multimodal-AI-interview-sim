@@ -397,6 +397,38 @@ Scoring guide for raw_score:
 
 
 @router.post("/score/text")
+async def score_text_endpoint(payload: dict):
+    """Main endpoint for text scoring. Supports background processing."""
+    background = payload.get("background", False)
+    if background:
+        session_id = payload.get("session_id")
+        question_id = payload.get("question_id")
+        answer_text = (payload.get("answer_text") or "").strip()
+
+        # Simple validation before enqueuing
+        if not session_id or not question_id:
+            raise HTTPException(400, "session_id and question_id are required")
+
+        # Enqueue background task
+        try:
+            from backend.app.worker import score_text_answer_task
+
+            task = score_text_answer_task.delay(
+                session_id=session_id,
+                question_id=question_id,
+                answer_text=answer_text,
+            )
+            return {
+                "status": "accepted",
+                "task_id": task.id,
+                "message": "Text answer received. Scoring started in background.",
+            }
+        except Exception as e:
+            print(f"⚠️ Celery task failed: {e}. Falling back to sync mode.")
+
+    return await score_text_answer(payload)
+
+
 async def score_text_answer(payload: dict):
     try:
         session_id = payload.get("session_id")
@@ -541,6 +573,23 @@ async def score_text_answer(payload: dict):
         # that occurred during ML inference between scope 1 and scope 2.
         # Both record_answer and file write happen atomically under this lock.
         async with interview_flow.get_state_lock(session_id):
+            safe_qid = re.sub(r"[^a-zA-Z0-9_\-]", "_", question_id)[:80]
+            out_dir = _storage_dir() / session_id / "scores"
+            score_path = out_dir / f"{safe_qid}.json"
+            if score_path.exists():
+                try:
+                    cached = _load_json(score_path)
+                    return {"status": "ok", "cached": True, **cached}
+                except Exception:
+                    pass
+
+            latest_state = interview_flow.read_state(_storage_dir(), session_id)
+            if question_id in latest_state.get("answers", {}):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Question has already been answered or skipped.",
+                )
+
             is_completed = interview_flow.record_answer(
                 _storage_dir(),
                 session_id,
@@ -550,8 +599,6 @@ async def score_text_answer(payload: dict):
                 raw_score,
                 detected_topic=detected_topic,
             )
-
-            safe_qid = re.sub(r"[^a-zA-Z0-9_\-]", "_", question_id)[:80]
 
             from backend.app.core.ml_models import is_hf_circuit_open
 
@@ -581,10 +628,9 @@ async def score_text_answer(payload: dict):
                 "is_final": is_completed,  # For frontend compatibility
             }
 
-            out_dir = _storage_dir() / session_id / "scores"
             from backend.app.core.storage import write_json_atomic
 
-            write_json_atomic(out_dir / f"{safe_qid}.json", score_obj)
+            write_json_atomic(score_path, score_obj)
 
             # Transition state after scoring
             if is_completed:
