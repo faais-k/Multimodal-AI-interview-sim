@@ -23,7 +23,7 @@ async def posture_report(payload: dict):
     """
     try:
         session_id = payload.get("session_id")
-        metrics    = payload.get("metrics", {})
+        metrics = payload.get("metrics", {})
         if not session_id:
             raise HTTPException(status_code=400, detail="session_id required")
         validate_session_id(session_id)
@@ -33,9 +33,9 @@ async def posture_report(payload: dict):
             raise HTTPException(status_code=404, detail="session_id not found")
 
         suggestions = []
-        ps            = float(metrics.get("posture_score", 1.0))
-        torso         = float(metrics.get("spine_height",  90))
-        shake         = float(metrics.get("hand_shake_score", 0.0))
+        ps = float(metrics.get("posture_score", 1.0))
+        torso = float(metrics.get("spine_height", 90))
+        shake = float(metrics.get("hand_shake_score", 0.0))
         hands_visible = metrics.get("hands_visible", True)
 
         if ps < 0.6:
@@ -43,7 +43,9 @@ async def posture_report(payload: dict):
         # torso_angle is now a normalized spine height value (0–40 typical),
         # NOT degrees. Values below 10 indicate slouching.
         if torso < 10:
-            suggestions.append("Sit up straighter — your spine appears compressed. Try to lengthen your torso.")
+            suggestions.append(
+                "Sit up straighter — your spine appears compressed. Try to lengthen your torso."
+            )
         if shake > 0.002:
             suggestions.append("Steady your hands — place them on the desk or in your lap.")
         if not hands_visible:

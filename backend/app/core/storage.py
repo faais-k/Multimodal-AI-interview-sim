@@ -4,6 +4,7 @@ Centralised storage path resolution.
 STORAGE_DIR env var overrides the default relative path.
 This allows Docker/HF Space deployments to point storage at a custom directory.
 """
+
 import json
 import os
 import tempfile
@@ -43,14 +44,10 @@ def write_json_atomic(path: Path, data: Dict[str, Any], indent: int = 2) -> None
     path.parent.mkdir(parents=True, exist_ok=True)
 
     # Create temp file in same directory for atomic rename
-    fd, temp_path = tempfile.mkstemp(
-        dir=path.parent,
-        prefix=f".{path.stem}_",
-        suffix=".tmp"
-    )
+    fd, temp_path = tempfile.mkstemp(dir=path.parent, prefix=f".{path.stem}_", suffix=".tmp")
     try:
         # Write JSON to temp file
-        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=indent, ensure_ascii=False)
 
         # Atomic rename (POSIX guarantees atomicity within same filesystem)

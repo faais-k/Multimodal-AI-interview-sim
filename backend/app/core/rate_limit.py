@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 _request_counts: dict = defaultdict(list)
 _rate_lock: asyncio.Lock | None = None
 
+
 def _get_rate_lock() -> asyncio.Lock:
     global _rate_lock
     if _rate_lock is None:
@@ -36,9 +37,7 @@ async def check_rate_limit(
         window_start = now - timedelta(seconds=window_seconds)
 
         # Prune timestamps outside the current window
-        _request_counts[key] = [
-            ts for ts in _request_counts[key] if ts > window_start
-        ]
+        _request_counts[key] = [ts for ts in _request_counts[key] if ts > window_start]
 
         if len(_request_counts[key]) >= max_requests:
             return False  # rate limit exceeded

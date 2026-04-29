@@ -14,22 +14,27 @@ from backend.app.core.filler_words import aggregate_filler_report
 
 router = APIRouter()
 
-DEFAULT_PASS_THRESHOLD          = 6.0
-MIN_COVERAGE_FOR_AUTO_DECISION  = 0.7
+DEFAULT_PASS_THRESHOLD = 6.0
+MIN_COVERAGE_FOR_AUTO_DECISION = 0.7
 
 
 def _storage_dir() -> Path:
     from backend.app.core.storage import get_storage_dir
+
     return get_storage_dir()
+
 
 def _scores_dir(session_id: str) -> Path:
     return _storage_dir() / session_id / "scores"
 
+
 def _state_path(session_id: str) -> Path:
     return _storage_dir() / session_id / "interview_state.json"
 
+
 def _plan_path(session_id: str) -> Path:
     return _storage_dir() / session_id / "interview_plan.json"
+
 
 def _read_json(p: Path) -> Dict[str, Any]:
     return json.loads(p.read_text(encoding="utf-8"))
@@ -56,13 +61,13 @@ def _safe_read_list(p: Path) -> List[dict]:
 
 @router.post("/aggregate/{session_id}")
 async def aggregate_scores(
-    session_id: str, 
+    session_id: str,
     pass_threshold: float = DEFAULT_PASS_THRESHOLD,
-    user: dict = Depends(get_optional_user)
+    user: dict = Depends(get_optional_user),
 ):
     validate_session_id(session_id)
     session_dir = _storage_dir() / session_id
-    scores_dir  = _scores_dir(session_id)
+    scores_dir = _scores_dir(session_id)
 
     if not session_dir.exists():
         raise HTTPException(status_code=404, detail="session not found")
@@ -70,8 +75,7 @@ async def aggregate_scores(
     state = _safe_read_json(_state_path(session_id))
     answers = state.get("answers", {}) if isinstance(state.get("answers", {}), dict) else {}
     skipped_count = sum(
-        1 for ans in answers.values()
-        if isinstance(ans, dict) and ans.get("skipped") is True
+        1 for ans in answers.values() if isinstance(ans, dict) and ans.get("skipped") is True
     )
 
     score_files = list(scores_dir.glob("*.json")) if scores_dir.exists() else []
@@ -83,16 +87,16 @@ async def aggregate_scores(
     plan_questions_map: Dict[str, Dict[str, Any]] = {}
     plan_path = _plan_path(session_id)
     if plan_path.exists():
-        plan          = _read_json(plan_path)
+        plan = _read_json(plan_path)
         plan_questions = plan.get("questions", [])
         expected_qids = [q.get("id") for q in plan_questions]
         plan_questions_map = {q.get("id"): q for q in plan_questions if q.get("id")}
 
-    scores:                Dict[str, Any]    = {}
-    needs_human_questions: List[str]         = []
-    per_type:              Dict[str, List[float]] = {}
+    scores: Dict[str, Any] = {}
+    needs_human_questions: List[str] = []
+    per_type: Dict[str, List[float]] = {}
     total_weighted_sum = 0.0
-    total_weight_sum   = 0.0
+    total_weight_sum = 0.0
 
     for f in score_files:
         try:
@@ -101,8 +105,8 @@ async def aggregate_scores(
             continue
 
         # question_id is stored inside the file; fall back to filename stem
-        qid  = data.get("question_id") or f.stem
-        raw  = data.get("raw_score") if data.get("raw_score") is not None else data.get("score")
+        qid = data.get("question_id") or f.stem
+        raw = data.get("raw_score") if data.get("raw_score") is not None else data.get("score")
 
         qtype = data.get("question_type") or data.get("type") or "technical"
         # Keep behavioral as behavioral, don't map to hr
@@ -111,18 +115,18 @@ async def aggregate_scores(
         if weight is None:
             weight = QUESTION_TYPE_WEIGHTS.get(qtype, {}).get("weight", 0.2)
 
-        similarity   = data.get("similarity")
+        similarity = data.get("similarity")
         needs_review = bool(data.get("needs_human_review", False))
 
         scores[qid] = {
-            "raw_score":          raw,
-            "question_type":      qtype,
-            "weight":             weight,
-            "similarity":         similarity,
+            "raw_score": raw,
+            "question_type": qtype,
+            "weight": weight,
+            "similarity": similarity,
             "needs_human_review": needs_review,
-            "top_matches":        data.get("top_matches", []),
-            "skill_target":       data.get("skill_target", ""),
-            "filler_stats":       data.get("filler_stats", {}),
+            "top_matches": data.get("top_matches", []),
+            "skill_target": data.get("skill_target", ""),
+            "filler_stats": data.get("filler_stats", {}),
         }
 
         if needs_review:
@@ -132,17 +136,17 @@ async def aggregate_scores(
 
         if raw is not None:
             total_weighted_sum += float(raw) * float(weight)
-            total_weight_sum   += float(weight)
+            total_weight_sum += float(weight)
 
     # Coverage: plan questions answered / total plan questions
     # Intro/project/wrapup are not in the plan but are always answered —
     # we do not penalise for their presence or absence in coverage.
-    expected_count     = len(expected_qids) if expected_qids else None
+    expected_count = len(expected_qids) if expected_qids else None
     answered_plan_qids = [qid for qid in scores if qid in expected_qids]
     answered_plan_count = len(answered_plan_qids)
 
     coverage_pct = None
-    incomplete   = False
+    incomplete = False
     if expected_count:
         coverage_pct = min(1.0, answered_plan_count / expected_count)
         # Only flag incomplete if very few plan questions were actually answered
@@ -153,8 +157,8 @@ async def aggregate_scores(
 
     per_type_summary = {
         t: {
-            "count":     len(vals),
-            "avg_raw":   round(sum(vals) / len(vals), 2) if vals else None,
+            "count": len(vals),
+            "avg_raw": round(sum(vals) / len(vals), 2) if vals else None,
             "total_raw": round(sum(vals), 2),
         }
         for t, vals in per_type.items()
@@ -210,12 +214,18 @@ async def aggregate_scores(
             "status": "assessed" if tested else "not_assessed",
         }
 
-    strengths = [k for k, v in skill_coverage.items() if v["tested"] and (v["avg_score"] or 0) >= 7.5]
-    weak_areas = [k for k, v in skill_coverage.items() if v["tested"] and (v["avg_score"] or 10) < 6.5]
+    strengths = [
+        k for k, v in skill_coverage.items() if v["tested"] and (v["avg_score"] or 0) >= 7.5
+    ]
+    weak_areas = [
+        k for k, v in skill_coverage.items() if v["tested"] and (v["avg_score"] or 10) < 6.5
+    ]
     not_assessed = [k for k, v in skill_coverage.items() if not v["tested"]]
 
     # Question breakdown from interview_state answers + plan/state metadata
-    questions_asked = state.get("questions_asked", []) if isinstance(state.get("questions_asked"), list) else []
+    questions_asked = (
+        state.get("questions_asked", []) if isinstance(state.get("questions_asked"), list) else []
+    )
     asked_map = {q.get("id"): q for q in questions_asked if q.get("id")}
     followup_counts: Dict[str, int] = {}
     for qid in answers.keys():
@@ -226,8 +236,14 @@ async def aggregate_scores(
 
     question_breakdown: List[Dict[str, Any]] = []
     for qid, ans in answers.items():
-        q_text = ans.get("question") or asked_map.get(qid, {}).get("question") or plan_questions_map.get(qid, {}).get("question", "")
-        q_type = scores.get(qid, {}).get("question_type") or plan_questions_map.get(qid, {}).get("type", "technical")
+        q_text = (
+            ans.get("question")
+            or asked_map.get(qid, {}).get("question")
+            or plan_questions_map.get(qid, {}).get("question", "")
+        )
+        q_type = scores.get(qid, {}).get("question_type") or plan_questions_map.get(qid, {}).get(
+            "type", "technical"
+        )
         q_skill = (
             scores.get(qid, {}).get("skill_target")
             or asked_map.get(qid, {}).get("skill_target")
@@ -248,29 +264,39 @@ async def aggregate_scores(
         # Prefer raw_score from score file (LLM-adjusted) over the state copy.
         # Skipped answers are intentionally unscored and reduce completion.
         is_skipped = ans.get("skipped") is True
-        q_score = None if is_skipped else (
-            score_data.get("raw_score") or scores.get(qid, {}).get("raw_score") or ans.get("score")
+        q_score = (
+            None
+            if is_skipped
+            else (
+                score_data.get("raw_score")
+                or scores.get(qid, {}).get("raw_score")
+                or ans.get("score")
+            )
         )
 
-        question_breakdown.append({
-            "question":         q_text,
-            "question_id":      qid,
-            "answer":           ans.get("answer", ""),
-            "answer_preview":   str(ans.get("answer", ""))[:120],
-            "skill_target":     q_skill_l,
-            "score":            q_score,
-            "skipped":          is_skipped,
-            "answer_status":    "skipped" if is_skipped else "answered",
-            "question_type":    q_type,
-            "type":             q_type,
-            "followups":        0 if str(qid).startswith("followup") else followup_counts.get(q_skill_l, 0),
-            # Fields from score file — None when score file missing
-            "llm_evaluation":   score_data.get("llm_evaluation"),
-            "relevance_check":  score_data.get("relevance_check"),
-            "scoring_method":   "skipped" if is_skipped else score_data.get("scoring_method"),
-            "scorer":           "skipped" if is_skipped else score_data.get("scorer", "cosine"),
-            "cosine_raw_score": score_data.get("cosine_raw_score"),
-        })
+        question_breakdown.append(
+            {
+                "question": q_text,
+                "question_id": qid,
+                "answer": ans.get("answer", ""),
+                "answer_preview": str(ans.get("answer", ""))[:120],
+                "skill_target": q_skill_l,
+                "score": q_score,
+                "skipped": is_skipped,
+                "answer_status": "skipped" if is_skipped else "answered",
+                "question_type": q_type,
+                "type": q_type,
+                "followups": (
+                    0 if str(qid).startswith("followup") else followup_counts.get(q_skill_l, 0)
+                ),
+                # Fields from score file — None when score file missing
+                "llm_evaluation": score_data.get("llm_evaluation"),
+                "relevance_check": score_data.get("relevance_check"),
+                "scoring_method": "skipped" if is_skipped else score_data.get("scoring_method"),
+                "scorer": "skipped" if is_skipped else score_data.get("scorer", "cosine"),
+                "cosine_raw_score": score_data.get("cosine_raw_score"),
+            }
+        )
 
     # Posture summary
     posture_dir = session_dir / "posture"
@@ -279,12 +305,24 @@ async def aggregate_scores(
         data = _safe_read_json(pf)
         if data:
             posture_items.append(data.get("metrics", {}))
-    posture_scores = [float(m.get("posture_score", 0.0)) for m in posture_items if m.get("posture_score") is not None]
-    labels = [str(m.get("posture_label", "")).strip() for m in posture_items if str(m.get("posture_label", "")).strip()]
+    posture_scores = [
+        float(m.get("posture_score", 0.0))
+        for m in posture_items
+        if m.get("posture_score") is not None
+    ]
+    labels = [
+        str(m.get("posture_label", "")).strip()
+        for m in posture_items
+        if str(m.get("posture_label", "")).strip()
+    ]
     label_counts = Counter(labels)
     posture_summary = {
         "total_snapshots": len(posture_items),
-        "good_posture_pct": round((sum(1 for s in posture_scores if s >= 0.7) / len(posture_scores)) * 100, 1) if posture_scores else 0,
+        "good_posture_pct": (
+            round((sum(1 for s in posture_scores if s >= 0.7) / len(posture_scores)) * 100, 1)
+            if posture_scores
+            else 0
+        ),
         "most_common_label": label_counts.most_common(1)[0][0] if label_counts else None,
         "avg_score": round(sum(posture_scores) / len(posture_scores), 2) if posture_scores else 0.0,
     }
@@ -325,30 +363,30 @@ async def aggregate_scores(
     }
 
     report = {
-        "session_id":             session_id,
-        "final_score":            final_score,
-        "verdict":                verdict,
-        "pass_threshold":         pass_threshold,
-        "needs_human_review":     needs_human_overall,
-        "questions_counted":      len(scores),
+        "session_id": session_id,
+        "final_score": final_score,
+        "verdict": verdict,
+        "pass_threshold": pass_threshold,
+        "needs_human_review": needs_human_overall,
+        "questions_counted": len(scores),
         "total_questions_answered": total_questions_answered,
-        "completed_questions":    completed_questions,
-        "skipped_questions":      skipped_count,
-        "expected_questions":     expected_count,
-        "coverage_pct":           round(coverage_pct, 2) if coverage_pct is not None else None,
-        "completion_pct":         round(coverage_pct, 2) if coverage_pct is not None else None,
-        "incomplete":             incomplete,
-        "needs_human_questions":  needs_human_questions,
-        "per_type_summary":       per_type_summary,
-        "skill_coverage":         skill_coverage,
-        "question_breakdown":     question_breakdown,
-        "posture_summary":        posture_summary,
-        "filler_word_summary":    filler_word_summary,
-        "violations_summary":     violations_summary,
-        "strengths":              strengths,
-        "weak_areas":             weak_areas,
-        "not_assessed":           not_assessed,
-        "scores":                 scores,
+        "completed_questions": completed_questions,
+        "skipped_questions": skipped_count,
+        "expected_questions": expected_count,
+        "coverage_pct": round(coverage_pct, 2) if coverage_pct is not None else None,
+        "completion_pct": round(coverage_pct, 2) if coverage_pct is not None else None,
+        "incomplete": incomplete,
+        "needs_human_questions": needs_human_questions,
+        "per_type_summary": per_type_summary,
+        "skill_coverage": skill_coverage,
+        "question_breakdown": question_breakdown,
+        "posture_summary": posture_summary,
+        "filler_word_summary": filler_word_summary,
+        "violations_summary": violations_summary,
+        "strengths": strengths,
+        "weak_areas": weak_areas,
+        "not_assessed": not_assessed,
+        "scores": scores,
     }
 
     out_path = session_dir / "final_report.json"
@@ -356,14 +394,15 @@ async def aggregate_scores(
 
     # Persist to MongoDB (non-blocking, non-fatal)
     try:
-        analytics_p   = session_dir / "analytics_report.json"
+        analytics_p = session_dir / "analytics_report.json"
         analytics_doc = {}
         if analytics_p.exists():
             analytics_doc = json.loads(analytics_p.read_text(encoding="utf-8"))
         uid = user.get("uid") if user else None
         await save_final_report(session_id, report, analytics_doc, user_id=uid)
         await update_session_status(
-            session_id, "completed",
+            session_id,
+            "completed",
             {"final_score": report.get("final_score")},
         )
     except Exception as _mongo_err:
@@ -375,17 +414,17 @@ async def aggregate_scores(
         try:
             state = _read_json(state_path)
             state.setdefault("meta", {})
-            state["meta"]["final_score"]       = final_score
+            state["meta"]["final_score"] = final_score
             state["meta"]["final_report_path"] = str(out_path)
-            state["completed"]                 = True
+            state["completed"] = True
             state_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
         except Exception:
             pass
 
     return {
-        "status":             "ok",
-        "final_score":        final_score,
-        "verdict":            verdict,
+        "status": "ok",
+        "final_score": final_score,
+        "verdict": verdict,
         "needs_human_review": needs_human_overall,
-        "report_path":        str(out_path),
+        "report_path": str(out_path),
     }

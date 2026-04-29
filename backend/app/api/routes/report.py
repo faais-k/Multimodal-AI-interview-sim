@@ -17,10 +17,13 @@ router = APIRouter()
 
 def _storage_dir() -> Path:
     from backend.app.core.storage import get_storage_dir
+
     return get_storage_dir()
+
 
 def _read_json(p: Path) -> Dict[str, Any]:
     return json.loads(p.read_text(encoding="utf-8"))
+
 
 def _safe_read(p: Path) -> Dict[str, Any]:
     if not p.exists():
@@ -34,7 +37,9 @@ def _safe_read(p: Path) -> Dict[str, Any]:
 @router.get("/report/{session_id}")
 async def get_full_report(session_id: str):
     # Rate limit: 10 requests per minute per session
-    allowed = await check_rate_limit(session_id, "get_full_report", max_requests=10, window_seconds=60)
+    allowed = await check_rate_limit(
+        session_id, "get_full_report", max_requests=10, window_seconds=60
+    )
     if not allowed:
         raise HTTPException(status_code=429, detail="Too many report requests. Please wait.")
 
@@ -50,8 +55,8 @@ async def get_full_report(session_id: str):
             detail="final_report.json not found. Call /api/aggregate first.",
         )
 
-    analytics  = _safe_read(sdir / "analytics_report.json")
-    decision   = _safe_read(sdir / "final_decision.json")
+    analytics = _safe_read(sdir / "analytics_report.json")
+    decision = _safe_read(sdir / "final_decision.json")
 
     # Suggestions
     suggestions: List[str] = []
@@ -62,7 +67,7 @@ async def get_full_report(session_id: str):
     elif isinstance(recs, str):
         suggestions += recs.splitlines()
 
-    seen:     set       = set()
+    seen: set = set()
     unique_s: List[str] = []
     for s in suggestions:
         s = s.strip()
@@ -72,15 +77,15 @@ async def get_full_report(session_id: str):
 
     # Candidate info — merge parsed resume name with profile name as fallback
     parsed = _safe_read(sdir / "parsed_resume.json")
-    jd     = _safe_read(sdir / "job_description.json")
-    prof   = _safe_read(sdir / "candidate_profile.json")
+    jd = _safe_read(sdir / "job_description.json")
+    prof = _safe_read(sdir / "candidate_profile.json")
 
     candidate_info = {
         # Prefer resume-extracted name; fall back to user-typed name from profile
-        "name":            parsed.get("name") or prof.get("name", "Candidate"),
-        "email":           parsed.get("email", ""),
-        "job_role":        jd.get("job_role", ""),
-        "company":         jd.get("company", ""),
+        "name": parsed.get("name") or prof.get("name", "Candidate"),
+        "email": parsed.get("email", ""),
+        "job_role": jd.get("job_role", ""),
+        "company": jd.get("company", ""),
         "expertise_level": prof.get("expertise_level", "fresher"),
     }
 
@@ -88,37 +93,37 @@ async def get_full_report(session_id: str):
     await update_session_status(session_id, SessionStatus.REPORT_GENERATED)
 
     return {
-        "status":             "ok",
-        "session_id":         session_id,
-        "candidate":          candidate_info,
-        "final_score":        final_report.get("final_score"),
-        "verdict":            final_report.get("verdict"),
-        "pass_threshold":     final_report.get("pass_threshold"),
+        "status": "ok",
+        "session_id": session_id,
+        "candidate": candidate_info,
+        "final_score": final_report.get("final_score"),
+        "verdict": final_report.get("verdict"),
+        "pass_threshold": final_report.get("pass_threshold"),
         "needs_human_review": final_report.get("needs_human_review"),
-        "coverage_pct":       final_report.get("coverage_pct"),
-        "questions_counted":  final_report.get("questions_counted"),
+        "coverage_pct": final_report.get("coverage_pct"),
+        "questions_counted": final_report.get("questions_counted"),
         "expected_questions": final_report.get("expected_questions"),
         "total_questions_answered": final_report.get("total_questions_answered"),
         "completed_questions": final_report.get("completed_questions"),
-        "skipped_questions":  final_report.get("skipped_questions"),
-        "completion_pct":     final_report.get("completion_pct"),
-        "per_type_summary":   final_report.get("per_type_summary", {}),
-        "skill_coverage":     final_report.get("skill_coverage", {}),
+        "skipped_questions": final_report.get("skipped_questions"),
+        "completion_pct": final_report.get("completion_pct"),
+        "per_type_summary": final_report.get("per_type_summary", {}),
+        "skill_coverage": final_report.get("skill_coverage", {}),
         "question_breakdown": final_report.get("question_breakdown", []),
-        "decision":           decision.get("decision"),
-        "confidence":         decision.get("confidence"),
-        "readiness_level":    decision.get("readiness_level"),
-        "decision_reasons":   decision.get("reasons", []),
-        "skills_analysis":    analytics.get("skills_analysis", {}),
-        "strengths":          final_report.get("strengths", analytics.get("strengths", [])),
-        "weak_areas":         final_report.get("weak_areas", analytics.get("weak_areas", [])),
-        "not_assessed":       final_report.get("not_assessed", analytics.get("not_assessed", [])),
-        "answer_quality":     analytics.get("answer_quality", {}),
-        "reviewer_summary":   analytics.get("reviewer_summary", {}),
-        "readiness_index":    analytics.get("readiness_index", {}),
-        "followup_analysis":  analytics.get("followup_analysis", {}),
+        "decision": decision.get("decision"),
+        "confidence": decision.get("confidence"),
+        "readiness_level": decision.get("readiness_level"),
+        "decision_reasons": decision.get("reasons", []),
+        "skills_analysis": analytics.get("skills_analysis", {}),
+        "strengths": final_report.get("strengths", analytics.get("strengths", [])),
+        "weak_areas": final_report.get("weak_areas", analytics.get("weak_areas", [])),
+        "not_assessed": final_report.get("not_assessed", analytics.get("not_assessed", [])),
+        "answer_quality": analytics.get("answer_quality", {}),
+        "reviewer_summary": analytics.get("reviewer_summary", {}),
+        "readiness_index": analytics.get("readiness_index", {}),
+        "followup_analysis": analytics.get("followup_analysis", {}),
         "filler_word_summary": final_report.get("filler_word_summary", {}),
-        "posture_summary":    final_report.get("posture_summary", {}),
+        "posture_summary": final_report.get("posture_summary", {}),
         "violations_summary": final_report.get("violations_summary", {}),
-        "suggestions":        unique_s[:6],
+        "suggestions": unique_s[:6],
     }

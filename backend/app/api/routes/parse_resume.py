@@ -17,52 +17,170 @@ router = APIRouter()
 
 def _storage_dir() -> Path:
     from backend.app.core.storage import get_storage_dir
+
     return get_storage_dir()
 
+
 # ── Regexes ───────────────────────────────────────────────────────────────────
-EMAIL_RE    = re.compile(r"[a-zA-Z0-9.+_-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
-PHONE_RE    = re.compile(r"(?:\+?\d{1,3}[\s\-.]?)?\(?\d{2,4}\)?[\s\-.]?\d{3,5}[\s\-.]?\d{3,5}")
-YEAR_RE     = re.compile(r"\b((?:19|20)\d{2})\b")
-URL_RE      = re.compile(r"https?://\S+|www\.\S+")
+EMAIL_RE = re.compile(r"[a-zA-Z0-9.+_-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
+PHONE_RE = re.compile(r"(?:\+?\d{1,3}[\s\-.]?)?\(?\d{2,4}\)?[\s\-.]?\d{3,5}[\s\-.]?\d{3,5}")
+YEAR_RE = re.compile(r"\b((?:19|20)\d{2})\b")
+URL_RE = re.compile(r"https?://\S+|www\.\S+")
 LINKEDIN_RE = re.compile(r"linkedin\.com/in/[\w\-]+", re.IGNORECASE)
-GITHUB_RE   = re.compile(r"github\.com/[\w\-]+",      re.IGNORECASE)
+GITHUB_RE = re.compile(r"github\.com/[\w\-]+", re.IGNORECASE)
 
 # ── Section header patterns ───────────────────────────────────────────────────
 SECTION_PATTERNS = {
-    "summary":        re.compile(r"^\s*(summary|objective|profile|about me|career objective|professional summary)\s*$", re.IGNORECASE),
-    "skills":         re.compile(r"^\s*(skills?|technical skills?|core competencies|technologies|tech stack|expertise|key skills|programming languages|tools)\s*$", re.IGNORECASE),
-    "experience":     re.compile(r"^\s*(experience|work experience|employment|professional experience|work history|internship|career history)\s*$", re.IGNORECASE),
-    "education":      re.compile(r"^\s*(education|academic|qualification|degree|educational background|academic background|university|college)\s*$", re.IGNORECASE),
-    "projects":       re.compile(r"^\s*(projects?|personal projects?|academic projects?|key projects?|side projects?|portfolio|notable projects)\s*$", re.IGNORECASE),
-    "certifications": re.compile(r"^\s*(certifications?|certificates?|courses?|training|achievements?|awards?|publications?)\s*$", re.IGNORECASE),
+    "summary": re.compile(
+        r"^\s*(summary|objective|profile|about me|career objective|professional summary)\s*$",
+        re.IGNORECASE,
+    ),
+    "skills": re.compile(
+        r"^\s*(skills?|technical skills?|core competencies|technologies|tech stack|expertise|key skills|programming languages|tools)\s*$",
+        re.IGNORECASE,
+    ),
+    "experience": re.compile(
+        r"^\s*(experience|work experience|employment|professional experience|work history|internship|career history)\s*$",
+        re.IGNORECASE,
+    ),
+    "education": re.compile(
+        r"^\s*(education|academic|qualification|degree|educational background|academic background|university|college)\s*$",
+        re.IGNORECASE,
+    ),
+    "projects": re.compile(
+        r"^\s*(projects?|personal projects?|academic projects?|key projects?|side projects?|portfolio|notable projects)\s*$",
+        re.IGNORECASE,
+    ),
+    "certifications": re.compile(
+        r"^\s*(certifications?|certificates?|courses?|training|achievements?|awards?|publications?)\s*$",
+        re.IGNORECASE,
+    ),
 }
 
 EDU_KEYWORDS = [
-    "bachelor", "master", "b.sc", "m.sc", "b.tech", "m.tech", "b.e", "m.e",
-    "bs", "ms", "ba", "ma", "phd", "ph.d", "mba", "degree", "diploma",
-    "b.com", "bca", "mca", "b.eng", "m.eng", "b.s.", "m.s.", "b.a.", "m.a.",
-    "high school", "secondary", "senior secondary", "12th", "10th", "ssc", "hsc",
-    "university", "college", "institute", "academy", "school", "polytechnic",
-    "cgpa", "percentage", "gpa", "grade", "first class", "distinction",
-    "computer science", "information technology", "electronics", "electrical",
-    "mechanical", "civil", "biotechnology", "data science",
+    "bachelor",
+    "master",
+    "b.sc",
+    "m.sc",
+    "b.tech",
+    "m.tech",
+    "b.e",
+    "m.e",
+    "bs",
+    "ms",
+    "ba",
+    "ma",
+    "phd",
+    "ph.d",
+    "mba",
+    "degree",
+    "diploma",
+    "b.com",
+    "bca",
+    "mca",
+    "b.eng",
+    "m.eng",
+    "b.s.",
+    "m.s.",
+    "b.a.",
+    "m.a.",
+    "high school",
+    "secondary",
+    "senior secondary",
+    "12th",
+    "10th",
+    "ssc",
+    "hsc",
+    "university",
+    "college",
+    "institute",
+    "academy",
+    "school",
+    "polytechnic",
+    "cgpa",
+    "percentage",
+    "gpa",
+    "grade",
+    "first class",
+    "distinction",
+    "computer science",
+    "information technology",
+    "electronics",
+    "electrical",
+    "mechanical",
+    "civil",
+    "biotechnology",
+    "data science",
 ]
 
 PROJECT_KEYWORDS = [
-    "project", "built", "developed", "implemented", "created", "designed",
-    "contributed", "deployed", "architected", "engineered", "launched",
-    "published", "shipped", "delivered", "maintained", "optimized",
-    "enhanced", "upgraded", "refactored", "automated", "integrated",
-    "github.com", "gitlab.com", "bitbucket.org", "demo", "live", "production",
+    "project",
+    "built",
+    "developed",
+    "implemented",
+    "created",
+    "designed",
+    "contributed",
+    "deployed",
+    "architected",
+    "engineered",
+    "launched",
+    "published",
+    "shipped",
+    "delivered",
+    "maintained",
+    "optimized",
+    "enhanced",
+    "upgraded",
+    "refactored",
+    "automated",
+    "integrated",
+    "github.com",
+    "gitlab.com",
+    "bitbucket.org",
+    "demo",
+    "live",
+    "production",
 ]
 
 # Negative keywords to exclude education entries from projects
 EDU_NEGATIVE_KEYWORDS = [
-    "bachelor", "master", "b.sc", "m.sc", "b.tech", "m.tech", "b.e", "m.e",
-    "bs", "ms", "ba", "ma", "phd", "ph.d", "mba", "degree", "diploma",
-    "cgpa", "gpa", "percentage", "grade", "university", "college", "institute",
-    "academy", "passed", "graduated", "matriculation", "secondary", "high school",
-    "coursework", "thesis", "dissertation", "academic", "semester", "batch",
+    "bachelor",
+    "master",
+    "b.sc",
+    "m.sc",
+    "b.tech",
+    "m.tech",
+    "b.e",
+    "m.e",
+    "bs",
+    "ms",
+    "ba",
+    "ma",
+    "phd",
+    "ph.d",
+    "mba",
+    "degree",
+    "diploma",
+    "cgpa",
+    "gpa",
+    "percentage",
+    "grade",
+    "university",
+    "college",
+    "institute",
+    "academy",
+    "passed",
+    "graduated",
+    "matriculation",
+    "secondary",
+    "high school",
+    "coursework",
+    "thesis",
+    "dissertation",
+    "academic",
+    "semester",
+    "batch",
 ]
 
 # ── Skills list ───────────────────────────────────────────────────────────────
@@ -70,139 +188,635 @@ EDU_NEGATIVE_KEYWORDS = [
 # Use "c language" or "c programming" instead.
 SKILLS_LIST = [
     # Languages
-    "python", "java", "javascript", "typescript", "c language", "c programming",
-    "c++", "c#", "go", "golang", "rust", "ruby", "php", "swift", "kotlin",
-    "scala", "r", "matlab", "perl", "dart", "lua", "haskell", "elixir", "clojure",
-    "objective-c", "groovy", "vb.net", "vba", "sas", "abap", "apex", "julia",
+    "python",
+    "java",
+    "javascript",
+    "typescript",
+    "c language",
+    "c programming",
+    "c++",
+    "c#",
+    "go",
+    "golang",
+    "rust",
+    "ruby",
+    "php",
+    "swift",
+    "kotlin",
+    "scala",
+    "r",
+    "matlab",
+    "perl",
+    "dart",
+    "lua",
+    "haskell",
+    "elixir",
+    "clojure",
+    "objective-c",
+    "groovy",
+    "vb.net",
+    "vba",
+    "sas",
+    "abap",
+    "apex",
+    "julia",
     # ML/AI
-    "pytorch", "tensorflow", "keras", "scikit-learn", "sklearn",
-    "machine learning", "deep learning", "nlp", "natural language processing",
-    "computer vision", "reinforcement learning", "transformers", "bert", "gpt",
-    "llm", "llama", "langchain", "huggingface", "xgboost", "lightgbm", "catboost",
-    "pandas", "numpy", "scipy", "matplotlib", "seaborn", "plotly", "streamlit",
-    "openai", "stable diffusion", "generative ai", "gemini", "claude", "ollama",
-    "mlflow", "kubeflow", "labelbox", "roboflow", "detectron2", "spacy", "nltk",
-    "tokenization", "embeddings", "vector database", "pinecone", "weaviate",
-    "chroma", "faiss", "milvus", "qdrant", "annoy", "hnsw",
+    "pytorch",
+    "tensorflow",
+    "keras",
+    "scikit-learn",
+    "sklearn",
+    "machine learning",
+    "deep learning",
+    "nlp",
+    "natural language processing",
+    "computer vision",
+    "reinforcement learning",
+    "transformers",
+    "bert",
+    "gpt",
+    "llm",
+    "llama",
+    "langchain",
+    "huggingface",
+    "xgboost",
+    "lightgbm",
+    "catboost",
+    "pandas",
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "seaborn",
+    "plotly",
+    "streamlit",
+    "openai",
+    "stable diffusion",
+    "generative ai",
+    "gemini",
+    "claude",
+    "ollama",
+    "mlflow",
+    "kubeflow",
+    "labelbox",
+    "roboflow",
+    "detectron2",
+    "spacy",
+    "nltk",
+    "tokenization",
+    "embeddings",
+    "vector database",
+    "pinecone",
+    "weaviate",
+    "chroma",
+    "faiss",
+    "milvus",
+    "qdrant",
+    "annoy",
+    "hnsw",
     # Web
-    "react", "react.js", "vue", "vue.js", "angular", "nextjs", "nuxtjs", "svelte",
-    "sveltekit", "solidjs", "preact", "alpine.js", "htmx", "jquery",
-    "nodejs", "node.js", "express", "fastapi", "flask", "django", "tornado",
-    "spring", "spring boot", "springboot", "quarkus", "micronaut",
-    "laravel", "symfony", "codeigniter", "cakephp", "rails", "ruby on rails",
-    "asp.net", "asp.net core", "blazor", "razor", "mvc", "webapi",
-    "graphql", "apollo", "trpc", "rest api", "restful", "soap", "grpc",
-    "websocket", "socket.io", "pusher", "signalr",
-    "html", "html5", "css", "css3", "sass", "scss", "less",
-    "tailwind", "bootstrap", "material-ui", "mui", "chakra-ui", "antd",
-    "styled-components", "emotion", "postcss", "autoprefixer",
+    "react",
+    "react.js",
+    "vue",
+    "vue.js",
+    "angular",
+    "nextjs",
+    "nuxtjs",
+    "svelte",
+    "sveltekit",
+    "solidjs",
+    "preact",
+    "alpine.js",
+    "htmx",
+    "jquery",
+    "nodejs",
+    "node.js",
+    "express",
+    "fastapi",
+    "flask",
+    "django",
+    "tornado",
+    "spring",
+    "spring boot",
+    "springboot",
+    "quarkus",
+    "micronaut",
+    "laravel",
+    "symfony",
+    "codeigniter",
+    "cakephp",
+    "rails",
+    "ruby on rails",
+    "asp.net",
+    "asp.net core",
+    "blazor",
+    "razor",
+    "mvc",
+    "webapi",
+    "graphql",
+    "apollo",
+    "trpc",
+    "rest api",
+    "restful",
+    "soap",
+    "grpc",
+    "websocket",
+    "socket.io",
+    "pusher",
+    "signalr",
+    "html",
+    "html5",
+    "css",
+    "css3",
+    "sass",
+    "scss",
+    "less",
+    "tailwind",
+    "bootstrap",
+    "material-ui",
+    "mui",
+    "chakra-ui",
+    "antd",
+    "styled-components",
+    "emotion",
+    "postcss",
+    "autoprefixer",
     # Data / DB
-    "sql", "mysql", "mariadb", "postgresql", "postgres", "sqlite", "oracle",
-    "mongodb", "mongoose", "redis", "cassandra", "cockroachdb", "cockroach",
-    "elasticsearch", "solr", "meilisearch", "algolia",
-    "firebase", "firestore", "dynamodb", "cosmos db", "cosmosdb",
-    "neo4j", "arangodb", "orientdb", "supabase", "planetscale", "neon",
-    "prisma", "typeorm", "sequelize", "sqlalchemy", "peewee", "hibernate",
-    "entity framework", "ef core", "dapper", "jpa", "jdbc", "odbc",
-    "spark", "hadoop", "hdfs", "yarn", "kafka", "kafka streams", "airflow",
-    "dbt", "snowflake", "bigquery", "redshift", "databricks", "delta lake",
-    "tableau", "power bi", "powerbi", "looker", "metabase", "grafana",
-    "pentaho", "talend", "informatica", "ssis", "ssrs", "ssas",
+    "sql",
+    "mysql",
+    "mariadb",
+    "postgresql",
+    "postgres",
+    "sqlite",
+    "oracle",
+    "mongodb",
+    "mongoose",
+    "redis",
+    "cassandra",
+    "cockroachdb",
+    "cockroach",
+    "elasticsearch",
+    "solr",
+    "meilisearch",
+    "algolia",
+    "firebase",
+    "firestore",
+    "dynamodb",
+    "cosmos db",
+    "cosmosdb",
+    "neo4j",
+    "arangodb",
+    "orientdb",
+    "supabase",
+    "planetscale",
+    "neon",
+    "prisma",
+    "typeorm",
+    "sequelize",
+    "sqlalchemy",
+    "peewee",
+    "hibernate",
+    "entity framework",
+    "ef core",
+    "dapper",
+    "jpa",
+    "jdbc",
+    "odbc",
+    "spark",
+    "hadoop",
+    "hdfs",
+    "yarn",
+    "kafka",
+    "kafka streams",
+    "airflow",
+    "dbt",
+    "snowflake",
+    "bigquery",
+    "redshift",
+    "databricks",
+    "delta lake",
+    "tableau",
+    "power bi",
+    "powerbi",
+    "looker",
+    "metabase",
+    "grafana",
+    "pentaho",
+    "talend",
+    "informatica",
+    "ssis",
+    "ssrs",
+    "ssas",
     # DevOps / Cloud
-    "docker", "containerd", "podman", "lxc",
-    "kubernetes", "k8s", "helm", "kustomize", "istio", "linkerd",
-    "terraform", "terragrunt", "pulumi", "crossplane",
-    "ansible", "puppet", "chef", "saltstack",
-    "jenkins", "github actions", "gitlab ci", "azure devops", "circleci",
-    "travis ci", "drone", "argo cd", "flux", "spinnaker",
-    "aws", "amazon web services", "ec2", "ecs", "eks", "lambda", "s3",
-    "rds", "sqs", "sns", "eventbridge", "step functions", "api gateway",
-    "cloudformation", "cloudwatch", "iam", "route53", "cloudfront",
-    "gcp", "google cloud", "compute engine", "gke", "cloud run", "cloud functions",
-    "bigquery", "pub/sub", "dataflow", "dataproc",
-    "azure", "azure app service", "azure functions", "aks", "azure devops",
-    "heroku", "railway", "render", "fly.io", "vercel", "netlify", "surge",
-    "linux", "ubuntu", "centos", "debian", "redhat", "rhel", "fedora",
-    "bash", "zsh", "shell scripting", "powershell", "awk", "sed",
-    "nginx", "apache", "httpd", "tomcat", "iis", "caddy", "traefik",
-    "ha proxy", "haproxy", "varnish", "squid",
-    "ci/cd", "cicd", "devops", "devsecops", "sre", "site reliability",
-    "microservices", "monolith", "serverless", "paas", "iaas", "faas",
-    "observability", "monitoring", "logging", "tracing", "opentelemetry",
-    "prometheus", "thanos", "loki", "jaeger", "zipkin", "new relic",
-    "datadog", "sentry", "bugsnag", "rollbar", "pagerduty", "opsgenie",
+    "docker",
+    "containerd",
+    "podman",
+    "lxc",
+    "kubernetes",
+    "k8s",
+    "helm",
+    "kustomize",
+    "istio",
+    "linkerd",
+    "terraform",
+    "terragrunt",
+    "pulumi",
+    "crossplane",
+    "ansible",
+    "puppet",
+    "chef",
+    "saltstack",
+    "jenkins",
+    "github actions",
+    "gitlab ci",
+    "azure devops",
+    "circleci",
+    "travis ci",
+    "drone",
+    "argo cd",
+    "flux",
+    "spinnaker",
+    "aws",
+    "amazon web services",
+    "ec2",
+    "ecs",
+    "eks",
+    "lambda",
+    "s3",
+    "rds",
+    "sqs",
+    "sns",
+    "eventbridge",
+    "step functions",
+    "api gateway",
+    "cloudformation",
+    "cloudwatch",
+    "iam",
+    "route53",
+    "cloudfront",
+    "gcp",
+    "google cloud",
+    "compute engine",
+    "gke",
+    "cloud run",
+    "cloud functions",
+    "bigquery",
+    "pub/sub",
+    "dataflow",
+    "dataproc",
+    "azure",
+    "azure app service",
+    "azure functions",
+    "aks",
+    "azure devops",
+    "heroku",
+    "railway",
+    "render",
+    "fly.io",
+    "vercel",
+    "netlify",
+    "surge",
+    "linux",
+    "ubuntu",
+    "centos",
+    "debian",
+    "redhat",
+    "rhel",
+    "fedora",
+    "bash",
+    "zsh",
+    "shell scripting",
+    "powershell",
+    "awk",
+    "sed",
+    "nginx",
+    "apache",
+    "httpd",
+    "tomcat",
+    "iis",
+    "caddy",
+    "traefik",
+    "ha proxy",
+    "haproxy",
+    "varnish",
+    "squid",
+    "ci/cd",
+    "cicd",
+    "devops",
+    "devsecops",
+    "sre",
+    "site reliability",
+    "microservices",
+    "monolith",
+    "serverless",
+    "paas",
+    "iaas",
+    "faas",
+    "observability",
+    "monitoring",
+    "logging",
+    "tracing",
+    "opentelemetry",
+    "prometheus",
+    "thanos",
+    "loki",
+    "jaeger",
+    "zipkin",
+    "new relic",
+    "datadog",
+    "sentry",
+    "bugsnag",
+    "rollbar",
+    "pagerduty",
+    "opsgenie",
     # Mobile
-    "android", "ios", "react native", "flutter", "xamarin", "cordova",
-    "phonegap", "ionic", "capacitor", "swiftui", "jetpack compose",
-    "kotlin multiplatform", "kmp", "realm", "coredata", "sqlite",
+    "android",
+    "ios",
+    "react native",
+    "flutter",
+    "xamarin",
+    "cordova",
+    "phonegap",
+    "ionic",
+    "capacitor",
+    "swiftui",
+    "jetpack compose",
+    "kotlin multiplatform",
+    "kmp",
+    "realm",
+    "coredata",
+    "sqlite",
     # Testing
-    "unit testing", "integration testing", "e2e testing", "end to end testing",
-    "jest", "mocha", "chai", "cypress", "playwright", "selenium", "webdriver",
-    "pytest", "unittest", "junit", "testng", "nunit", "xunit", "moq",
-    "cucumber", "bdd", "tdd", "atdd", "specflow", "robot framework",
-    "postman", "insomnia", "restassured", "karate", "soapui",
-    "k6", "jmeter", "loadrunner", "artillery", "locust",
+    "unit testing",
+    "integration testing",
+    "e2e testing",
+    "end to end testing",
+    "jest",
+    "mocha",
+    "chai",
+    "cypress",
+    "playwright",
+    "selenium",
+    "webdriver",
+    "pytest",
+    "unittest",
+    "junit",
+    "testng",
+    "nunit",
+    "xunit",
+    "moq",
+    "cucumber",
+    "bdd",
+    "tdd",
+    "atdd",
+    "specflow",
+    "robot framework",
+    "postman",
+    "insomnia",
+    "restassured",
+    "karate",
+    "soapui",
+    "k6",
+    "jmeter",
+    "loadrunner",
+    "artillery",
+    "locust",
     # Security
-    "oauth", "oauth2", "openid connect", "oidc", "saml", "jwt", "auth0",
-    "keycloak", "okta", "azure ad", "active directory", "ldap",
-    "encryption", "hashing", "tls", "ssl", "https", "certificates",
-    "penetration testing", "vulnerability scanning", "owasp", "security",
-    "burp suite", "metasploit", "nmap", "wireshark", "kali linux",
+    "oauth",
+    "oauth2",
+    "openid connect",
+    "oidc",
+    "saml",
+    "jwt",
+    "auth0",
+    "keycloak",
+    "okta",
+    "azure ad",
+    "active directory",
+    "ldap",
+    "encryption",
+    "hashing",
+    "tls",
+    "ssl",
+    "https",
+    "certificates",
+    "penetration testing",
+    "vulnerability scanning",
+    "owasp",
+    "security",
+    "burp suite",
+    "metasploit",
+    "nmap",
+    "wireshark",
+    "kali linux",
     # CV
-    "opencv", "pillow", "mediapipe", "yolo", "yolov8", "yolov5", "object detection",
-    "image processing", "video processing", "ffmpeg", "computer vision",
-    "ocr", "tesseract", "opencv-python", "scikit-image", "scikit-image",
+    "opencv",
+    "pillow",
+    "mediapipe",
+    "yolo",
+    "yolov8",
+    "yolov5",
+    "object detection",
+    "image processing",
+    "video processing",
+    "ffmpeg",
+    "computer vision",
+    "ocr",
+    "tesseract",
+    "opencv-python",
+    "scikit-image",
+    "scikit-image",
     # Tools / Platform
-    "git", "github", "gitlab", "bitbucket", "azure repos", "svn", "mercurial",
-    "jira", "confluence", "trello", "asana", "monday", "notion", "linear",
-    "slack", "teams", "discord", "zoom", "google meet", "webex",
-    "figma", "sketch", "adobe xd", "invision", "framer", "proto.io",
-    "photoshop", "illustrator", "after effects", "premiere", "indesign",
-    "blender", "maya", "3ds max", "cinema 4d", "zbrush", "substance",
-    "unity", "unreal engine", "unreal", "godot", "gamemaker", "cryengine",
+    "git",
+    "github",
+    "gitlab",
+    "bitbucket",
+    "azure repos",
+    "svn",
+    "mercurial",
+    "jira",
+    "confluence",
+    "trello",
+    "asana",
+    "monday",
+    "notion",
+    "linear",
+    "slack",
+    "teams",
+    "discord",
+    "zoom",
+    "google meet",
+    "webex",
+    "figma",
+    "sketch",
+    "adobe xd",
+    "invision",
+    "framer",
+    "proto.io",
+    "photoshop",
+    "illustrator",
+    "after effects",
+    "premiere",
+    "indesign",
+    "blender",
+    "maya",
+    "3ds max",
+    "cinema 4d",
+    "zbrush",
+    "substance",
+    "unity",
+    "unreal engine",
+    "unreal",
+    "godot",
+    "gamemaker",
+    "cryengine",
     # Blockchain / Web3
-    "solidity", "vyper", "rust", "move", "cairo",
-    "blockchain", "web3", "ethereum", "bitcoin", "polygon", "solana",
-    "cardano", "avalanche", "fantom", "arbitrum", "optimism", "zksync",
-    "smart contracts", "defi", "nft", "dao", "hardhat", "foundry",
-    "truffle", "ganache", "brownie", "ape", "alchemy", "infura",
-    "the graph", "chainlink", "openzeppelin", "erc20", "erc721", "erc1155",
-    "metamask", "walletconnect", "ipfs", "filecoin", "arweave",
+    "solidity",
+    "vyper",
+    "rust",
+    "move",
+    "cairo",
+    "blockchain",
+    "web3",
+    "ethereum",
+    "bitcoin",
+    "polygon",
+    "solana",
+    "cardano",
+    "avalanche",
+    "fantom",
+    "arbitrum",
+    "optimism",
+    "zksync",
+    "smart contracts",
+    "defi",
+    "nft",
+    "dao",
+    "hardhat",
+    "foundry",
+    "truffle",
+    "ganache",
+    "brownie",
+    "ape",
+    "alchemy",
+    "infura",
+    "the graph",
+    "chainlink",
+    "openzeppelin",
+    "erc20",
+    "erc721",
+    "erc1155",
+    "metamask",
+    "walletconnect",
+    "ipfs",
+    "filecoin",
+    "arweave",
     # Methodologies / Soft Skills
-    "agile", "scrum", "kanban", "lean", "xp", "extreme programming",
-    "waterfall", "spiral", "iterative", "incremental", "devops", "cicd",
-    "okr", "kpi", "roadmapping", "stakeholder management", "mentoring",
-    "leadership", "team management", "cross-functional", "communication",
-    "problem solving", "critical thinking", "analytical skills", "creativity",
-    "time management", "prioritization", "collaboration", "pair programming",
-    "code review", "technical writing", "documentation", "presentation",
+    "agile",
+    "scrum",
+    "kanban",
+    "lean",
+    "xp",
+    "extreme programming",
+    "waterfall",
+    "spiral",
+    "iterative",
+    "incremental",
+    "devops",
+    "cicd",
+    "okr",
+    "kpi",
+    "roadmapping",
+    "stakeholder management",
+    "mentoring",
+    "leadership",
+    "team management",
+    "cross-functional",
+    "communication",
+    "problem solving",
+    "critical thinking",
+    "analytical skills",
+    "creativity",
+    "time management",
+    "prioritization",
+    "collaboration",
+    "pair programming",
+    "code review",
+    "technical writing",
+    "documentation",
+    "presentation",
     # Architecture / Design
-    "system design", "distributed systems", "scalability", "high availability",
-    "fault tolerance", "load balancing", "caching", "cdn", "edge computing",
-    "event-driven", "message queue", "pub sub", "saga pattern", "cqrs",
-    "event sourcing", "ddd", "domain driven design", "clean architecture",
-    "hexagonal architecture", "onion architecture", "micro frontends",
-    "soa", "service oriented architecture", "esb", "api gateway",
+    "system design",
+    "distributed systems",
+    "scalability",
+    "high availability",
+    "fault tolerance",
+    "load balancing",
+    "caching",
+    "cdn",
+    "edge computing",
+    "event-driven",
+    "message queue",
+    "pub sub",
+    "saga pattern",
+    "cqrs",
+    "event sourcing",
+    "ddd",
+    "domain driven design",
+    "clean architecture",
+    "hexagonal architecture",
+    "onion architecture",
+    "micro frontends",
+    "soa",
+    "service oriented architecture",
+    "esb",
+    "api gateway",
     # Additional Frameworks/Libraries
-    "rxjava", "reactivex", "rxjs", "ktor", "vert.x", "quarkus",
-    "netty", "jetty", "undertow", "electron", "tauri", "neutralino",
-    "nw.js", "cef", "qt", "pyqt", "pyside", "tkinter", "wxpython",
-    "electron", "capacitor", "react native web", "expo", "detox",
+    "rxjava",
+    "reactivex",
+    "rxjs",
+    "ktor",
+    "vert.x",
+    "quarkus",
+    "netty",
+    "jetty",
+    "undertow",
+    "electron",
+    "tauri",
+    "neutralino",
+    "nw.js",
+    "cef",
+    "qt",
+    "pyqt",
+    "pyside",
+    "tkinter",
+    "wxpython",
+    "electron",
+    "capacitor",
+    "react native web",
+    "expo",
+    "detox",
 ]
 
 
 # ── Section splitter ──────────────────────────────────────────────────────────
 
+
 def split_sections(text: str) -> dict:
-    lines    = text.splitlines()
+    lines = text.splitlines()
     sections: dict = {
-        "_header": [], "summary": [], "skills": [], "experience": [],
-        "education": [], "projects": [], "certifications": [], "_other": [],
+        "_header": [],
+        "summary": [],
+        "skills": [],
+        "experience": [],
+        "education": [],
+        "projects": [],
+        "certifications": [],
+        "_other": [],
     }
     current = "_header"
     for line in lines:
         stripped = line.strip()
-        matched  = False
+        matched = False
         for sec, pat in SECTION_PATTERNS.items():
             if pat.match(stripped):
                 current = sec
@@ -214,6 +828,7 @@ def split_sections(text: str) -> dict:
 
 
 # ── Extractors ────────────────────────────────────────────────────────────────
+
 
 def extract_name(text: str) -> Optional[str]:
     for line in text.splitlines()[:15]:
@@ -228,7 +843,7 @@ def extract_name(text: str) -> Optional[str]:
             continue
         if re.search(r"\d{4,}", line):
             continue
-        words     = line.split()
+        words = line.split()
         cap_words = [w for w in words if w and w[0].isupper() and w.isalpha()]
         if 1 <= len(cap_words) <= 4 and 2 <= len(words) <= 5:
             return " ".join(words[:4])
@@ -253,9 +868,22 @@ def _contains_edu_keywords(text: str) -> bool:
 
 def _is_section_header(text: str) -> bool:
     """Check if text looks like a section header (EDUCATION, EXPERIENCE, etc.)."""
-    section_headers = ["education", "experience", "work", "employment", "internship", 
-                      "certifications", "skills", "languages", "interests", "references",
-                      "academic", "publications", "awards", "achievements"]
+    section_headers = [
+        "education",
+        "experience",
+        "work",
+        "employment",
+        "internship",
+        "certifications",
+        "skills",
+        "languages",
+        "interests",
+        "references",
+        "academic",
+        "publications",
+        "awards",
+        "achievements",
+    ]
     text_clean = re.sub(r"[^\w]", "", text.lower())
     return any(header in text_clean for header in section_headers)
 
@@ -264,12 +892,36 @@ def _is_likely_project(text: str) -> bool:
     """Check if text contains strong project indicators (github links, tech stack, deployment)."""
     text_lower = text.lower()
     strong_indicators = [
-        "github.com", "gitlab.com", "bitbucket.org", "demo", "live link",
-        "deployed", "hosted on", "available at", "try it", "source code",
-        "repository", "repo", "play store", "app store", "chrome extension",
-        "npm", "pypi", "docker hub", "vercel.app", "netlify.app", "herokuapp",
-        "youtube", "video demo", "screenshot", "architecture", "designed",
-        "implemented", "built", "developed", "created",
+        "github.com",
+        "gitlab.com",
+        "bitbucket.org",
+        "demo",
+        "live link",
+        "deployed",
+        "hosted on",
+        "available at",
+        "try it",
+        "source code",
+        "repository",
+        "repo",
+        "play store",
+        "app store",
+        "chrome extension",
+        "npm",
+        "pypi",
+        "docker hub",
+        "vercel.app",
+        "netlify.app",
+        "herokuapp",
+        "youtube",
+        "video demo",
+        "screenshot",
+        "architecture",
+        "designed",
+        "implemented",
+        "built",
+        "developed",
+        "created",
     ]
     return any(ind in text_lower for ind in strong_indicators)
 
@@ -285,46 +937,102 @@ def _is_project_title(line: str) -> bool:
     """
     if not line or len(line) > 100:
         return False
-    
+
     # Skip if contains education keywords
     if _contains_edu_keywords(line):
         return False
-    
+
     # Skip if starts with action verbs (these are description lines, not titles)
-    action_starters = ["developed", "implemented", "built", "created", "designed", 
-                      "worked", "made", "using", "with", "and", "the", "for", "to",
-                      "architected", "engineered", "programmed", "coded"]
+    action_starters = [
+        "developed",
+        "implemented",
+        "built",
+        "created",
+        "designed",
+        "worked",
+        "made",
+        "using",
+        "with",
+        "and",
+        "the",
+        "for",
+        "to",
+        "architected",
+        "engineered",
+        "programmed",
+        "coded",
+    ]
     line_lower = line.lower()
     first_word = line.split()[0].lower() if line.split() else ""
     if first_word in action_starters:
         return False
-    
+
     # Check for bullet point - if it's a bullet, it's not a title
     if re.match(r"^[\-\*\•\▪\>◦▸▹]\s*", line):
         return False
-    
+
     # Count capitalized words (at least 2 capitalized words usually indicates a title)
     words = line.split()
     cap_words = [w for w in words if w and w[0].isupper() and w.isalpha() and len(w) > 1]
-    
+
     # Has tech terms (indicates project title with tech stack)
     tech_terms = [
-        "react", "python", "javascript", "typescript", "angular", "vue", "node",
-        "fastapi", "flask", "django", "spring", "aws", "docker", "kubernetes",
-        "tensorflow", "pytorch", "scikit", "pandas", "numpy", "mongodb", "postgres",
-        "mysql", "redis", "firebase", "supabase", "vercel", "netlify", "heroku",
-        "github", "gitlab", "api", "app", "web", "mobile", "frontend", "backend",
-        "full-stack", "fullstack", "microservices", "serverless", "cloud", "ml",
-        "ai", "machine learning", "deep learning", "nlp", "computer vision",
+        "react",
+        "python",
+        "javascript",
+        "typescript",
+        "angular",
+        "vue",
+        "node",
+        "fastapi",
+        "flask",
+        "django",
+        "spring",
+        "aws",
+        "docker",
+        "kubernetes",
+        "tensorflow",
+        "pytorch",
+        "scikit",
+        "pandas",
+        "numpy",
+        "mongodb",
+        "postgres",
+        "mysql",
+        "redis",
+        "firebase",
+        "supabase",
+        "vercel",
+        "netlify",
+        "heroku",
+        "github",
+        "gitlab",
+        "api",
+        "app",
+        "web",
+        "mobile",
+        "frontend",
+        "backend",
+        "full-stack",
+        "fullstack",
+        "microservices",
+        "serverless",
+        "cloud",
+        "ml",
+        "ai",
+        "machine learning",
+        "deep learning",
+        "nlp",
+        "computer vision",
     ]
     has_tech = any(term in line_lower for term in tech_terms)
-    
+
     # Title indicators: multiple capitalized words OR tech stack present
     if len(cap_words) >= 2:
         return True
     if has_tech and len(words) <= 15:  # Tech stack lines are usually short
         return True
-    
+
     return False
 
 
@@ -337,7 +1045,7 @@ def _calculate_project_confidence(project: Dict, used_heuristic: str) -> float:
     name = project.get("name", "")
     tech_stack = project.get("tech_stack", "")
     details = project.get("details", "")
-    
+
     # 1. Name quality (max 0.4)
     if name:
         # Good length
@@ -345,19 +1053,19 @@ def _calculate_project_confidence(project: Dict, used_heuristic: str) -> float:
             score += 0.15
         elif len(name) > 5:
             score += 0.1
-        
+
         # Has capitalized words (proper title)
         cap_words = [w for w in name.split() if w and w[0].isupper()]
         if len(cap_words) >= 2:
             score += 0.15
         elif len(cap_words) >= 1:
             score += 0.1
-        
+
         # Not generic name
         generic = ["project", "app", "application", "system", "tool"]
         if not any(g in name.lower() for g in generic):
             score += 0.1
-    
+
     # 2. Tech stack quality (max 0.3)
     if tech_stack:
         tech_count = len([t for t in tech_stack.split(",") if t.strip()])
@@ -367,7 +1075,7 @@ def _calculate_project_confidence(project: Dict, used_heuristic: str) -> float:
             score += 0.2
         elif tech_count >= 1:
             score += 0.1
-    
+
     # 3. Details quality (max 0.3)
     if details:
         bullet_count = details.count("•")
@@ -375,26 +1083,26 @@ def _calculate_project_confidence(project: Dict, used_heuristic: str) -> float:
             score += 0.2
         elif bullet_count >= 1:
             score += 0.15
-        
+
         # Reasonable length
         if 100 <= len(details) <= 1000:
             score += 0.1
         elif len(details) > 50:
             score += 0.05
-    
+
     # 4. Extraction method bonus (max 0.1)
     if used_heuristic == "pipe_separator":
         score += 0.1  # Clear delimiter found = high confidence
     elif used_heuristic == "tech_word_split":
         score += 0.05  # Heuristic split = medium confidence
-    
+
     return min(score, 1.0)
 
 
 def extract_projects(text: str, projects_section: str = "") -> List[Dict]:
     """
     Extract projects with proper structure: name, tech_stack, details, and confidence.
-    
+
     Returns list of dicts like:
     {
         "name": "Project Name",
@@ -405,25 +1113,25 @@ def extract_projects(text: str, projects_section: str = "") -> List[Dict]:
     }
     """
     projects: List[Dict] = []
-    
+
     section_to_parse = projects_section.strip() if projects_section.strip() else text
     if not section_to_parse:
         return projects
-    
+
     lines = section_to_parse.splitlines()
     current_project: Optional[Dict] = None
     current_lines: List[str] = []
     current_extraction_method = ""
-    
+
     i = 0
     while i < len(lines):
         line = lines[i].strip()
-        
+
         # Skip empty lines
         if not line:
             i += 1
             continue
-        
+
         # Stop if we hit a new section header (Education, Experience, etc.)
         if _is_section_header(line) and not _is_project_title(line):
             # Save current project if exists
@@ -435,7 +1143,7 @@ def extract_projects(text: str, projects_section: str = "") -> List[Dict]:
                     )
                     projects.append(current_project)
             break
-        
+
         # Check if this line is a project title
         if _is_project_title(line):
             # Save previous project if exists
@@ -446,13 +1154,13 @@ def extract_projects(text: str, projects_section: str = "") -> List[Dict]:
                         current_project, current_extraction_method
                     )
                     projects.append(current_project)
-            
+
             # Start new project
             # Try to separate project name from tech stack
             # Common format: "Project Name Tech1, Tech2, Tech3" or "Project Name | Tech1, Tech2"
-            
+
             # Look for pipe separator or common delimiters
-            parts = re.split(r'\s*[|\-–—]\s*', line, maxsplit=1)
+            parts = re.split(r"\s*[|\-–—]\s*", line, maxsplit=1)
             if len(parts) == 2:
                 name = parts[0].strip()
                 tech_stack = parts[1].strip()
@@ -463,25 +1171,54 @@ def extract_projects(text: str, projects_section: str = "") -> List[Dict]:
                 words = line.split()
                 name_words = []
                 tech_words = []
-                
+
                 for word in words:
-                    clean_word = re.sub(r'[^\w]', '', word.lower())
+                    clean_word = re.sub(r"[^\w]", "", word.lower())
                     # If word is a known tech term or has comma/parentheses, it's part of tech stack
-                    is_tech = any(t in clean_word for t in [
-                        "react", "angular", "vue", "node", "python", "javascript",
-                        "typescript", "java", "go", "rust", "sql", "mongo", "postgres",
-                        "aws", "docker", "kubernetes", "tensorflow", "pytorch",
-                        "scikit", "pandas", "numpy", "api", "app", "web", "ml", "ai"
-                    ])
+                    is_tech = any(
+                        t in clean_word
+                        for t in [
+                            "react",
+                            "angular",
+                            "vue",
+                            "node",
+                            "python",
+                            "javascript",
+                            "typescript",
+                            "java",
+                            "go",
+                            "rust",
+                            "sql",
+                            "mongo",
+                            "postgres",
+                            "aws",
+                            "docker",
+                            "kubernetes",
+                            "tensorflow",
+                            "pytorch",
+                            "scikit",
+                            "pandas",
+                            "numpy",
+                            "api",
+                            "app",
+                            "web",
+                            "ml",
+                            "ai",
+                        ]
+                    )
                     has_punct = any(c in word for c in [",", "(", ")", "-", "+", "."])
-                    
-                    if is_tech or has_punct or (tech_words and word.lower() not in ["and", "with", "using"]):
+
+                    if (
+                        is_tech
+                        or has_punct
+                        or (tech_words and word.lower() not in ["and", "with", "using"])
+                    ):
                         tech_words.append(word)
                     elif not tech_words:
                         name_words.append(word)
                     else:
                         tech_words.append(word)
-                
+
                 if name_words and tech_words:
                     name = " ".join(name_words)
                     tech_stack = " ".join(tech_words)
@@ -491,26 +1228,26 @@ def extract_projects(text: str, projects_section: str = "") -> List[Dict]:
                     name = line
                     tech_stack = ""
                     current_extraction_method = "no_split"
-            
+
             # Clean up name
             name = re.sub(r"^[\-\*\•\▪\>◦▸▹#]+\s*", "", name)
-            
+
             current_project = {
                 "name": name,
                 "tech_stack": tech_stack,
                 "details": "",
-                "extraction_method": current_extraction_method
+                "extraction_method": current_extraction_method,
             }
             current_lines = []
-        
+
         elif current_project is not None:
             # This is part of the current project's details
             # Remove bullet markers but keep the structure
             clean_line = re.sub(r"^[\-\*\•\▪\>◦▸▹]\s*", "• ", line)
             current_lines.append(clean_line)
-        
+
         i += 1
-    
+
     # Don't forget the last project
     if current_project and current_lines:
         current_project["details"] = "\n".join(current_lines).strip()
@@ -522,7 +1259,7 @@ def extract_projects(text: str, projects_section: str = "") -> List[Dict]:
             if "extraction_method" not in current_project:
                 current_project["extraction_method"] = current_extraction_method
             projects.append(current_project)
-    
+
     return projects[:6]
 
 
@@ -549,10 +1286,28 @@ def extract_education(text: str, edu_section: str = "") -> List[dict]:
     def _best_keyword(candidates: List[str]) -> str:
         # Prefer explicit forms over abbreviations (e.g., b.sc > ba, m.sc > ms).
         priority = {
-            "ph.d": 100, "phd": 99, "m.tech": 95, "b.tech": 94, "m.eng": 93, "b.eng": 92,
-            "m.sc": 91, "b.sc": 90, "m.e": 89, "b.e": 88, "mba": 87, "mca": 86, "bca": 85,
-            "b.com": 84, "master": 80, "bachelor": 79, "degree": 70, "diploma": 69,
-            "ms": 50, "bs": 49, "ma": 48, "ba": 47,
+            "ph.d": 100,
+            "phd": 99,
+            "m.tech": 95,
+            "b.tech": 94,
+            "m.eng": 93,
+            "b.eng": 92,
+            "m.sc": 91,
+            "b.sc": 90,
+            "m.e": 89,
+            "b.e": 88,
+            "mba": 87,
+            "mca": 86,
+            "bca": 85,
+            "b.com": 84,
+            "master": 80,
+            "bachelor": 79,
+            "degree": 70,
+            "diploma": 69,
+            "ms": 50,
+            "bs": 49,
+            "ma": 48,
+            "ba": 47,
         }
         return sorted(candidates, key=lambda k: (priority.get(k, 0), len(k)), reverse=True)[0]
 
@@ -637,14 +1392,15 @@ def extract_summary(text: str, summary_section: str = "") -> str:
 
 def extract_links(text: str) -> dict:
     linkedin = LINKEDIN_RE.search(text)
-    github   = GITHUB_RE.search(text)
+    github = GITHUB_RE.search(text)
     return {
         "linkedin": linkedin.group(0) if linkedin else None,
-        "github":   github.group(0)   if github   else None,
+        "github": github.group(0) if github else None,
     }
 
 
 # ── Column-aware PDF extraction ───────────────────────────────────────────────
+
 
 def _detect_two_column(words: list, page_width: float) -> tuple:
     """Detect two-column layout using dynamic gap detection.
@@ -656,8 +1412,8 @@ def _detect_two_column(words: list, page_width: float) -> tuple:
         return False, page_width / 2
 
     x0_vals = sorted(set(round(w["x0"], 1) for w in words))
-    mid_lo  = page_width * 0.30
-    mid_hi  = page_width * 0.70
+    mid_lo = page_width * 0.30
+    mid_hi = page_width * 0.70
 
     # Keep only x0 values inside the middle band
     mid_x0s = [x for x in x0_vals if mid_lo <= x <= mid_hi]
@@ -665,12 +1421,12 @@ def _detect_two_column(words: list, page_width: float) -> tuple:
         return False, page_width / 2
 
     # Find the largest gap between consecutive mid-band x0 values
-    best_gap  = 0.0
+    best_gap = 0.0
     best_left = mid_x0s[0]
     for i in range(1, len(mid_x0s)):
         gap = mid_x0s[i] - mid_x0s[i - 1]
         if gap > best_gap:
-            best_gap  = gap
+            best_gap = gap
             best_left = mid_x0s[i - 1]
             best_right = mid_x0s[i]
 
@@ -679,10 +1435,10 @@ def _detect_two_column(words: list, page_width: float) -> tuple:
         return False, page_width / 2
 
     # Check 30%/30% clustering rule on each side of the gap midpoint
-    split_x  = (best_left + best_right) / 2
-    left_ct  = sum(1 for w in words if w["x0"] < split_x)
+    split_x = (best_left + best_right) / 2
+    left_ct = sum(1 for w in words if w["x0"] < split_x)
     right_ct = sum(1 for w in words if w["x0"] >= split_x)
-    total    = len(words)
+    total = len(words)
     if total == 0:
         return False, page_width / 2
 
@@ -716,7 +1472,7 @@ def _words_to_lines(words: list) -> str:
             current_line.sort(key=lambda w2: w2["x0"])
             lines.append(" ".join(w2["text"] for w2 in current_line))
             current_line = [w]
-            current_top  = w["top"]
+            current_top = w["top"]
 
     # Flush last line
     if current_line:
@@ -747,10 +1503,10 @@ def _extract_page_text_column_aware(page) -> str:
         # Single-column — use standard extraction for best quality
         return page.extract_text(x_tolerance=3, y_tolerance=3) or ""
 
-    left_words  = [w for w in words if w["x0"] < split_x]
+    left_words = [w for w in words if w["x0"] < split_x]
     right_words = [w for w in words if w["x0"] >= split_x]
 
-    left_text  = _words_to_lines(left_words)
+    left_text = _words_to_lines(left_words)
     right_text = _words_to_lines(right_words)
 
     # Left column first, then right column — NOT interleaved
@@ -769,48 +1525,49 @@ def _extract_pdf_text(pdf) -> str:
 
 # ── Master builder ────────────────────────────────────────────────────────────
 
+
 def build_parsed_schema(filename: str, raw_text: str) -> dict:
     if not raw_text or not raw_text.strip():
         return {"error": "Empty text extracted from resume", "filename": filename}
 
     sections = split_sections(raw_text)
 
-    skills_section = "\n".join(sections.get("skills",     []))
-    proj_section   = "\n".join(sections.get("projects",   []))
-    edu_section    = "\n".join(sections.get("education",  []))
-    exp_section    = "\n".join(sections.get("experience", []))
-    sum_section    = "\n".join(sections.get("summary",    []))
+    skills_section = "\n".join(sections.get("skills", []))
+    proj_section = "\n".join(sections.get("projects", []))
+    edu_section = "\n".join(sections.get("education", []))
+    exp_section = "\n".join(sections.get("experience", []))
+    sum_section = "\n".join(sections.get("summary", []))
 
     email_match = EMAIL_RE.search(raw_text)
-    phones      = list({
-        m.group(0) for m in PHONE_RE.finditer(raw_text)
-        if len(re.sub(r"\D", "", m.group(0))) >= 7
-    })[:3]
+    phones = list(
+        {m.group(0) for m in PHONE_RE.finditer(raw_text) if len(re.sub(r"\D", "", m.group(0))) >= 7}
+    )[:3]
     links = extract_links(raw_text)
 
     return {
-        "filename":           filename,
-        "name":               extract_name(raw_text),
-        "email":              email_match.group(0) if email_match else None,
-        "phones":             sorted(phones),
-        "linkedin":           links["linkedin"],
-        "github":             links["github"],
-        "skills":             extract_skills(raw_text, skills_section),
-        "education":          extract_education(raw_text, edu_section),
-        "projects":           extract_projects(raw_text, proj_section),
+        "filename": filename,
+        "name": extract_name(raw_text),
+        "email": email_match.group(0) if email_match else None,
+        "phones": sorted(phones),
+        "linkedin": links["linkedin"],
+        "github": links["github"],
+        "skills": extract_skills(raw_text, skills_section),
+        "education": extract_education(raw_text, edu_section),
+        "projects": extract_projects(raw_text, proj_section),
         "experience_section": exp_section[:1000],
-        "summary":            extract_summary(raw_text, sum_section),
-        "raw_text_excerpt":   raw_text[:3000],
-        "full_text_length":   len(raw_text),
+        "summary": extract_summary(raw_text, sum_section),
+        "raw_text_excerpt": raw_text[:3000],
+        "full_text_length": len(raw_text),
     }
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
 
+
 @router.post("/parse/resume/{session_id}")
 async def parse_resume(session_id: str):
     validate_session_id(session_id)
-    resume_dir  = _storage_dir() / session_id / "resumes"
+    resume_dir = _storage_dir() / session_id / "resumes"
 
     if not resume_dir.exists():
         raise HTTPException(status_code=404, detail="Resume directory not found.")
@@ -824,7 +1581,7 @@ async def parse_resume(session_id: str):
         raise HTTPException(status_code=404, detail="No resume file found. Upload a resume first.")
 
     resume_path = files[0]
-    raw_text    = ""
+    raw_text = ""
 
     try:
         if resume_path.suffix.lower() == ".pdf":
@@ -859,11 +1616,11 @@ async def parse_resume(session_id: str):
     out_file.write_text(json.dumps(parsed, indent=2, ensure_ascii=False), encoding="utf-8")
 
     return {
-        "status":          "ok",
-        "parsed_path":     str(out_file),
-        "name":            parsed["name"],
-        "email":           parsed["email"],
-        "skills":          parsed["skills"],
-        "projects_count":  len(parsed["projects"]),
+        "status": "ok",
+        "parsed_path": str(out_file),
+        "name": parsed["name"],
+        "email": parsed["email"],
+        "skills": parsed["skills"],
+        "projects_count": len(parsed["projects"]),
         "education_count": len(parsed["education"]),
     }

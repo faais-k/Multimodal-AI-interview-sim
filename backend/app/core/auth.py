@@ -13,6 +13,7 @@ from firebase_admin import credentials, auth
 
 security = HTTPBearer()
 
+
 # Initialize Firebase Admin SDK
 def init_firebase():
     # Only initialize if not already initialized
@@ -22,6 +23,7 @@ def init_firebase():
         if service_account_json:
             try:
                 import json
+
                 cred_dict = json.loads(service_account_json)
                 cred = credentials.Certificate(cred_dict)
                 firebase_admin.initialize_app(cred)
@@ -38,9 +40,12 @@ def init_firebase():
                 firebase_admin.initialize_app(cred)
                 print("✅ Firebase Admin initialized via file.")
             else:
-                print(f"⚠️ Firebase Admin credentials not found at {cred_path} and FIREBASE_SERVICE_ACCOUNT is unset. Authentication will fail.")
+                print(
+                    f"⚠️ Firebase Admin credentials not found at {cred_path} and FIREBASE_SERVICE_ACCOUNT is unset. Authentication will fail."
+                )
         except Exception as e:
             print(f"⚠️ Failed to initialize Firebase Admin from file: {e}")
+
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Security(security)) -> dict:
     """
@@ -56,7 +61,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Security(
             "uid": decoded_token.get("uid"),
             "email": decoded_token.get("email"),
             "name": decoded_token.get("name"),
-            "picture": decoded_token.get("picture")
+            "picture": decoded_token.get("picture"),
         }
         print(f"🔑 API Request from: {user_info['email']}")
         return user_info
@@ -67,22 +72,23 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Security(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+
 async def get_optional_user(request: Request) -> Optional[dict]:
     """
-    Optional authentication. Returns user info if valid token is provided, 
+    Optional authentication. Returns user info if valid token is provided,
     otherwise returns None. Never raises 401.
     """
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         return None
-    
+
     token = auth_header.split(" ")[1]
     try:
         decoded_token = auth.verify_id_token(token)
         return {
             "uid": decoded_token.get("uid"),
             "email": decoded_token.get("email"),
-            "name": decoded_token.get("name")
+            "name": decoded_token.get("name"),
         }
     except:
         return None

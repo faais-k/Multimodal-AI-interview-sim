@@ -46,24 +46,28 @@ _RETRY_BASE_DELAY = float(os.getenv("LLM_RETRY_BASE_DELAY", "1.5"))  # seconds
 
 # ── Result dataclass ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class AIResult:
     """Structured result from an AI gateway call."""
+
     text: str
-    provider: str               # "hf_api" | "local_gpu" | "template_fallback"
-    task: str                   # task label passed in by caller
-    request_id: str             # unique ID for tracing this call
-    latency_ms: float           # total time spent (ms)
-    retries: int = 0            # number of retries before success
-    used_fallback: bool = False # True if no AI provider succeeded
-    error: Optional[str] = None # last error message if any fallback was used
+    provider: str  # "hf_api" | "local_gpu" | "template_fallback"
+    task: str  # task label passed in by caller
+    request_id: str  # unique ID for tracing this call
+    latency_ms: float  # total time spent (ms)
+    retries: int = 0  # number of retries before success
+    used_fallback: bool = False  # True if no AI provider succeeded
+    error: Optional[str] = None  # last error message if any fallback was used
 
 
 # ── Internal provider callables ──────────────────────────────────────────────
 
+
 def _call_hf_api(prompt: str, max_tokens: int, temperature: float) -> str:
     """Call the HuggingFace Inference API synchronously."""
     from backend.app.core.ml_models import _hf_api_generate, is_hf_circuit_open
+
     if is_hf_circuit_open():
         raise RuntimeError("HF API circuit is open — skipping")
     result = _hf_api_generate(prompt, max_new_tokens=max_tokens, temperature=temperature)
@@ -75,6 +79,7 @@ def _call_hf_api(prompt: str, max_tokens: int, temperature: float) -> str:
 def _call_local_gpu(prompt: str, max_tokens: int, temperature: float) -> str:
     """Call the local GPU model synchronously."""
     from backend.app.core.ml_models import llm_generate, is_gpu_available, get_llm_mode_str
+
     if not is_gpu_available():
         raise RuntimeError("No GPU available for local model")
     if get_llm_mode_str() != "local":
@@ -90,12 +95,13 @@ def _call_local_gpu(prompt: str, max_tokens: int, temperature: float) -> str:
 # List of (provider_name, callable) in priority order.
 # Each callable accepts (prompt, max_tokens, temperature) → str
 _PROVIDERS: list[tuple[str, Callable]] = [
-    ("hf_api",    _call_hf_api),
+    ("hf_api", _call_hf_api),
     ("local_gpu", _call_local_gpu),
 ]
 
 
 # ── Retry helper ─────────────────────────────────────────────────────────────
+
 
 async def _try_provider_with_retry(
     provider_name: str,
@@ -141,7 +147,7 @@ async def _try_provider_with_retry(
             )
         # Exponential backoff before next retry
         if attempt < _MAX_RETRIES:
-            delay = _RETRY_BASE_DELAY * (2 ** attempt)
+            delay = _RETRY_BASE_DELAY * (2**attempt)
             logger.debug(f"[AI-GW] Retrying in {delay:.1f}s…")
             await asyncio.sleep(delay)
 
@@ -149,6 +155,7 @@ async def _try_provider_with_retry(
 
 
 # ── Public gateway function ──────────────────────────────────────────────────
+
 
 async def ai_generate(
     prompt: str,
@@ -181,8 +188,7 @@ async def ai_generate(
     total_retries = 0
 
     logger.info(
-        f"[AI-GW] START req={request_id} task={task} "
-        f"max_tokens={max_tokens} temp={temperature}"
+        f"[AI-GW] START req={request_id} task={task} " f"max_tokens={max_tokens} temp={temperature}"
     )
 
     from backend.app.core.metrics import record_llm_call
@@ -190,9 +196,13 @@ async def ai_generate(
     for provider_name, provider_fn in _PROVIDERS:
         try:
             text, retries = await _try_provider_with_retry(
-                provider_name, provider_fn,
-                prompt, max_tokens, temperature,
-                request_id, task,
+                provider_name,
+                provider_fn,
+                prompt,
+                max_tokens,
+                temperature,
+                request_id,
+                task,
             )
             total_retries += retries
             latency_ms = (time.monotonic() - overall_start) * 1000
@@ -257,6 +267,7 @@ async def ai_generate(
 
 
 # ── Convenience wrappers ─────────────────────────────────────────────────────
+
 
 async def generate_interview_question(
     prompt: str,

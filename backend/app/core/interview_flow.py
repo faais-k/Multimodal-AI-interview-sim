@@ -22,12 +22,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-STATE_FILE            = "interview_state.json"
+STATE_FILE = "interview_state.json"
 DEFAULT_MAX_FOLLOWUPS = 5
 
 # ── P4-B: Per-session state file lock ─────────────────────────────────────────
 
-_state_locks:       dict = {}
+_state_locks: dict = {}
 _state_locks_mutex = threading.Lock()
 _MAX_LOCKS = 10000  # Prevent unbounded growth
 
@@ -38,7 +38,7 @@ def _cleanup_old_locks():
     with _state_locks_mutex:
         if len(_state_locks) > _MAX_LOCKS:
             # Simple LRU: clear oldest half when exceeding limit
-            keys_to_remove = list(_state_locks.keys())[:_MAX_LOCKS // 2]
+            keys_to_remove = list(_state_locks.keys())[: _MAX_LOCKS // 2]
             for key in keys_to_remove:
                 del _state_locks[key]
 
@@ -66,14 +66,18 @@ def get_state_lock(session_id: str) -> asyncio.Lock:
 
 # ── Path helpers ───────────────────────────────────────────────────────────────
 
+
 def _session_dir(storage_dir: Path, session_id: str) -> Path:
     return storage_dir / session_id
+
 
 def _state_path(storage_dir: Path, session_id: str) -> Path:
     return _session_dir(storage_dir, session_id) / STATE_FILE
 
+
 def _now() -> str:
     return datetime.utcnow().isoformat() + "Z"
+
 
 def _safe_id(text: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_-]", "_", text.strip().lower())[:40]
@@ -82,6 +86,7 @@ def _safe_id(text: str) -> str:
 # ── State I/O ──────────────────────────────────────────────────────────────────
 import os
 import tempfile
+
 
 def read_state(storage_dir: Path, session_id: str) -> Dict[str, Any]:
     path = _state_path(storage_dir, session_id)
@@ -95,27 +100,25 @@ def read_state(storage_dir: Path, session_id: str) -> Dict[str, Any]:
 def write_state(storage_dir: Path, session_id: str, state: Dict[str, Any]) -> None:
     """
     Atomically write state to disk using temp file + rename.
-    
+
     This ensures that even if the process crashes during write,
     the existing state file remains intact (or the temp file is cleaned up).
     """
     target_path = _state_path(storage_dir, session_id)
     session_dir = _session_dir(storage_dir, session_id)
-    
+
     # Ensure session directory exists
     session_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Create temp file in same directory for atomic rename
     fd, temp_path = tempfile.mkstemp(
-        dir=session_dir,
-        prefix=f".interview_state_{session_id}_",
-        suffix=".tmp"
+        dir=session_dir, prefix=f".interview_state_{session_id}_", suffix=".tmp"
     )
     try:
         # Write to temp file
-        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=2, ensure_ascii=False)
-        
+
         # Atomic rename (POSIX guarantees atomicity for rename within same filesystem)
         os.replace(temp_path, target_path)
     except Exception:
@@ -135,24 +138,29 @@ def _last_candidate_turn(state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 
 def _store_question(state: Dict[str, Any], q: Dict[str, Any]) -> None:
-    state["questions_asked"].append({
-        "id":           q["id"],
-        "question":     q["question"],
-        "skill_target": q.get("skill_target", ""),
-        "is_final":     bool(q.get("is_final", False)),
-        "time":         _now(),
-    })
-    state["turns"].append({
-        "role":         "interviewer",
-        "id":           q["id"],
-        "text":         q["question"],
-        "skill_target": q.get("skill_target", ""),
-        "is_final":     bool(q.get("is_final", False)),
-        "time":         _now(),
-    })
+    state["questions_asked"].append(
+        {
+            "id": q["id"],
+            "question": q["question"],
+            "skill_target": q.get("skill_target", ""),
+            "is_final": bool(q.get("is_final", False)),
+            "time": _now(),
+        }
+    )
+    state["turns"].append(
+        {
+            "role": "interviewer",
+            "id": q["id"],
+            "text": q["question"],
+            "skill_target": q.get("skill_target", ""),
+            "is_final": bool(q.get("is_final", False)),
+            "time": _now(),
+        }
+    )
 
 
 # ── Initialise ─────────────────────────────────────────────────────────────────
+
 
 def init_interview_state(
     storage_dir: Path,
@@ -162,55 +170,56 @@ def init_interview_state(
 ) -> dict:
     _session_dir(storage_dir, session_id).mkdir(parents=True, exist_ok=True)
 
-    plan_path     = _session_dir(storage_dir, session_id) / "interview_plan.json"
+    plan_path = _session_dir(storage_dir, session_id) / "interview_plan.json"
     max_followups = DEFAULT_MAX_FOLLOWUPS
     if plan_path.exists():
         try:
-            plan          = json.loads(plan_path.read_text(encoding="utf-8"))
+            plan = json.loads(plan_path.read_text(encoding="utf-8"))
             max_followups = plan.get("max_followups", DEFAULT_MAX_FOLLOWUPS)
         except Exception:
             pass
 
     # P1-D: Read expertise_level from candidate_profile.json if available
-    profile_path    = _session_dir(storage_dir, session_id) / "candidate_profile.json"
+    profile_path = _session_dir(storage_dir, session_id) / "candidate_profile.json"
     expertise_level = "intermediate"
     if profile_path.exists():
         try:
-            prof            = json.loads(profile_path.read_text(encoding="utf-8"))
+            prof = json.loads(profile_path.read_text(encoding="utf-8"))
             expertise_level = prof.get("expertise_level", "intermediate")
         except Exception:
             pass
 
     state: Dict[str, Any] = {
-        "session_id":     session_id,
-        "job_role":       job_role,
-        "completed":      False,
-        "wrapup_asked":   False,
+        "session_id": session_id,
+        "job_role": job_role,
+        "completed": False,
+        "wrapup_asked": False,
         "followup_count": 0,
-        "max_followups":  max_followups,
+        "max_followups": max_followups,
         "followup_depth": {},
         "candidate": {
-            "name":            parsed_resume.get("name"),
-            "email":           parsed_resume.get("email"),
-            "skills":          parsed_resume.get("skills", []),
-            "projects":        parsed_resume.get("projects", []),
-            "summary":         parsed_resume.get("summary", ""),
-            "expertise_level": expertise_level,   # P1-D
+            "name": parsed_resume.get("name"),
+            "email": parsed_resume.get("email"),
+            "skills": parsed_resume.get("skills", []),
+            "projects": parsed_resume.get("projects", []),
+            "summary": parsed_resume.get("summary", ""),
+            "expertise_level": expertise_level,  # P1-D
         },
         "cursor": {
-            "stage":            "intro",
+            "stage": "intro",
             "last_question_id": None,
-            "current_topic":    None,
+            "current_topic": None,
         },
         "questions_asked": [],
-        "answers":         {},
-        "turns":           [],
+        "answers": {},
+        "turns": [],
     }
     write_state(storage_dir, session_id, state)
     return state
 
 
 # ── Record answer ──────────────────────────────────────────────────────────────
+
 
 def record_answer(
     storage_dir: Path,
@@ -222,24 +231,26 @@ def record_answer(
     detected_topic: str | None = None,
 ) -> bool:
     """Record answer and update interview stage.
-    
+
     Returns True if interview is now COMPLETED, False otherwise.
     """
     state = read_state(storage_dir, session_id)
 
     state["answers"][question_id] = {
         "question": question_text,
-        "answer":   answer_text,
-        "score":    score,
-        "time":     _now(),
-    }
-    state["turns"].append({
-        "role":  "candidate",
-        "id":    question_id,
-        "text":  answer_text,
+        "answer": answer_text,
         "score": score,
-        "time":  _now(),
-    })
+        "time": _now(),
+    }
+    state["turns"].append(
+        {
+            "role": "candidate",
+            "id": question_id,
+            "text": answer_text,
+            "score": score,
+            "time": _now(),
+        }
+    )
 
     if detected_topic:
         state["cursor"]["current_topic"] = detected_topic
@@ -248,7 +259,7 @@ def record_answer(
     # 1. If it's a follow-up, don't advance the main stage
     if not question_id.startswith("followup"):
         current_stage = state["cursor"].get("stage", "intro")
-        
+
         # Robust stage progression
         if current_stage == "intro":
             state["cursor"]["stage"] = "project"
@@ -278,8 +289,11 @@ def record_answer(
     # AND we should verify that we've actually gone through the interview flow
     questions_asked_count = len(state.get("questions_asked", []))
     minimum_questions_before_completion = 5  # intro + project + at least 3 more
-    
-    if ((asked_question and asked_question.get("is_final") is True) or question_id.startswith("wrapup")) and questions_asked_count >= minimum_questions_before_completion:
+
+    if (
+        (asked_question and asked_question.get("is_final") is True)
+        or question_id.startswith("wrapup")
+    ) and questions_asked_count >= minimum_questions_before_completion:
         state["completed"] = True
 
     write_state(storage_dir, session_id, state)
@@ -288,13 +302,15 @@ def record_answer(
 
 # ── Follow-up helpers ──────────────────────────────────────────────────────────
 
+
 def _extract_topic(question_text: str) -> str:
     """Extract a short topic phrase from a full question string."""
     if not question_text:
         return "this area"
     m = re.search(
         r"you built (.+?)(?:\.\s*(?:Walk|Explain|Tell|Describe))",
-        question_text, re.IGNORECASE,
+        question_text,
+        re.IGNORECASE,
     )
     if m:
         topic = m.group(1).strip().lstrip("\u2022 ").lstrip("- ")
@@ -340,8 +356,8 @@ def _llm_generate_followup(
 
         depth_instruction = (
             "Ask for a concrete real-world example from their experience."
-            if depth <= 1 else
-            "Ask about the hardest technical challenge they faced with this topic."
+            if depth <= 1
+            else "Ask about the hardest technical challenge they faced with this topic."
         )
 
         missing_context = (
@@ -390,7 +406,10 @@ def should_ask_followup(state: Dict[str, Any]) -> bool:
     last_turn = _last_candidate_turn(state)
     if not last_turn:
         return False
-    if last_turn.get("skipped") is True or str(last_turn.get("text", "")).strip().lower() == "skipped":
+    if (
+        last_turn.get("skipped") is True
+        or str(last_turn.get("text", "")).strip().lower() == "skipped"
+    ):
         return False
     # Do not follow up on wrapup or self_intro questions — they mark end-of-interview
     # or opening greetings. Following up on these prevents finalization.
@@ -398,7 +417,7 @@ def should_ask_followup(state: Dict[str, Any]) -> bool:
     if last_qid_check.startswith("wrapup") or last_qid_check.startswith("intro"):
         return False
     score = last_turn.get("score")
-    text  = last_turn.get("text", "")
+    text = last_turn.get("text", "")
     if score is not None and score < 6.5:
         return True
     if len(text.split()) < 30:
@@ -407,11 +426,11 @@ def should_ask_followup(state: Dict[str, Any]) -> bool:
 
 
 def generate_followup_question(
-    state:           Dict[str, Any],
-    original_q:      Optional[Dict[str, Any]],
-    depth:           int,
-    storage_dir:     Path,
-    session_id:      str,
+    state: Dict[str, Any],
+    original_q: Optional[Dict[str, Any]],
+    depth: int,
+    storage_dir: Path,
+    session_id: str,
     what_was_missing: str = "",
 ) -> Optional[Dict[str, Any]]:
     """Generate a follow-up question, trying three sources in order:
@@ -425,17 +444,14 @@ def generate_followup_question(
     if original_q is None:
         return None
 
-    topic = (
-        original_q.get("skill_target")
-        or _extract_topic(original_q.get("question", ""))
-    )
+    topic = original_q.get("skill_target") or _extract_topic(original_q.get("question", ""))
     if not topic or topic in ("self_intro", "project_experience", "wrapup", "collaboration"):
         topic = _extract_topic(original_q.get("question", ""))
     topic = topic.lstrip("\u2022 ").lstrip("- ").strip()
     if not topic:
         topic = "this area"
 
-    asked      = {t["text"].lower() for t in state["turns"] if t["role"] == "interviewer"}
+    asked = {t["text"].lower() for t in state["turns"] if t["role"] == "interviewer"}
     safe_topic = _safe_id(topic)
     original_q_id = original_q.get("id", "")
 
@@ -457,14 +473,14 @@ def generate_followup_question(
                     "question": q_text,
                     "type": "followup",
                     "id": f"followup_{int(time.time())}",
-                    "cache_key": cache_key
+                    "cache_key": cache_key,
                 }
         except Exception:
             pass
 
     # ── P2-A: LLM runtime generation (if cache miss) ─────────────────────────
     if q_text is None:
-        last_turn   = _last_candidate_turn(state)
+        last_turn = _last_candidate_turn(state)
         last_answer = (last_turn or {}).get("text", "")
         q_text = _llm_generate_followup(
             original_question=original_q.get("question", ""),
@@ -493,13 +509,12 @@ def generate_followup_question(
 
     state["followup_count"] = state.get("followup_count", 0) + 1
     return {
-        "id":           f"followup_{safe_topic}_{len(state['turns'])}",
-        "type":         "followup",
-        "question":     q_text,
+        "id": f"followup_{safe_topic}_{len(state['turns'])}",
+        "type": "followup",
+        "question": q_text,
         "skill_target": topic,
-        "meta":         {"topic": topic, "depth": depth},
+        "meta": {"topic": topic, "depth": depth},
     }
-
 
 
 # ── Split-lock next_question helpers (Bug 2 fix) ───────────────────────────────
@@ -507,6 +522,7 @@ def generate_followup_question(
 # _decide_next_read:  reads state, returns a decision dict — NO writes, NO LLM.
 # _decide_next_write: accepts decision + resolved text, writes to state — one write_state call.
 # decide_next_question (below) is preserved unchanged for the session restore path.
+
 
 def _decide_next_read(storage_dir: Path, session_id: str, plan: dict) -> dict:
     """Read state and return a decision dict. No writes. No LLM calls.
@@ -523,9 +539,13 @@ def _decide_next_read(storage_dir: Path, session_id: str, plan: dict) -> dict:
     stage = state["cursor"]["stage"]
 
     if state.get("completed"):
-        return {"action": "completed",
-                "payload": {"status": "completed",
-                             "message": "Interview complete. Thank you for your time!"}}
+        return {
+            "action": "completed",
+            "payload": {
+                "status": "completed",
+                "message": "Interview complete. Thank you for your time!",
+            },
+        }
 
     last_qid = state["cursor"].get("last_question_id") or ""
     # Determine last-asked question type to skip followups on wrapup/intro
@@ -542,7 +562,7 @@ def _decide_next_read(storage_dir: Path, session_id: str, plan: dict) -> dict:
     )
 
     if not skip_followup and should_ask_followup(state):
-        original_q    = _find_original_question(state)
+        original_q = _find_original_question(state)
         original_q_id = (original_q or {}).get("id", "unknown")
         state.setdefault("followup_depth", {})
         current_depth = state["followup_depth"].get(original_q_id, 0)
@@ -555,7 +575,9 @@ def _decide_next_read(storage_dir: Path, session_id: str, plan: dict) -> dict:
             if last_score_path.exists():
                 try:
                     ls = json.loads(last_score_path.read_text(encoding="utf-8"))
-                    what_was_missing = (ls.get("llm_evaluation") or {}).get("what_was_missing", "") or ""
+                    what_was_missing = (ls.get("llm_evaluation") or {}).get(
+                        "what_was_missing", ""
+                    ) or ""
                 except Exception:
                     pass
 
@@ -569,38 +591,48 @@ def _decide_next_read(storage_dir: Path, session_id: str, plan: dict) -> dict:
                 except Exception:
                     pass
 
-            last_turn   = _last_candidate_turn(state)
+            last_turn = _last_candidate_turn(state)
             last_answer = (last_turn or {}).get("text", "")
 
             return {
-                "action":           "followup",
-                "original_q":       original_q,
-                "original_q_id":    original_q_id,
-                "depth":            current_depth + 1,
+                "action": "followup",
+                "original_q": original_q,
+                "original_q_id": original_q_id,
+                "depth": current_depth + 1,
                 "what_was_missing": what_was_missing,
-                "last_answer":      last_answer,
-                "cached_q_text":    cached_q_text,
+                "last_answer": last_answer,
+                "cached_q_text": cached_q_text,
             }
 
-    plan_questions    = plan.get("questions", [])
-    intro_from_plan   = next((q for q in plan_questions if q.get("id") == "intro_1"), None)
+    plan_questions = plan.get("questions", [])
+    intro_from_plan = next((q for q in plan_questions if q.get("id") == "intro_1"), None)
     project_from_plan = next((q for q in plan_questions if q.get("id") == "project_1"), None)
 
     if stage == "intro":
-        q = dict(intro_from_plan) if intro_from_plan else _make_question(
-            "intro_1", "self_intro",
-            f"Hi {state['candidate'].get('name') or 'there'}! Please introduce yourself — "
-            "your background, key skills, and what draws you to this role.",
-            skill_target="self_intro",
+        q = (
+            dict(intro_from_plan)
+            if intro_from_plan
+            else _make_question(
+                "intro_1",
+                "self_intro",
+                f"Hi {state['candidate'].get('name') or 'there'}! Please introduce yourself — "
+                "your background, key skills, and what draws you to this role.",
+                skill_target="self_intro",
+            )
         )
         return {"action": "serve_question", "question": q}
 
     if stage == "project":
-        q = dict(project_from_plan) if project_from_plan else _make_question(
-            "project_1", "project",
-            "Walk me through your most significant project — your role, the problem, "
-            "the tech stack, and a specific challenge you overcame.",
-            skill_target="project_experience",
+        q = (
+            dict(project_from_plan)
+            if project_from_plan
+            else _make_question(
+                "project_1",
+                "project",
+                "Walk me through your most significant project — your role, the problem, "
+                "the tech stack, and a specific challenge you overcame.",
+                skill_target="project_experience",
+            )
         )
         return {"action": "serve_question", "question": q}
 
@@ -614,7 +646,7 @@ def _decide_next_read(storage_dir: Path, session_id: str, plan: dict) -> dict:
 
     if not state.get("wrapup_asked"):
         company = plan.get("company", "")
-        co_ctx  = f" for this role at {company}" if company else ""
+        co_ctx = f" for this role at {company}" if company else ""
         q = _make_question(
             f"wrapup_{len(state['questions_asked'])}",
             "wrapup",
@@ -624,9 +656,13 @@ def _decide_next_read(storage_dir: Path, session_id: str, plan: dict) -> dict:
         q["is_final"] = True
         return {"action": "serve_question", "question": q}
 
-    return {"action": "awaiting_wrapup",
-            "payload": {"status": "awaiting_wrapup_answer",
-                        "message": "Please submit your answer to complete the interview."}}
+    return {
+        "action": "awaiting_wrapup",
+        "payload": {
+            "status": "awaiting_wrapup_answer",
+            "message": "Please submit your answer to complete the interview.",
+        },
+    }
 
 
 def _decide_next_write(
@@ -641,21 +677,18 @@ def _decide_next_write(
     This is the ONLY function that calls write_state() in the next_question flow.
     For followup actions: consumes/deletes the cache entry if it was pre-generated.
     """
-    state  = read_state(storage_dir, session_id)
+    state = read_state(storage_dir, session_id)
     action = decision["action"]
 
     if action in ("completed", "awaiting_wrapup"):
         return decision["payload"]
 
     if action == "followup":
-        original_q    = decision["original_q"]
+        original_q = decision["original_q"]
         original_q_id = decision["original_q_id"]
-        depth         = decision["depth"]
+        depth = decision["depth"]
 
-        topic = (
-            original_q.get("skill_target")
-            or _extract_topic(original_q.get("question", ""))
-        )
+        topic = original_q.get("skill_target") or _extract_topic(original_q.get("question", ""))
         topic = topic.lstrip("\u2022 ").lstrip("- ").strip() or "this area"
         safe_topic = _safe_id(topic)
 
@@ -665,11 +698,11 @@ def _decide_next_write(
             return {"status": "completed", "message": "No new follow-up available."}
 
         q = {
-            "id":           f"followup_{safe_topic}_{len(state['turns'])}",
-            "type":         "followup",
-            "question":     resolved_q_text,
+            "id": f"followup_{safe_topic}_{len(state['turns'])}",
+            "type": "followup",
+            "question": resolved_q_text,
             "skill_target": topic,
-            "meta":         {"topic": topic, "depth": depth},
+            "meta": {"topic": topic, "depth": depth},
         }
 
         # Consume cache entry if the cached text was the one used
@@ -702,34 +735,37 @@ def _decide_next_write(
 
     return {"status": "error", "message": f"Unknown action: {action}"}
 
+
 # ── Question factory ───────────────────────────────────────────────────────────
 
+
 def _make_question(
-    qid: str, qtype: str, question: str,
+    qid: str,
+    qtype: str,
+    question: str,
     skill_target: str = "",
     meta: Optional[dict] = None,
 ) -> Dict[str, Any]:
     return {
-        "id":           qid,
-        "type":         qtype,
-        "question":     question,
+        "id": qid,
+        "type": qtype,
+        "question": question,
         "skill_target": skill_target,
-        "meta":         meta or {},
+        "meta": meta or {},
     }
 
 
 # ── Main decision engine ───────────────────────────────────────────────────────
 
-def decide_next_question(
-    storage_dir: Path, session_id: str, plan: dict
-) -> Dict[str, Any]:
+
+def decide_next_question(storage_dir: Path, session_id: str, plan: dict) -> Dict[str, Any]:
     state = read_state(storage_dir, session_id)
     stage = state["cursor"]["stage"]
 
     if state.get("completed"):
         return {"status": "completed", "message": "Interview complete. Thank you for your time!"}
 
-    name     = state["candidate"].get("name") or "there"
+    name = state["candidate"].get("name") or "there"
     projects = state["candidate"].get("projects", [])
 
     # ── Follow-up gate ────────────────────────────────────────────────────────
@@ -747,7 +783,7 @@ def decide_next_question(
     )
 
     if not skip_followup_now and should_ask_followup(state):
-        original_q    = _find_original_question(state)
+        original_q = _find_original_question(state)
         original_q_id = (original_q or {}).get("id", "unknown")
 
         state.setdefault("followup_depth", {})
@@ -757,11 +793,11 @@ def decide_next_question(
             # P2-A: Read what_was_missing from the last score file
             what_was_missing = ""
             safe_last = re.sub(r"[^a-zA-Z0-9_\-]", "_", last_qid)[:80]
-            last_score_path  = storage_dir / session_id / "scores" / f"{safe_last}.json"
+            last_score_path = storage_dir / session_id / "scores" / f"{safe_last}.json"
             if last_score_path.exists():
                 try:
-                    last_score       = json.loads(last_score_path.read_text(encoding="utf-8"))
-                    llm_eval         = last_score.get("llm_evaluation") or {}
+                    last_score = json.loads(last_score_path.read_text(encoding="utf-8"))
+                    llm_eval = last_score.get("llm_evaluation") or {}
                     what_was_missing = llm_eval.get("what_was_missing", "") or ""
                 except Exception:
                     pass
@@ -777,7 +813,7 @@ def decide_next_question(
             if q:
                 state["followup_depth"][original_q_id] = current_depth + 1
                 _store_question(state, q)
-                
+
                 # Handle cache deletion under same lock
                 if "cache_key" in q:
                     plan_path = storage_dir / session_id / "interview_plan.json"
@@ -790,13 +826,13 @@ def decide_next_question(
                             plan_path.write_text(json.dumps(plan_data, indent=2), encoding="utf-8")
                     except Exception:
                         pass  # Cache deletion failed but question was already stored
-                
+
                 write_state(storage_dir, session_id, state)
                 return q
 
-    plan_questions     = plan.get("questions", [])
-    intro_from_plan    = next((q for q in plan_questions if q.get("id") == "intro_1"), None)
-    project_from_plan  = next((q for q in plan_questions if q.get("id") == "project_1"), None)
+    plan_questions = plan.get("questions", [])
+    intro_from_plan = next((q for q in plan_questions if q.get("id") == "intro_1"), None)
+    project_from_plan = next((q for q in plan_questions if q.get("id") == "project_1"), None)
 
     # ── Intro (once) ──────────────────────────────────────────────────────────
     if stage == "intro":
@@ -804,11 +840,12 @@ def decide_next_question(
             q = dict(intro_from_plan)
         else:
             job_role = plan.get("job_role", "")
-            company  = plan.get("company", "")
-            co_ctx   = f" at {company}" if company else ""
+            company = plan.get("company", "")
+            co_ctx = f" at {company}" if company else ""
             role_ctx = f" {job_role}" if job_role else " role"
             q = _make_question(
-                "intro_1", "self_intro",
+                "intro_1",
+                "self_intro",
                 f"Hi {name}! Please introduce yourself — your education, key skills, "
                 f"and why you're interested in this{role_ctx}{co_ctx}.",
                 skill_target="self_intro",
@@ -828,8 +865,8 @@ def decide_next_question(
                 f"{job_role or 'this role'}. "
                 "Cover your role, the problem you were solving, the tech stack, "
                 "and a specific challenge you overcame."
-                if projects else
-                "I don't see major projects listed. Can you describe any internship, "
+                if projects
+                else "I don't see major projects listed. Can you describe any internship, "
                 "academic project, or self-learning project you've worked on — "
                 "what you built and what you learned?"
             )
@@ -852,7 +889,7 @@ def decide_next_question(
     # ── Wrapup (once) ─────────────────────────────────────────────────────────
     if not state.get("wrapup_asked"):
         company = plan.get("company", "")
-        co_ctx  = f" for this role at {company}" if company else ""
+        co_ctx = f" for this role at {company}" if company else ""
         q = _make_question(
             f"wrapup_{len(state['questions_asked'])}",
             "wrapup",
@@ -867,6 +904,6 @@ def decide_next_question(
         return q
 
     return {
-        "status":  "awaiting_wrapup_answer",
+        "status": "awaiting_wrapup_answer",
         "message": "Please submit your answer to complete the interview.",
     }

@@ -6,6 +6,7 @@ Frontend sends events whenever the candidate:
   - defocuses the window (blur)
 Each violation is timestamped and stored in violations.json.
 """
+
 import json
 import asyncio
 import threading
@@ -68,8 +69,8 @@ async def log_violation(payload: Dict[str, Any], user: dict = Depends(get_option
                 violations = []
 
         entry = {
-            "type":      payload.get("type", "UNKNOWN"),
-            "details":   payload.get("details", ""),
+            "type": payload.get("type", "UNKNOWN"),
+            "details": payload.get("details", ""),
             "timestamp": payload.get("timestamp") or _now(),
             "server_ts": _now(),
         }
@@ -79,6 +80,6 @@ async def log_violation(payload: Dict[str, Any], user: dict = Depends(get_option
         await log_violation_db(session_id, entry, user_id=uid)
 
         return {
-            "status":           "ok",
+            "status": "ok",
             "total_violations": len(violations),
         }

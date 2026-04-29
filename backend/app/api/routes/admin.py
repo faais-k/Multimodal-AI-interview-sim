@@ -37,9 +37,9 @@ async def get_sessions(
     _check_auth(x_admin_secret)
     sessions = await list_sessions(limit)
     return {
-        "sessions":      sessions,
-        "count":         len(sessions),
-        "mongodb_mode":  db_available(),
+        "sessions": sessions,
+        "count": len(sessions),
+        "mongodb_mode": db_available(),
     }
 
 

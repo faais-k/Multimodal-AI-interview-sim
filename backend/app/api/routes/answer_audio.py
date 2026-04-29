@@ -29,20 +29,25 @@ from backend.app.api.routes.score_text import score_text_answer
 router = APIRouter()
 
 # Timeouts: GPU models are larger but run on accelerator; CPU uses tiny model.
-ASR_TIMEOUT_GPU = 120   # seconds — generous for large-v3-turbo on GPU
-ASR_TIMEOUT_CPU = 90    # seconds — whisper-tiny on CPU is fast but give headroom
+ASR_TIMEOUT_GPU = 120  # seconds — generous for large-v3-turbo on GPU
+ASR_TIMEOUT_CPU = 90  # seconds — whisper-tiny on CPU is fast but give headroom
 
 
 def _storage_dir() -> Path:
     from backend.app.core.storage import get_storage_dir
+
     return get_storage_dir()
 
 
 @router.post("/answer/audio")
 async def answer_audio(session_id: str, question_id: str, file: UploadFile = File(...)):
     try:
-        if not await check_rate_limit(session_id, "answer_audio", max_requests=20, window_seconds=60):
-            raise HTTPException(status_code=429, detail="Too many audio submissions. Please slow down.")
+        if not await check_rate_limit(
+            session_id, "answer_audio", max_requests=20, window_seconds=60
+        ):
+            raise HTTPException(
+                status_code=429, detail="Too many audio submissions. Please slow down."
+            )
         validate_session_id(session_id)
 
         session_dir = _storage_dir() / session_id
@@ -57,15 +62,15 @@ async def answer_audio(session_id: str, question_id: str, file: UploadFile = Fil
         answers_dir = session_dir / "audio"
         answers_dir.mkdir(parents=True, exist_ok=True)
 
-        ext       = Path(file.filename or "audio").suffix or ".webm"
-        safe_qid  = re.sub(r"[^a-zA-Z0-9_\-]", "_", question_id)[:60]
+        ext = Path(file.filename or "audio").suffix or ".webm"
+        safe_qid = re.sub(r"[^a-zA-Z0-9_\-]", "_", question_id)[:60]
         dest_name = f"{safe_qid}_{uuid.uuid4().hex}{ext}"
         dest_path = answers_dir / dest_name
 
         with dest_path.open("wb") as f:
             shutil.copyfileobj(file.file, f)
 
-        gpu_ok  = is_gpu_available()
+        gpu_ok = is_gpu_available()
         timeout = ASR_TIMEOUT_GPU if gpu_ok else ASR_TIMEOUT_CPU
         try:
             start_time = time.monotonic()
@@ -74,13 +79,15 @@ async def answer_audio(session_id: str, question_id: str, file: UploadFile = Fil
                 timeout=timeout,
             )
             latency_s = time.monotonic() - start_time
-            
+
             from backend.app.core.metrics import record_asr_transcription
+
             record_asr_transcription(outcome="success", latency_s=latency_s)
-            
+
             transcript = asr_result.get("text", "").strip()
         except asyncio.TimeoutError:
             from backend.app.core.metrics import record_asr_transcription
+
             record_asr_transcription(outcome="timeout", latency_s=timeout)
             raise HTTPException(
                 status_code=504,
@@ -91,9 +98,12 @@ async def answer_audio(session_id: str, question_id: str, file: UploadFile = Fil
             )
         except Exception as exc:
             from backend.app.core.metrics import record_asr_transcription
+
             record_asr_transcription(outcome="error", latency_s=0.0)
             print("ASR error:", exc, traceback.format_exc())
-            raise HTTPException(status_code=500, detail=f"ASR transcription failed: {str(exc)[:200]}")
+            raise HTTPException(
+                status_code=500, detail=f"ASR transcription failed: {str(exc)[:200]}"
+            )
 
         if not transcript:
             raise HTTPException(
@@ -101,11 +111,13 @@ async def answer_audio(session_id: str, question_id: str, file: UploadFile = Fil
                 detail="Transcription produced empty text. Please speak clearly and re-record.",
             )
 
-        scored = await score_text_answer({
-            "session_id":  session_id,
-            "question_id": question_id,
-            "answer_text": transcript,
-        })
+        scored = await score_text_answer(
+            {
+                "session_id": session_id,
+                "question_id": question_id,
+                "answer_text": transcript,
+            }
+        )
         scored["transcript"] = transcript
         scored["audio_path"] = str(dest_path)
         scored["scoring_method"] = "whisper_asr"

@@ -7,11 +7,12 @@ from backend.app.core.validation import validate_session_id
 router = APIRouter(tags=["Upload"])
 
 MAX_RESUME_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
-ALLOWED_SUFFIXES      = {".pdf", ".docx", ".doc"}
+ALLOWED_SUFFIXES = {".pdf", ".docx", ".doc"}
 
 
 def _storage_dir() -> Path:
     from backend.app.core.storage import get_storage_dir
+
     return get_storage_dir()
 
 
@@ -39,7 +40,7 @@ async def upload_resume(session_id: str = Form(...), file: UploadFile = File(...
 
     out_path = base / safe_filename
     temp_path = base / f".uploading_{safe_filename}"
-    size     = 0
+    size = 0
 
     # Stream with size cap — prevents OOM from huge uploads
     with temp_path.open("wb") as f:

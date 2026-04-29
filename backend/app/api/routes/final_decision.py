@@ -12,14 +12,18 @@ router = APIRouter()
 # Helpers
 # -----------------------------
 
+
 def _base_dir() -> Path:
     return Path(__file__).resolve().parents[4]
+
 
 def _storage_dir() -> Path:
     return get_storage_dir()
 
+
 def _read_json(path: Path) -> Dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
 
 def _clamp(val: float, lo: float, hi: float):
     return max(lo, min(val, hi))
@@ -28,6 +32,7 @@ def _clamp(val: float, lo: float, hi: float):
 # -----------------------------
 # Final Decision Engine
 # -----------------------------
+
 
 @router.post("/decision/{session_id}")
 async def final_decision(session_id: str):
@@ -53,7 +58,8 @@ async def final_decision(session_id: str):
 
     # Count HIGH risk skills
     high_risk_skills = [
-        skill for skill, data in analytics.get("skills_analysis", {}).items()
+        skill
+        for skill, data in analytics.get("skills_analysis", {}).items()
         if data.get("risk") == "HIGH"
     ]
 
@@ -93,7 +99,7 @@ async def final_decision(session_id: str):
         "final_score": final_score,
         "readiness_level": readiness,
         "needs_human_review": needs_human,
-        "reasons": reasons
+        "reasons": reasons,
     }
 
     out_path = session_dir / "final_decision.json"
@@ -103,5 +109,5 @@ async def final_decision(session_id: str):
         "status": "ok",
         "decision": decision,
         "confidence": confidence,
-        "decision_path": str(out_path)
+        "decision_path": str(out_path),
     }

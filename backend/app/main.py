@@ -30,26 +30,26 @@ from backend.app.core.ml_models import load_models
 from backend.app.core.database import connect_db, disconnect_db
 from backend.app.core.auth import init_firebase
 
+
 # ── Logging Configuration ─────────────────────────────────────────────────────
 def _setup_logging():
     """Configure structured logging for production."""
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-    
+
     # Configure root logger
     logging.basicConfig(
         level=getattr(logging, log_level, logging.INFO),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.StreamHandler(sys.stdout)
-        ]
+        handlers=[logging.StreamHandler(sys.stdout)],
     )
-    
+
     # Set specific levels for noisy libraries
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("motor").setLevel(logging.WARNING)
-    
+
     return logging.getLogger(__name__)
+
 
 logger = _setup_logging()
 
@@ -79,11 +79,9 @@ def get_cors_origins() -> list:
             "Set ALLOWED_ORIGINS=https://your-frontend.vercel.app"
         )
         return []
-    
+
     logger.warning("No ALLOWED_ORIGINS set. Defaulting to allow all origins in development.")
     return ["*"]
-
-
 
 
 @asynccontextmanager
@@ -91,13 +89,12 @@ async def lifespan(app: FastAPI):
     logger.info("Starting: pre-loading ML models...")
     load_models()
     logger.info("ML models ready.")
-    
-    
+
     await connect_db()
     logger.info("Database connection established (or running in flat-file mode).")
-    
+
     init_firebase()
-    
+
     # ── Diagnostic Route Logging ──────────────────────────────────────────
     logger.info("Listing all registered routes:")
     for route in app.routes:
@@ -117,9 +114,9 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Startup cleanup failed (non-fatal): {e}")
 
     logger.info("Application startup complete. Ready to accept requests.")
-    
+
     yield
-    
+
     await disconnect_db()
     logger.info("Application shutting down.")
 
@@ -154,7 +151,7 @@ async def add_request_id_and_metrics(request: Request, call_next):
 
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
-    
+
     start_time = time.monotonic()
     try:
         response = await call_next(request)
@@ -168,11 +165,12 @@ async def add_request_id_and_metrics(request: Request, call_next):
             method=request.method,
             endpoint=request.url.path,
             status_code=status_code,
-            duration_s=duration_s
+            duration_s=duration_s,
         )
-    
+
     response.headers["X-Request-ID"] = request_id
     return response
+
 
 app.include_router(health_router, prefix="/api")
 app.include_router(session_router, prefix="/api")

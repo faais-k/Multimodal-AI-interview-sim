@@ -32,15 +32,17 @@ import threading
 import time
 from typing import Any, List, Optional, Union
 
-
 # ── GPU detection (computed once at import time) ──────────────────────────────
+
 
 def _detect_gpu() -> bool:
     try:
         import torch
+
         return torch.cuda.is_available()
     except ImportError:
         return False
+
 
 GPU_AVAILABLE = _detect_gpu()
 
@@ -68,23 +70,26 @@ _llm_mode = "disabled"
 
 # ── Sentinel for API proxy mode ───────────────────────────────────────────────
 
+
 class _APIProxy:
     """Sentinel indicating LLM calls route through HF Inference API."""
+
     pass
+
 
 _API_PROXY = _APIProxy()
 
 
 # ── Module-level singletons ───────────────────────────────────────────────────
 
-_sentence_model:  Optional[Any] = None
-_asr_pipeline:    Optional[Any] = None
-_llm_model:       Optional[Any] = None
-_llm_tokenizer:   Optional[Any] = None
+_sentence_model: Optional[Any] = None
+_asr_pipeline: Optional[Any] = None
+_llm_model: Optional[Any] = None
+_llm_tokenizer: Optional[Any] = None
 
 _sentence_lock = threading.Lock()
-_asr_lock      = threading.Lock()
-_llm_lock      = threading.Lock()
+_asr_lock = threading.Lock()
+_llm_lock = threading.Lock()
 
 # ── PERF-1: Embedding cache — avoids re-computing identical embeddings ────────
 _embedding_cache: dict = {}
@@ -94,8 +99,9 @@ _EMBEDDING_CACHE_MAX = 500  # Max entries before eviction
 _hf_api_failure_count = 0
 _hf_api_circuit_open = False
 _hf_api_circuit_opened_at = 0.0
-_HF_CIRCUIT_THRESHOLD = 5        # Open circuit after this many consecutive failures
-_HF_CIRCUIT_COOLDOWN = 300       # Seconds before retrying (5 minutes)
+_HF_CIRCUIT_THRESHOLD = 5  # Open circuit after this many consecutive failures
+_HF_CIRCUIT_COOLDOWN = 300  # Seconds before retrying (5 minutes)
+
 
 def is_hf_circuit_open() -> bool:
     """Return True if the HF API circuit is currently open (in fallback mode)."""
@@ -108,6 +114,7 @@ def is_hf_circuit_open() -> bool:
 
 # ── Sentence Transformer ─────────────────────────────────────────────────────
 
+
 def load_sentence_model() -> None:
     global _sentence_model
     if _sentence_model is None:
@@ -115,6 +122,7 @@ def load_sentence_model() -> None:
             if _sentence_model is None:
                 print(f"📥 Loading SentenceTransformer ({SENTENCE_MODEL_NAME})…")
                 from sentence_transformers import SentenceTransformer
+
                 _sentence_model = SentenceTransformer(SENTENCE_MODEL_NAME)
                 print(f"✅ SentenceTransformer ready ({SENTENCE_MODEL_NAME})")
 
@@ -130,6 +138,7 @@ def encode_sentence(texts: Union[str, List[str]], convert_to_tensor: bool = True
     # PERF-1: Cache single-string encodings (the common case in scoring)
     if isinstance(texts, str):
         import hashlib
+
         cache_key = hashlib.md5(texts.encode()).hexdigest()[:16]
         if cache_key in _embedding_cache:
             return _embedding_cache[cache_key]
@@ -146,6 +155,7 @@ def encode_sentence(texts: Union[str, List[str]], convert_to_tensor: bool = True
 
 # ── Whisper ASR ───────────────────────────────────────────────────────────────
 
+
 def load_asr_model() -> None:
     global _asr_pipeline
     if _asr_pipeline is None:
@@ -155,6 +165,7 @@ def load_asr_model() -> None:
                 try:
                     import torch
                     from transformers import pipeline as hf_pipeline
+
                     device = "cuda" if torch.cuda.is_available() else "cpu"
                     torch_dtype = torch.float16 if device == "cuda" else torch.float32
                     _asr_pipeline = hf_pipeline(
@@ -186,15 +197,16 @@ def transcribe_audio(audio_path: str) -> dict:
         raise RuntimeError("ASR model unavailable. Check server logs.")
     result = asr(audio_path)
     if isinstance(result, dict):
-        text   = result.get("text", "").strip()
+        text = result.get("text", "").strip()
         chunks = result.get("chunks", [])
     else:
-        text   = str(result).strip()
+        text = str(result).strip()
         chunks = []
     return {"text": text, "chunks": chunks}
 
 
 # ── LLM — GPU: local Qwen2.5-7B | CPU: HF Inference API ─────────────────────
+
 
 def load_llm_model():
     """Load LLM scoring engine.
@@ -237,7 +249,7 @@ def load_llm_model():
                 quant_config = BitsAndBytesConfig(
                     load_in_4bit=True,
                     bnb_4bit_compute_dtype=torch.float16,
-                    bnb_4bit_use_double_quant=True,   # saves ~0.4 GB extra
+                    bnb_4bit_use_double_quant=True,  # saves ~0.4 GB extra
                     bnb_4bit_quant_type="nf4",
                 )
 
@@ -254,32 +266,34 @@ def load_llm_model():
                 )
                 model.eval()
 
-                _llm_model     = model
+                _llm_model = model
                 _llm_tokenizer = tokenizer
-                _llm_mode      = "local"
+                _llm_mode = "local"
 
-                used  = torch.cuda.memory_allocated() / 1e9
+                used = torch.cuda.memory_allocated() / 1e9
                 total = torch.cuda.get_device_properties(0).total_memory / 1e9
                 print(f"✅ {LLM_MODEL_ID} ready")
                 print(f"   VRAM used: {used:.1f} GB / {total:.1f} GB")
 
             except Exception as exc:
                 print(f"⚠️  LLM load failed: {exc}. Falling back to cosine similarity.")
-                _llm_model     = None
+                _llm_model = None
                 _llm_tokenizer = None
-                _llm_mode      = "disabled"
+                _llm_mode = "disabled"
         else:
             # ── CPU path: use HF Inference API ───────────────────────────
             if _HF_TOKEN:
                 print(f"📡 CPU mode — LLM scoring via HF Inference API ({_HF_API_MODEL})")
-                _llm_model     = _API_PROXY
+                _llm_model = _API_PROXY
                 _llm_tokenizer = None
-                _llm_mode      = "api"
+                _llm_mode = "api"
             else:
-                print("ℹ️  No GPU and no HF_TOKEN — LLM scoring disabled. Using cosine similarity only.")
-                _llm_model     = None
+                print(
+                    "ℹ️  No GPU and no HF_TOKEN — LLM scoring disabled. Using cosine similarity only."
+                )
+                _llm_model = None
                 _llm_tokenizer = None
-                _llm_mode      = "disabled"
+                _llm_mode = "disabled"
 
         return _llm_model, _llm_tokenizer
 
@@ -343,10 +357,10 @@ def _hf_api_generate(prompt: str, max_new_tokens: int = 512, temperature: float 
 
         # Use the official client. It auto-resolves the correct TGI/serverless endpoint.
         client = InferenceClient(token=_HF_TOKEN)
-        
+
         # Some models require temperature > 0
         safe_temp = max(temperature, 0.01)
-        
+
         for attempt in range(2):
             try:
                 response = client.chat_completion(
@@ -394,7 +408,7 @@ def _hf_api_generate(prompt: str, max_new_tokens: int = 512, temperature: float 
                     time.sleep(2)
                     continue
                 return _hf_api_fallback(prompt)
-                
+
     except Exception as exc:
         print(f"⚠️  HF API error: {exc}")
         return _hf_api_fallback(prompt)
@@ -453,10 +467,13 @@ def llm_generate(
 
     except Exception as exc:
         print(f"⚠️  llm_generate error: {exc}")
-        return "The candidate demonstrates solid knowledge in their core stack and project experience."
+        return (
+            "The candidate demonstrates solid knowledge in their core stack and project experience."
+        )
 
 
 # ── Startup preloader ──────────────────────────────────────────────────────────
+
 
 def load_models() -> None:
     """Called from FastAPI lifespan on startup.
@@ -482,7 +499,9 @@ def load_models() -> None:
             print("ℹ️  LLM_EAGER_LOAD=true — pre-warming Qwen2.5-7B-Instruct…")
             load_llm_model()
         else:
-            print("ℹ️  LLM lazy-loads on first scoring request (set LLM_EAGER_LOAD=true to pre-warm)")
+            print(
+                "ℹ️  LLM lazy-loads on first scoring request (set LLM_EAGER_LOAD=true to pre-warm)"
+            )
     else:
         # CPU: immediately resolve LLM mode (API or disabled)
         load_llm_model()
@@ -491,6 +510,7 @@ def load_models() -> None:
 
 
 # ── Runtime info helpers ──────────────────────────────────────────────────────
+
 
 def is_gpu_available() -> bool:
     """Return True if a CUDA GPU is available."""
@@ -515,9 +535,9 @@ def get_model_info() -> dict:
         "asr_model": ASR_MODEL_NAME.split("/")[-1],
         "llm_mode": _llm_mode,
         "llm_model": (
-            LLM_MODEL_ID if _llm_mode == "local"
-            else _HF_API_MODEL if _llm_mode == "api"
-            else "none"
+            LLM_MODEL_ID
+            if _llm_mode == "local"
+            else _HF_API_MODEL if _llm_mode == "api" else "none"
         ),
         "asr_available": _asr_pipeline is not None,
         "hf_circuit_open": is_hf_circuit_open(),

@@ -36,6 +36,7 @@ try:
         CONTENT_TYPE_LATEST,
         REGISTRY,
     )
+
     _PROMETHEUS_ENABLED = True
 except ImportError:
     logger.warning(
@@ -120,6 +121,7 @@ if _PROMETHEUS_ENABLED:
 
 # ── Public recording functions ────────────────────────────────────────────────
 
+
 def record_request(method: str, endpoint: str, status_code: int, duration_s: float) -> None:
     """Record an HTTP request completion."""
     if not _PROMETHEUS_ENABLED:
@@ -153,6 +155,7 @@ def record_llm_call(
         LLM_LATENCY.labels(provider=provider, task=task).observe(latency_s)
         # Update circuit breaker gauge
         from backend.app.core.ml_models import is_hf_circuit_open
+
         HF_CIRCUIT_OPEN.set(1.0 if is_hf_circuit_open() else 0.0)
     except Exception as exc:
         logger.debug(f"[metrics] record_llm_call error: {exc}")
@@ -218,6 +221,7 @@ def is_metrics_enabled() -> bool:
 
 _UUID_PATTERN = None
 
+
 def _normalise_endpoint(path: str) -> str:
     """
     Replace UUID segments and numeric IDs with placeholders to keep
@@ -229,6 +233,7 @@ def _normalise_endpoint(path: str) -> str:
     global _UUID_PATTERN
     if _UUID_PATTERN is None:
         import re
+
         _UUID_PATTERN = re.compile(
             r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
             re.IGNORECASE,

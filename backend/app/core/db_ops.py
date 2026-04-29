@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 def _log_db_error(operation: str, session_id: str, exception: Exception) -> None:
     """
     Centralized error logging for database operations.
-    
+
     Logs with appropriate severity based on exception type:
     - Connection errors: ERROR (needs immediate attention)
     - Auth errors: ERROR (configuration issue)
@@ -29,7 +29,7 @@ def _log_db_error(operation: str, session_id: str, exception: Exception) -> None
     """
     error_type = type(exception).__name__
     error_msg = str(exception)
-    
+
     # Determine severity based on error type
     if "Connection" in error_type or "Network" in error_type or "Timeout" in error_type:
         level = logging.ERROR
@@ -43,9 +43,9 @@ def _log_db_error(operation: str, session_id: str, exception: Exception) -> None
     else:
         level = logging.WARNING
         msg = f"MongoDB error in {operation} for session {session_id}: {error_type}: {error_msg}"
-    
+
     logger.log(level, msg)
-    
+
     # Log full traceback for unexpected errors at DEBUG level
     if level == logging.WARNING and "DuplicateKey" not in error_type:
         logger.debug(f"Full traceback for {operation}: {traceback.format_exc()}")
@@ -60,22 +60,25 @@ async def create_session_record(
 ) -> None:
     """Insert a new session document when a session is created."""
     from backend.app.core.metrics import record_interview_event
+
     record_interview_event("started")
 
     if not db_available():
         return
     try:
         db = get_db()
-        await db.sessions.insert_one({
-            "session_id":      session_id,
-            "user_id":         user_id,
-            "candidate_name":  candidate_name,
-            "job_role":        job_role,
-            "expertise_level": expertise_level,
-            "status":          SessionStatus.CREATED,
-            "created_at":      datetime.utcnow(),
-            "updated_at":      datetime.utcnow(),
-        })
+        await db.sessions.insert_one(
+            {
+                "session_id": session_id,
+                "user_id": user_id,
+                "candidate_name": candidate_name,
+                "job_role": job_role,
+                "expertise_level": expertise_level,
+                "status": SessionStatus.CREATED,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+            }
+        )
     except Exception as e:
         _log_db_error("create_session_record", session_id, e)
 
@@ -87,7 +90,7 @@ async def update_session_status(
 ) -> None:
     """Update session status: created → active → completed."""
     from backend.app.core.metrics import record_interview_event
-    
+
     if status == SessionStatus.INTERVIEW_COMPLETE:
         record_interview_event("completed")
     elif status == SessionStatus.REPORT_GENERATED:
@@ -122,13 +125,15 @@ async def save_final_report(
         db = get_db()
         await db.reports.update_one(
             {"session_id": session_id},
-            {"$set": {
-                "session_id": session_id,
-                "user_id":    user_id,
-                "report":     report,
-                "analytics":  analytics or {},
-                "saved_at":   datetime.utcnow(),
-            }},
+            {
+                "$set": {
+                    "session_id": session_id,
+                    "user_id": user_id,
+                    "report": report,
+                    "analytics": analytics or {},
+                    "saved_at": datetime.utcnow(),
+                }
+            },
             upsert=True,
         )
     except Exception as e:
@@ -145,12 +150,14 @@ async def log_violation_db(
         return
     try:
         db = get_db()
-        await db.violations.insert_one({
-            "session_id": session_id,
-            "user_id":    user_id,
-            "event":      violation,
-            "logged_at":  datetime.utcnow(),
-        })
+        await db.violations.insert_one(
+            {
+                "session_id": session_id,
+                "user_id": user_id,
+                "event": violation,
+                "logged_at": datetime.utcnow(),
+            }
+        )
     except Exception as e:
         _log_db_error("log_violation_db", session_id, e)
 
@@ -189,10 +196,7 @@ async def get_session_violations(session_id: str) -> List[Dict[str, Any]]:
         return []
     try:
         db = get_db()
-        cursor = db.violations.find(
-            {"session_id": session_id},
-            {"_id": 0}
-        ).sort("logged_at", 1)
+        cursor = db.violations.find({"session_id": session_id}, {"_id": 0}).sort("logged_at", 1)
         return await cursor.to_list(length=500)
     except Exception as e:
         _log_db_error("get_session_violations", session_id, e)

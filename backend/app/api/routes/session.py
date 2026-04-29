@@ -19,6 +19,7 @@ router = APIRouter(tags=["Session"])
 
 def _storage_dir() -> Path:
     from backend.app.core.storage import get_storage_dir
+
     return get_storage_dir()
 
 
@@ -47,7 +48,7 @@ async def create_session(request: Request, user: dict = Depends(get_optional_use
     (session_dir / "resumes").mkdir(exist_ok=True)
     (session_dir / "audio").mkdir(exist_ok=True)
     (session_dir / "text_answers").mkdir(exist_ok=True)
-    
+
     uid = user.get("uid") if user else None
     await create_session_record(sid, user_id=uid)
     return {"session_id": sid}
@@ -78,12 +79,13 @@ async def start_interview(session_id: str):
         plan_path = STORAGE_DIR / session_id / "interview_plan.json"
         if not plan_path.exists():
             from backend.app.api.routes.interview_plan import create_interview_plan
+
             await create_interview_plan(session_id)
         state_path = STORAGE_DIR / session_id / "interview_state.json"
         if state_path.exists():
             try:
-                existing      = json.loads(state_path.read_text(encoding="utf-8"))
-                has_answers   = bool(existing.get("answers"))
+                existing = json.loads(state_path.read_text(encoding="utf-8"))
+                has_answers = bool(existing.get("answers"))
                 has_questions = bool(existing.get("questions_asked"))
                 if has_answers or has_questions:
                     return {"status": "ok", "message": "interview already in progress"}
@@ -109,14 +111,14 @@ def _get_current_question(state: dict) -> dict:
     questions_asked = state.get("questions_asked", [])
     if not questions_asked:
         return None
-    
+
     # Check the very last question that was served to the user
     last_asked = questions_asked[-1]
     last_id = last_asked.get("id")
-    
+
     if not _question_was_answered(state, last_id):
         return last_asked
-    
+
     return None
 
 
@@ -148,7 +150,7 @@ async def next_question(session_id: str):
                 "status": "ok",
                 "question": current_q,
                 "total_questions": plan.get("total_questions", 0),
-                "idempotent": True
+                "idempotent": True,
             }
         # ── END IDEMPOTENCY CHECK ─────────────────────────────────────────────
 
@@ -193,7 +195,7 @@ async def next_question(session_id: str):
             "status": res["status"],
             "message": res.get("message", ""),
             "question": None,
-            "total_questions": plan.get("total_questions", 0)
+            "total_questions": plan.get("total_questions", 0),
         }
 
     return {"status": "ok", "question": res, "total_questions": plan.get("total_questions", 0)}

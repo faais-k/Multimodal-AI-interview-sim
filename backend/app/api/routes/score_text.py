@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration constants
 MAX_ANSWER_LENGTH = int(os.getenv("MAX_ANSWER_LENGTH", "10000"))  # ~2000 words
-MIN_ANSWER_LENGTH = int(os.getenv("MIN_ANSWER_LENGTH", "10"))     # Prevent spam submissions
+MIN_ANSWER_LENGTH = int(os.getenv("MIN_ANSWER_LENGTH", "10"))  # Prevent spam submissions
 from sentence_transformers import util
 from sklearn.feature_extraction.text import TfidfVectorizer
 
@@ -59,6 +59,7 @@ router = APIRouter()
 
 def _storage_dir() -> Path:
     from backend.app.core.storage import get_storage_dir, write_json_atomic
+
     return get_storage_dir()
 
 
@@ -96,16 +97,33 @@ def _find_asked_question(state: dict, question_id: str) -> dict:
 
 def _infer_type(question_id: str, question_text: str) -> str:
     qid = question_id.lower()
-    if qid.startswith("intro"):       return "self_intro"
-    if qid.startswith("project"):     return "project"
-    if qid.startswith("followup"):    return "followup"
-    if qid.startswith("wrapup"):      return "wrapup"
-    if qid.startswith("behavioral"):  return "hr"
-    if qid.startswith("critical"):    return "critical"
-    if qid.startswith("warmup"):      return "warmup"
+    if qid.startswith("intro"):
+        return "self_intro"
+    if qid.startswith("project"):
+        return "project"
+    if qid.startswith("followup"):
+        return "followup"
+    if qid.startswith("wrapup"):
+        return "wrapup"
+    if qid.startswith("behavioral"):
+        return "hr"
+    if qid.startswith("critical"):
+        return "critical"
+    if qid.startswith("warmup"):
+        return "warmup"
     tech_kws = [
-        "explain", "how", "design", "architecture", "implement",
-        "build", "describe", "walk", "tell", "what", "why", "when",
+        "explain",
+        "how",
+        "design",
+        "architecture",
+        "implement",
+        "build",
+        "describe",
+        "walk",
+        "tell",
+        "what",
+        "why",
+        "when",
     ]
     if any(k in question_text.lower() for k in tech_kws):
         return "technical"
@@ -114,8 +132,8 @@ def _infer_type(question_id: str, question_text: str) -> str:
 
 def _build_reference(question_text: str, parsed_resume: dict, state: dict) -> str:
     resume_summary = parsed_resume.get("summary", "")
-    skills         = ", ".join(parsed_resume.get("skills", []))
-    
+    skills = ", ".join(parsed_resume.get("skills", []))
+
     # NEW: Handle project dictionaries or strings
     raw_projects = parsed_resume.get("projects", [])
     project_list = []
@@ -125,10 +143,7 @@ def _build_reference(question_text: str, parsed_resume: dict, state: dict) -> st
         else:
             project_list.append(str(p))
     projects = " | ".join(project_list)
-    recent_turns   = [
-        f"{t['role']}: {t['text']}"
-        for t in state.get("turns", [])[-6:]
-    ]
+    recent_turns = [f"{t['role']}: {t['text']}" for t in state.get("turns", [])[-6:]]
     return (
         f"Interview question:\n{question_text}\n\n"
         f"Resume summary:\n{resume_summary}\n\n"
@@ -141,19 +156,18 @@ def _build_reference(question_text: str, parsed_resume: dict, state: dict) -> st
 
 def _compute_top_matches(reference: str, answer: str, top_k: int = 6) -> List[Dict]:
     try:
-        vec     = TfidfVectorizer(stop_words="english", ngram_range=(1, 2))
-        X       = vec.fit_transform([reference, answer])
-        names   = np.array(vec.get_feature_names_out())
+        vec = TfidfVectorizer(stop_words="english", ngram_range=(1, 2))
+        X = vec.fit_transform([reference, answer])
+        names = np.array(vec.get_feature_names_out())
         ref_vec = X[0].toarray().ravel()
         ans_vec = X[1].toarray().ravel()
-        mask    = (ref_vec > 0) & (ans_vec > 0)
+        mask = (ref_vec > 0) & (ans_vec > 0)
         if not np.any(mask):
             return []
         scores = ref_vec * mask
-        idx    = np.argsort(scores)[::-1][:top_k]
+        idx = np.argsort(scores)[::-1][:top_k]
         return [
-            {"token": names[i], "ref_tfidf": round(float(ref_vec[i]), 6)}
-            for i in idx if mask[i]
+            {"token": names[i], "ref_tfidf": round(float(ref_vec[i]), 6)} for i in idx if mask[i]
         ]
     except Exception:
         return []
@@ -165,13 +179,14 @@ def _compute_score_sync(ref_text: str, answer_text: str):
         encode_sentence(ref_text),
         encode_sentence(answer_text),
     ).item()
-    sim       = max(min(sim, 1.0), -1.0)
+    sim = max(min(sim, 1.0), -1.0)
     raw_score = round(((sim + 1) / 2) * 10, 2)
     top_matches = _compute_top_matches(ref_text, answer_text)
     return sim, raw_score, top_matches
 
 
 # ── LLM helpers ───────────────────────────────────────────────────────────────
+
 
 def _check_relevance(question: str, answer: str, skill: str) -> dict:
     """Quick spam/relevance pre-check using the LLM.
@@ -213,7 +228,7 @@ Rules:
 
     raw = llm_generate(prompt, max_new_tokens=80, temperature=0.0)
     try:
-        match = re.search(r'\{[^}]+\}', raw)
+        match = re.search(r"\{[^}]+\}", raw)
         if match:
             result = json.loads(match.group(0))
             if "relevant" in result:
@@ -249,9 +264,9 @@ def _llm_evaluate_answer(
         return None
 
     level_map = {
-        "fresher":      "a fresh graduate with limited experience — expect basic understanding",
+        "fresher": "a fresh graduate with limited experience — expect basic understanding",
         "intermediate": "a candidate with 1-3 years experience — expect hands-on knowledge",
-        "experienced":  "a senior candidate — expect deep technical reasoning and trade-off analysis",
+        "experienced": "a senior candidate — expect deep technical reasoning and trade-off analysis",
     }
     level_context = level_map.get(expertise_level.lower(), level_map["intermediate"])
 
@@ -306,29 +321,29 @@ Scoring guide for raw_score:
     try:
         # Safer JSON extraction: find first { and last } on same depth level
         # Use non-greedy match to prevent matching across multiple objects
-        start_idx = raw.find('{')
+        start_idx = raw.find("{")
         if start_idx == -1:
             return None
-        
+
         # Find matching closing brace by tracking depth
         depth = 0
         end_idx = -1
         for i, char in enumerate(raw[start_idx:], start=start_idx):
-            if char == '{':
+            if char == "{":
                 depth += 1
-            elif char == '}':
+            elif char == "}":
                 depth -= 1
                 if depth == 0:
                     end_idx = i
                     break
-        
+
         if end_idx == -1:
             logger.debug("Could not find matching closing brace in LLM output")
             return None
-        
-        json_str = raw[start_idx:end_idx+1]
+
+        json_str = raw[start_idx : end_idx + 1]
         result = json.loads(json_str)
-        
+
         # Validate schema with type checking
         required = {
             "technical_depth": int,
@@ -340,12 +355,12 @@ Scoring guide for raw_score:
             "what_was_missing": str,
             "strongest_point": str,
         }
-        
+
         missing_fields = [k for k in required if k not in result]
         if missing_fields:
             logger.debug(f"LLM result missing fields: {missing_fields}")
             return None
-        
+
         # Type validation and clamping
         for field, expected_type in required.items():
             value = result[field]
@@ -367,9 +382,9 @@ Scoring guide for raw_score:
                     result[field] = str(value) if value is not None else ""
                 # Limit string lengths to prevent storage issues
                 result[field] = result[field][:500]  # Max 500 chars
-        
+
         return result
-        
+
     except json.JSONDecodeError as e:
         logger.debug(f"Failed to parse LLM JSON: {e}. Raw output preview: {raw[:200]}...")
         return None
@@ -380,10 +395,11 @@ Scoring guide for raw_score:
 
 # ── Main scoring route ────────────────────────────────────────────────────────
 
+
 @router.post("/score/text")
 async def score_text_answer(payload: dict):
     try:
-        session_id  = payload.get("session_id")
+        session_id = payload.get("session_id")
         question_id = payload.get("question_id")
         answer_text = (payload.get("answer_text") or "").strip()
 
@@ -391,18 +407,17 @@ async def score_text_answer(payload: dict):
             raise HTTPException(400, "session_id and question_id are required")
         if not answer_text:
             raise HTTPException(400, "answer_text is empty")
-        
+
         # Validate answer length to prevent abuse and control costs
         answer_len = len(answer_text)
         if answer_len < MIN_ANSWER_LENGTH:
             raise HTTPException(
-                400, 
-                f"Answer too short. Minimum {MIN_ANSWER_LENGTH} characters required."
+                400, f"Answer too short. Minimum {MIN_ANSWER_LENGTH} characters required."
             )
         if answer_len > MAX_ANSWER_LENGTH:
             raise HTTPException(
                 413,  # Payload Too Large
-                f"Answer too long. Maximum {MAX_ANSWER_LENGTH} characters allowed ({MAX_ANSWER_LENGTH // 5} words approximately)."
+                f"Answer too long. Maximum {MAX_ANSWER_LENGTH} characters allowed ({MAX_ANSWER_LENGTH // 5} words approximately).",
             )
 
         # BUG 3: Validate session_id is a UUID4 before any file I/O
@@ -410,7 +425,9 @@ async def score_text_answer(payload: dict):
 
         # ── Rate limit — FIRST check before any work ──────────────────────────
         if not await check_rate_limit(session_id, "score_text", max_requests=60, window_seconds=60):
-            raise HTTPException(status_code=429, detail="Too many scoring requests. Please slow down.")
+            raise HTTPException(
+                status_code=429, detail="Too many scoring requests. Please slow down."
+            )
 
         # Transition state: answer received → scoring in progress
         await update_session_status(session_id, SessionStatus.SCORING_PENDING)
@@ -435,7 +452,9 @@ async def score_text_answer(payload: dict):
             try:
                 state = _load_state(session_id)
             except FileNotFoundError:
-                raise HTTPException(404, "Interview not started. Call /api/session/start_interview first.")
+                raise HTTPException(
+                    404, "Interview not started. Call /api/session/start_interview first."
+                )
 
             try:
                 q_turn = _find_question(state, question_id)
@@ -445,17 +464,17 @@ async def score_text_answer(payload: dict):
                     f"Question '{question_id}' not found. It may already be answered or the ID is wrong.",
                 )
 
-            question_text   = q_turn["text"]
-            asked_q         = _find_asked_question(state, question_id)
-            skill_target    = asked_q.get("skill_target") or q_turn.get("skill_target") or ""
-            qtype           = _infer_type(question_id, question_text)
-            config          = QUESTION_TYPE_WEIGHTS.get(qtype, QUESTION_TYPE_WEIGHTS["technical"])
-            min_score       = config.get("min_score", 5.0)
-            weight          = config.get("weight",    0.2)
+            question_text = q_turn["text"]
+            asked_q = _find_asked_question(state, question_id)
+            skill_target = asked_q.get("skill_target") or q_turn.get("skill_target") or ""
+            qtype = _infer_type(question_id, question_text)
+            config = QUESTION_TYPE_WEIGHTS.get(qtype, QUESTION_TYPE_WEIGHTS["technical"])
+            min_score = config.get("min_score", 5.0)
+            weight = config.get("weight", 0.2)
             expertise_level = state.get("candidate", {}).get("expertise_level", "intermediate")
-            ref_text        = _build_reference(question_text, parsed_resume, state)
+            ref_text = _build_reference(question_text, parsed_resume, state)
             # Snapshot lists so they remain valid after the lock is released
-            candidate_skills   = list(state["candidate"].get("skills", []))
+            candidate_skills = list(state["candidate"].get("skills", []))
             candidate_projects = list(state["candidate"].get("projects", []))
         # ── SCOPE 1 RELEASED — lock free for the next 5-10 seconds ───────────
 
@@ -473,21 +492,21 @@ async def score_text_answer(payload: dict):
             _check_relevance, question_text, answer_text, skill_target
         )
 
-        raw_score  = cosine_raw_score  # default fallback
+        raw_score = cosine_raw_score  # default fallback
         llm_result: Optional[dict] = None
 
         if not relevance_check.get("relevant", True):
             # Off-topic answer — override with low score immediately
-            raw_score  = 2.0
+            raw_score = 2.0
             llm_result = {
-                "raw_score":        2,
-                "technical_depth":  1,
-                "specificity":      1,
-                "relevance":        1,
-                "structure":        2,
-                "explanation":      f"Answer appears off-topic. {relevance_check.get('reason', '')}",
+                "raw_score": 2,
+                "technical_depth": 1,
+                "specificity": 1,
+                "relevance": 1,
+                "structure": 2,
+                "explanation": f"Answer appears off-topic. {relevance_check.get('reason', '')}",
                 "what_was_missing": "A relevant answer addressing the question",
-                "strongest_point":  "none",
+                "strongest_point": "none",
             }
         else:
             try:
@@ -510,10 +529,11 @@ async def score_text_answer(payload: dict):
                 raw_score = float(llm_result["raw_score"])
 
         weighted_score = round(raw_score * weight, 2)
-        needs_review   = raw_score < min_score
-        filler_stats   = analyse_fillers(answer_text)
-        
+        needs_review = raw_score < min_score
+        filler_stats = analyse_fillers(answer_text)
+
         from backend.app.core.metrics import record_answer_score
+
         record_answer_score(score=raw_score, scorer="llm" if llm_result else "cosine")
 
         # ── SCOPE 2 — write lock (~5ms) ───────────────────────────────────────
@@ -522,42 +542,48 @@ async def score_text_answer(payload: dict):
         # Both record_answer and file write happen atomically under this lock.
         async with interview_flow.get_state_lock(session_id):
             is_completed = interview_flow.record_answer(
-                _storage_dir(), session_id, question_id,
-                question_text, answer_text, raw_score,
+                _storage_dir(),
+                session_id,
+                question_id,
+                question_text,
+                answer_text,
+                raw_score,
                 detected_topic=detected_topic,
             )
 
             safe_qid = re.sub(r"[^a-zA-Z0-9_\-]", "_", question_id)[:80]
 
             from backend.app.core.ml_models import is_hf_circuit_open
+
             hf_open = is_hf_circuit_open()
 
             score_obj: Dict[str, Any] = {
-                "session_id":         session_id,
-                "question_id":        question_id,
-                "safe_question_id":   safe_qid,
-                "question_type":      qtype,
-                "skill_target":       skill_target,
-                "raw_score":          raw_score,
-                "cosine_raw_score":   cosine_raw_score,
-                "scorer":             "llm" if llm_result else "cosine",
-                "scoring_method":     "llm_qwen" if llm_result else "cosine_similarity",
-                "llm_fallback":       (llm_result is None) and hf_open,
-                "llm_evaluation":     llm_result,
-                "relevance_check":    relevance_check,
-                "weighted_score":     weighted_score,
-                "weight":             weight,
-                "min_score":          min_score,
+                "session_id": session_id,
+                "question_id": question_id,
+                "safe_question_id": safe_qid,
+                "question_type": qtype,
+                "skill_target": skill_target,
+                "raw_score": raw_score,
+                "cosine_raw_score": cosine_raw_score,
+                "scorer": "llm" if llm_result else "cosine",
+                "scoring_method": "llm_qwen" if llm_result else "cosine_similarity",
+                "llm_fallback": (llm_result is None) and hf_open,
+                "llm_evaluation": llm_result,
+                "relevance_check": relevance_check,
+                "weighted_score": weighted_score,
+                "weight": weight,
+                "min_score": min_score,
                 "needs_human_review": needs_review,
-                "similarity":         sim,
-                "top_matches":        top_matches,
-                "filler_stats":       filler_stats,
-                "is_completed":       is_completed,
-                "is_final":           is_completed, # For frontend compatibility
+                "similarity": sim,
+                "top_matches": top_matches,
+                "filler_stats": filler_stats,
+                "is_completed": is_completed,
+                "is_final": is_completed,  # For frontend compatibility
             }
 
             out_dir = _storage_dir() / session_id / "scores"
             from backend.app.core.storage import write_json_atomic
+
             write_json_atomic(out_dir / f"{safe_qid}.json", score_obj)
 
             # Transition state after scoring

@@ -44,7 +44,9 @@ async def metrics_status():
     return {
         "metrics_enabled": is_metrics_enabled(),
         "scrape_endpoint": "/api/metrics",
-        "note": "Install prometheus-client to enable full metrics collection."
-        if not is_metrics_enabled()
-        else "Metrics active. Scrape /api/metrics for Prometheus exposition format.",
+        "note": (
+            "Install prometheus-client to enable full metrics collection."
+            if not is_metrics_enabled()
+            else "Metrics active. Scrape /api/metrics for Prometheus exposition format."
+        ),
     }

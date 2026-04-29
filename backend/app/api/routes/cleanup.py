@@ -33,7 +33,7 @@ async def _cleanup_internal(max_age_hours: int = 48):
     if not storage.exists():
         return {"deleted": 0, "skipped": 0, "cutoff": None}
 
-    cutoff  = datetime.utcnow() - timedelta(hours=max_age_hours)
+    cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
     deleted = 0
     skipped = 0
 

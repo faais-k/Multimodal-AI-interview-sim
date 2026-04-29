@@ -27,7 +27,7 @@ _client = None
 _db = None
 
 MONGODB_URL = os.getenv("MONGODB_URL", "")
-DB_NAME     = os.getenv("MONGODB_DB", "ai_interview_sim")
+DB_NAME = os.getenv("MONGODB_DB", "ai_interview_sim")
 
 
 async def connect_db() -> None:
@@ -40,6 +40,7 @@ async def connect_db() -> None:
 
     try:
         from motor.motor_asyncio import AsyncIOMotorClient
+
         _client = AsyncIOMotorClient(
             MONGODB_URL,
             serverSelectionTimeoutMS=5000,

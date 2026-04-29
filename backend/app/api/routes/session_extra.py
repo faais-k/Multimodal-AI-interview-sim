@@ -39,11 +39,14 @@ async def set_job_description(payload: Dict[str, Any]):
     validate_session_id(session_id)
 
     sdir = _require_session(session_id)
-    _write_json(sdir / "job_description.json", {
-        "job_role":        payload.get("job_role", ""),
-        "job_description": payload.get("job_description", ""),
-        "company":         payload.get("company", ""),
-    })
+    _write_json(
+        sdir / "job_description.json",
+        {
+            "job_role": payload.get("job_role", ""),
+            "job_description": payload.get("job_description", ""),
+            "company": payload.get("company", ""),
+        },
+    )
     return {"status": "ok"}
 
 
@@ -59,17 +62,20 @@ async def set_candidate_profile(payload: Dict[str, Any]):
     # BUG 3: Validate session_id is a UUID4 before any file I/O
     validate_session_id(session_id)
 
-    sdir  = _require_session(session_id)
+    sdir = _require_session(session_id)
     level = payload.get("expertise_level", "fresher").lower()
     if level not in ("fresher", "intermediate", "experienced"):
         level = "fresher"
 
-    _write_json(sdir / "candidate_profile.json", {
-        "name":            payload.get("name", ""),
-        "expertise_level": level,
-        "experience":      payload.get("experience", ""),
-        "education":       payload.get("education", ""),
-    })
+    _write_json(
+        sdir / "candidate_profile.json",
+        {
+            "name": payload.get("name", ""),
+            "expertise_level": level,
+            "experience": payload.get("experience", ""),
+            "education": payload.get("education", ""),
+        },
+    )
     return {"status": "ok"}
 
 
@@ -87,17 +93,20 @@ async def get_session_status(session_id: str):
     Get current interview status for state recovery after page refresh.
     """
     # Rate limit: 30 requests per minute per session
-    allowed = await check_rate_limit(session_id, "get_session_status", max_requests=30, window_seconds=60)
+    allowed = await check_rate_limit(
+        session_id, "get_session_status", max_requests=30, window_seconds=60
+    )
     if not allowed:
         raise HTTPException(status_code=429, detail="Too many status checks. Please wait.")
 
     validate_session_id(session_id)
     sdir = _require_session(session_id)
-    
+
     # FUNC-2: Check for expired sessions (older than 24 hours)
     state_file = sdir / "interview_state.json"
     if state_file.exists():
         import time
+
         last_modified = state_file.stat().st_mtime
         if time.time() - last_modified > 3600 * 24:  # 24 hours
             return {
@@ -105,39 +114,39 @@ async def get_session_status(session_id: str):
                 "session_id": session_id,
                 "has_active_question": False,
                 "is_completed": False,
-                "message": "Session expired after 24 hours of inactivity"
+                "message": "Session expired after 24 hours of inactivity",
             }
-    
+
     # Load interview state
     state = _read_json(sdir / "interview_state.json")
     plan = _read_json(sdir / "interview_plan.json")
-    
+
     if not state:
         return {
             "status": "not_started",
             "session_id": session_id,
             "has_active_question": False,
-            "is_completed": False
+            "is_completed": False,
         }
-    
+
     # Get current question info
     questions_asked = state.get("questions_asked", [])
     total_questions = plan.get("total_questions", len(questions_asked))
-    
+
     # Find current unanswered question (last one in questions_asked)
     current_question = None
     has_active_question = False
-    
+
     if questions_asked:
         last_asked = questions_asked[-1]
         last_id = last_asked.get("id")
-        
+
         # Check if answered (answers is a DICT)
         answers = state.get("answers", {})
         if last_id not in answers:
             current_question = last_asked
             has_active_question = True
-    
+
     return {
         "status": "active" if not state.get("completed") else "completed",
         "session_id": session_id,
@@ -147,7 +156,7 @@ async def get_session_status(session_id: str):
         "questions_asked_count": len(questions_asked),
         "stage": state.get("cursor", {}).get("stage", "intro"),
         "has_active_question": has_active_question,
-        "is_completed": state.get("completed", False)
+        "is_completed": state.get("completed", False),
     }
 
 
@@ -159,9 +168,9 @@ async def skip_question(session_id: str, question_id: str = None):
     """
     validate_session_id(session_id)
     sdir = _require_session(session_id)
-    
+
     from backend.app.core.interview_flow import read_state, write_state, get_state_lock
-    
+
     try:
         async with get_state_lock(session_id):
             # Load state
@@ -170,23 +179,25 @@ async def skip_question(session_id: str, question_id: str = None):
                 state = read_state(storage, session_id)
             except FileNotFoundError:
                 raise HTTPException(
-                    status_code=400, 
-                    detail="Interview has not been started yet. Call /api/session/start_interview first."
+                    status_code=400,
+                    detail="Interview has not been started yet. Call /api/session/start_interview first.",
                 )
-            
+
             # Get question_id to skip (defaults to the latest asked question if not provided)
             questions_asked = state.get("questions_asked", [])
             if not question_id:
                 if questions_asked:
                     question_id = questions_asked[-1].get("id")
-            
+
             if not question_id:
                 raise HTTPException(status_code=400, detail="No active question to skip")
 
             answers = state.setdefault("answers", {})
             if question_id in answers:
-                raise HTTPException(status_code=409, detail="Question has already been answered or skipped")
-            
+                raise HTTPException(
+                    status_code=409, detail="Question has already been answered or skipped"
+                )
+
             # Find the active question being skipped.
             asked_question = None
             for q in questions_asked:
@@ -201,50 +212,56 @@ async def skip_question(session_id: str, question_id: str = None):
                 "answer": "Skipped",
                 "score": None,
                 "skipped": True,
-                "time": datetime.utcnow().isoformat() + "Z"
+                "time": datetime.utcnow().isoformat() + "Z",
             }
-            
+
             answers[question_id] = skip_record
-            state.setdefault("turns", []).append({
-                "role": "candidate",
-                "id": question_id,
-                "text": "Skipped",
-                "score": None,
-                "skipped": True,
-                "time": skip_record["time"],
-            })
-            
+            state.setdefault("turns", []).append(
+                {
+                    "role": "candidate",
+                    "id": question_id,
+                    "text": "Skipped",
+                    "score": None,
+                    "skipped": True,
+                    "time": skip_record["time"],
+                }
+            )
+
             # Advance cursor
             cursor = state.setdefault("cursor", {"stage": "intro"})
             cursor["last_question_id"] = question_id
-            
+
             # Advance stage logic
             if not question_id.startswith("followup"):
                 if cursor.get("stage") == "intro":
                     cursor["stage"] = "project"
                 elif cursor.get("stage") == "project":
                     cursor["stage"] = "technical"
-            
+
             # Completion check
             is_final = False
             for q in state.get("questions_asked", []):
                 if q.get("id") == question_id and q.get("is_final"):
                     is_final = True
                     break
-            
+
             questions_asked_count = len(state.get("questions_asked", []))
             minimum_questions_before_completion = 5  # intro + project + at least 3 more
-            
-            if (is_final or question_id.startswith("wrapup")) and questions_asked_count >= minimum_questions_before_completion:
+
+            if (
+                is_final or question_id.startswith("wrapup")
+            ) and questions_asked_count >= minimum_questions_before_completion:
                 state["completed"] = True
-                
+
             write_state(storage, session_id, state)
-            
+
             from backend.app.core import interview_flow
 
             plan = _read_json(storage / session_id / "interview_plan.json")
             decision = interview_flow._decide_next_read(storage, session_id, plan)
-            resolved_q_text = decision.get("cached_q_text") if decision.get("action") == "followup" else None
+            resolved_q_text = (
+                decision.get("cached_q_text") if decision.get("action") == "followup" else None
+            )
             if decision.get("action") == "followup" and resolved_q_text is None:
                 topic = (decision.get("original_q") or {}).get("skill_target") or "this area"
                 resolved_q_text = (
@@ -262,17 +279,20 @@ async def skip_question(session_id: str, question_id: str = None):
                 next_status = "skipped"
             else:
                 next_question = None
-                next_status = next_q.get("status", "completed") if isinstance(next_q, dict) else "completed"
-        
+                next_status = (
+                    next_q.get("status", "completed") if isinstance(next_q, dict) else "completed"
+                )
+
         return {
             "status": next_status,
             "skipped_question_id": question_id,
             "next_question": next_question,
-            "total_questions": plan.get("total_questions", 0)
+            "total_questions": plan.get("total_questions", 0),
         }
     except HTTPException:
         raise
     except Exception as e:
         import logging
+
         logging.error(f"Error skipping question for session {session_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal error during skip: {str(e)}")
