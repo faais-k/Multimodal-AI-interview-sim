@@ -47,6 +47,7 @@ export default function Interview({
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [isAnswering, setIsAnswering] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  const [toast, setToast] = useState(null);
   const streamRef = useRef(null);
   const textareaRef = useRef(null);
   const timerRef = useRef(null);
@@ -182,6 +183,21 @@ export default function Interview({
     }
   }, [question?.id, resetRec]);
 
+  // Toast auto-hide
+  useEffect(() => {
+    if (toast) {
+      const t = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [toast]);
+
+  // Sync anti-cheat warnings to Toast
+  useEffect(() => {
+    if (antiCheat?.showWarning && antiCheat?.warningMessage) {
+      setToast({ message: antiCheat.warningMessage, type: "warning" });
+    }
+  }, [antiCheat?.showWarning, antiCheat?.warningMessage]);
+
   useEffect(() => {
     if (!audioEnabled && mode === "voice") {
       setMode("text");
@@ -198,7 +214,14 @@ export default function Interview({
     setSub(true);
     setSubmitError(null);
     try {
-      await onSubmitText(answer);
+      const res = await onSubmitText(answer);
+      // Check if anti-cheat triggered (raw_score 0.0 with specific reason)
+      if (res && res.raw_score === 0 && res.scoring_method === "cheating_detected") {
+        setToast({ 
+          message: "⚠️ Response flagged as non-original or repetitive. Please provide a genuine answer.", 
+          type: "error" 
+        });
+      }
     } catch (e) {
       console.error("Text submission failed:", e);
       setSubmitError(e.message || "Failed to submit answer. Please try again.");
@@ -285,12 +308,6 @@ export default function Interview({
               {micError}
             </div>
           )}
-          {antiCheat?.warningMessage && (
-            <div className="flex items-center gap-2 text-xs text-semantic-warning">
-              <AlertTriangle size={14} />
-              {antiCheat.warningMessage}
-            </div>
-          )}
           <div className="flex items-center gap-2 text-xs text-text-secondary">
             <span className="w-1.5 h-1.5 bg-veridian rounded-full" />
             Posture OK
@@ -310,6 +327,29 @@ export default function Interview({
           </Button>
         </div>
       </header>
+
+      {/* Snackbar / Toast Notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, x: "-50%" }}
+            exit={{ opacity: 0, y: 20, x: "-50%" }}
+            className={cn(
+              "fixed bottom-8 left-1/2 z-50 px-6 py-3 rounded-sm shadow-xl flex items-center gap-3 min-w-[320px] max-w-md border",
+              toast.type === "error" ? "bg-red-600 text-white border-red-500" : 
+              toast.type === "warning" ? "bg-amber-500 text-white border-amber-400" :
+              "bg-text-primary text-white border-border"
+            )}
+          >
+            {toast.type === "error" || toast.type === "warning" ? <AlertTriangle size={18} /> : <Activity size={18} />}
+            <span className="text-sm font-medium">{toast.message}</span>
+            <button onClick={() => setToast(null)} className="ml-auto hover:opacity-70">
+              <Square size={14} className="rotate-45" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Error Alert Bar */}
       {error && (
@@ -367,7 +407,7 @@ export default function Interview({
               </div>
 
               {/* Question */}
-              <h1 className="text-xl font-medium text-center leading-relaxed mb-8 text-text-primary">
+              <h1 className="text-xl font-medium text-center leading-relaxed mb-8 text-text-primary select-none">
                 {loading ? "Fetching your next question..." : (question?.question || "Preparing your next question...")}
               </h1>
 
@@ -432,7 +472,7 @@ export default function Interview({
               </div>
 
               {/* Question */}
-              <h1 className="text-xl font-medium text-center leading-relaxed mb-6 text-text-primary">
+              <h1 className="text-xl font-medium text-center leading-relaxed mb-6 text-text-primary select-none">
                 {loading ? "Fetching your next question..." : (question?.question || "Preparing your next question...")}
               </h1>
 
@@ -511,7 +551,7 @@ export default function Interview({
                     onChange={e => setAnswer(e.target.value)}
                     onPaste={e => {
                       e.preventDefault();
-                      alert("Pasting is disabled for security reasons. Please type your answer.");
+                      setToast({ message: "Pasting is disabled. Please type your answer.", type: "warning" });
                     }}
                     placeholder="Structure your answer with:\n• The approach you'd take\n• Key technical decisions and trade-offs\n• How you'd handle specific constraints"
                     rows={6}

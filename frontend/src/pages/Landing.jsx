@@ -81,7 +81,7 @@ export default function Landing({ onStart, onGuestLogin }) {
 
           <div className="hidden md:flex items-center gap-6 text-sm font-medium text-text-secondary">
             <a href="#features" className="hover:text-text-primary transition-colors">Features</a>
-            <a href="#features" className="hover:text-text-primary transition-colors">How it works</a>
+            <a href="#tech-stack" className="hover:text-text-primary transition-colors">How it works</a>
             <button onClick={handleGuest} className="hover:text-text-primary transition-colors">Guest Login</button>
           </div>
 
@@ -121,8 +121,9 @@ export default function Landing({ onStart, onGuestLogin }) {
             </Button>
           </motion.div>
 
-          <motion.div variants={itemVariants} className="mt-16 pt-8 border-t border-border flex flex-wrap justify-center gap-4 sm:gap-6 text-sm text-text-muted">
-            <span>Gemini API</span>
+          <motion.div variants={itemVariants} id="tech-stack" className="mt-16 pt-8 border-t border-border flex flex-wrap justify-center gap-4 sm:gap-6 text-sm text-text-muted">
+            <span>Hugging Face API</span>
+            <span>Qwen 2.5 72B</span>
             <span>MediaPipe</span>
             <span>Whisper ASR</span>
             <span>React</span>

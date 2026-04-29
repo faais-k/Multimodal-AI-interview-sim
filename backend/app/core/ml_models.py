@@ -205,8 +205,9 @@ def transcribe_audio(audio_path: str) -> dict:
     if model is None:
         raise RuntimeError("ASR model unavailable. Check server logs.")
 
-    # beam_size=5 is a good balance of accuracy/speed
-    segments, info = model.transcribe(audio_path, beam_size=5, word_timestamps=True)
+    # beam_size=5 is a good balance of accuracy/speed. 
+    # Forced language='en' ensures accented English isn't misidentified as 'ml' etc.
+    segments, info = model.transcribe(audio_path, beam_size=5, word_timestamps=True, language="en")
 
     full_text = []
     chunks = []

@@ -278,6 +278,13 @@ export function InterviewProvider({ children }) {
         answer_text: text
       });
       
+      // HALT: If anti-cheat triggered, do not advance. Let the user try again.
+      if (res.scoring_method === "cheating_detected") {
+        setEvaluating(false);
+        submitInFlightRef.current = false;
+        return res; // Return so Interview.jsx can show the toast
+      }
+
       if (res.is_final || res.is_completed) {
         setStep("processing");
       } else {
@@ -288,6 +295,7 @@ export function InterviewProvider({ children }) {
           dispatch({ type: "SET_QUESTION", v: next.question, total: next.total_questions || state.totalQuestions });
         }
       }
+      return res;
     } catch (e) {
       // If it's a timeout or network error, we DON'T stop evaluating.
       // We let the polling effect take over to see if it eventually completes.
@@ -310,6 +318,13 @@ export function InterviewProvider({ children }) {
     try {
       const res = await api.scoreAudio(state.sessionId, state.question.id, blob);
       
+      // HALT: If anti-cheat triggered, do not advance.
+      if (res.scoring_method === "cheating_detected") {
+        setEvaluating(false);
+        submitInFlightRef.current = false;
+        return res;
+      }
+
       if (res.is_final || res.is_completed) {
         setStep("processing");
       } else {
@@ -320,6 +335,7 @@ export function InterviewProvider({ children }) {
           dispatch({ type: "SET_QUESTION", v: next.question, total: next.total_questions || state.totalQuestions });
         }
       }
+      return res;
     } catch (e) {
       if (e.status === 408 || e.isTimeout || e.isNetworkError) {
         console.warn("Audio submission timed out/failed, staying in evaluating state for polling recovery.");

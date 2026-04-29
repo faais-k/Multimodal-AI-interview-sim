@@ -387,6 +387,7 @@ async def aggregate_scores(
         "strengths": strengths,
         "weak_areas": weak_areas,
         "not_assessed": not_assessed,
+        "skill_scores": {k: v["avg_score"] for k, v in skill_coverage.items() if v["avg_score"] is not None},
         "scores": scores,
     }
 

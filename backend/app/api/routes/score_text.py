@@ -461,48 +461,58 @@ async def score_text_answer(payload: dict):
                             question_text = q.get("question", "")
                             break
 
-                # ── Anti-Cheating: Self-Similarity Filter ──────────────────────────
-                # If the answer is too similar to the question itself, it's a cheat.
+                # ── Anti-Cheating: Enhanced Plagiarism & Spam Filter ──────────────────
                 if question_text:
                     from backend.app.core.ml_models import get_embeddings
+                    from torch.nn.functional import cosine_similarity
+                    
                     q_emb = get_embeddings(question_text, convert_to_tensor=True)
                     a_emb = get_embeddings(answer_text, convert_to_tensor=True)
-                    from torch.nn.functional import cosine_similarity
                     q_to_a_sim = float(cosine_similarity(q_emb.unsqueeze(0), a_emb.unsqueeze(0))[0])
-                        
-                    if q_to_a_sim > 0.7 and len(answer_text) > 10:
+                    
+                    # 1. Direct Question Copy Check (Cosine + Word Overlap)
+                    q_words = set(re.findall(r'\w+', question_text.lower()))
+                    a_words = set(re.findall(r'\w+', answer_text.lower()))
+                    overlap = len(q_words & a_words) / len(q_words) if q_words else 0
+                    
+                    # 2. Repetitive Text Detection (Spam)
+                    # Check if a single phrase of 5+ words is repeated more than 3 times
+                    words = re.findall(r'\w+', answer_text.lower())
+                    is_repetitive = False
+                    if len(words) > 20:
+                        for i in range(len(words) - 5):
+                            phrase = " ".join(words[i:i+5])
+                            if answer_text.lower().count(phrase) > 3:
+                                is_repetitive = True
+                                break
+                    
+                    # Trigger if too similar to question OR highly repetitive
+                    is_plagiarism = (q_to_a_sim > 0.85) or (overlap > 0.8 and len(answer_text) < len(question_text) * 1.5)
+                    
+                    if is_plagiarism or is_repetitive:
+                        reason = "Plagiarism detected (Too similar to question)" if is_plagiarism else "Repetitive spam detected"
                         plagiarism_report = {
                             "session_id": session_id,
                             "question_id": question_id,
                             "raw_score": 0.0,
                             "score": 0.0,
-                            "scoring_method": "plagiarism_detected",
-                            "scorer": "plagiarism_check",
+                            "scoring_method": "cheating_detected",
+                            "scorer": "anti_cheat_engine",
                             "similarity": q_to_a_sim,
                             "needs_human_review": True,
                             "llm_evaluation": {
                                 "score": 0.0,
-                                "what_was_missing": f"Plagiarism detected (Similarity: {q_to_a_sim:.2f}). Answer is too similar to the question text.",
-                                "strengths": "None",
-                                "weaknesses": "Copied question text."
+                                "explanation": f"Security Trigger: {reason}.",
+                                "what_was_missing": "A genuine, non-copied response.",
+                                "strongest_point": "None",
+                                "weaknesses": "Detection of non-authentic content generation."
                             }
                         }
-                        # Save and return immediately
-                        score_res = await _persist_score(
-                            session_id, 
-                            question_id, 
-                            question_text, 
-                            answer_text, 
-                            0.0, # raw_score
-                            0.0, # cosine_raw_score
-                            None, # llm_result
-                            {"relevant": False, "reason": "Plagiarism detected"}, # relevance_check
-                            "plagiarism", # detected_topic
-                            0.0, # similarity
-                            [], # top_matches
-                            plagiarism_report # override_obj
+                        return await _persist_score(
+                            session_id, question_id, question_text, answer_text, 
+                            0.0, 0.0, None, {"relevant": False, "reason": reason}, 
+                            "cheating", 0.0, [], plagiarism_report
                         )
-                        return score_res
 
             except FileNotFoundError:
                 raise HTTPException(
