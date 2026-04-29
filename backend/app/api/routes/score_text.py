@@ -51,6 +51,8 @@ from backend.app.core.ml_models import encode_sentence
 from backend.app.core.rate_limit import check_rate_limit
 from backend.app.core.scoring_config import QUESTION_TYPE_WEIGHTS
 from backend.app.core.validation import validate_session_id
+from backend.app.core.db_ops import update_session_status
+from backend.app.models.session import SessionStatus
 
 router = APIRouter()
 
@@ -410,6 +412,9 @@ async def score_text_answer(payload: dict):
         if not await check_rate_limit(session_id, "score_text", max_requests=60, window_seconds=60):
             raise HTTPException(status_code=429, detail="Too many scoring requests. Please slow down.")
 
+        # Transition state: answer received → scoring in progress
+        await update_session_status(session_id, SessionStatus.SCORING_PENDING)
+
         # Load resume (file read, outside lock — doesn't touch interview state)
         try:
             parsed_resume = _load_parsed_resume(session_id)
@@ -551,6 +556,12 @@ async def score_text_answer(payload: dict):
             out_dir = _storage_dir() / session_id / "scores"
             from backend.app.core.storage import write_json_atomic
             write_json_atomic(out_dir / f"{safe_qid}.json", score_obj)
+
+            # Transition state after scoring
+            if is_completed:
+                await update_session_status(session_id, SessionStatus.INTERVIEW_COMPLETE)
+            else:
+                await update_session_status(session_id, SessionStatus.QUESTION_ACTIVE)
 
             return {"status": "ok", **score_obj}
         # ── SCOPE 2 RELEASED ──────────────────────────────────────────────────

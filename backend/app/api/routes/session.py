@@ -12,6 +12,7 @@ from backend.app.core.rate_limit import check_rate_limit
 from backend.app.core.validation import validate_session_id
 from backend.app.core.db_ops import create_session_record, update_session_status
 from backend.app.core.auth import get_optional_user
+from backend.app.models.session import SessionStatus
 
 router = APIRouter(tags=["Session"])
 
@@ -91,7 +92,7 @@ async def start_interview(session_id: str):
 
         interview_flow.init_interview_state(STORAGE_DIR, session_id, parsed)
 
-    await update_session_status(session_id, "active")
+    await update_session_status(session_id, SessionStatus.QUESTION_ACTIVE)
     return {"status": "ok", "message": "interview started"}
 
 

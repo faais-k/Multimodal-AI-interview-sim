@@ -19,6 +19,8 @@ from typing import Dict, List
 
 from fastapi import APIRouter, HTTPException
 from backend.app.core.validation import validate_session_id
+from backend.app.core.db_ops import update_session_status
+from backend.app.models.session import SessionStatus
 
 router = APIRouter()
 
@@ -42,7 +44,7 @@ async def _research_company(company_name: str, job_role: str) -> Dict:
     Research company using LLM to get interview insights.
     Returns dict with company_focus, common_questions, tech_stack, culture.
     """
-    from backend.app.core.ml_models import llm_generate
+    from backend.app.core.ai_gateway import ai_generate
     
     if not company_name:
         return {
@@ -64,18 +66,27 @@ Provide insights in this exact JSON format (no markdown, no code blocks):
 
 Be specific to {company_name} and {job_role}. If unsure about specific questions, provide general but relevant patterns for this type of company and role."""
     
+    fallback = '{"company_focus": "Technical skills and problem-solving", "common_questions": [], "tech_stack_hints": [], "interview_style": "standard"}'
+    
     try:
-        raw = await asyncio.to_thread(llm_generate, prompt, max_new_tokens=400, temperature=0.3)
+        result = await ai_generate(
+            prompt=prompt,
+            task="company_research",
+            max_tokens=400,
+            temperature=0.3,
+            fallback_text=fallback,
+        )
+        raw = result.text
         
         # Extract JSON
         match = re.search(r'\{.*\}', raw, re.DOTALL)
         if match:
-            result = json.loads(match.group(0))
+            parsed = json.loads(match.group(0))
             return {
-                "company_focus": result.get("company_focus", ""),
-                "common_questions": result.get("common_questions", [])[:3],
-                "tech_stack_hints": result.get("tech_stack_hints", []),
-                "interview_style": result.get("interview_style", "standard")
+                "company_focus": parsed.get("company_focus", ""),
+                "common_questions": parsed.get("common_questions", [])[:3],
+                "tech_stack_hints": parsed.get("tech_stack_hints", []),
+                "interview_style": parsed.get("interview_style", "standard")
             }
     except Exception:
         pass
@@ -238,37 +249,35 @@ Requirements:
         "wrapup": "What questions do you have for me about the team or the company?"
     }
     
-    try:
-        question = await asyncio.to_thread(llm_generate, prompt, max_new_tokens=200, temperature=0.7)
-        question = question.strip().strip('"').strip("'")
-        
-        # Clean up common issues
-        if question.startswith("Question:"):
-            question = question[9:].strip()
-        
-        # Validate question is not empty and is meaningful
-        if not question or len(question) < 20 or question.lower().startswith("tell me about") and len(question) < 30:
-            # Use template fallback if LLM returned something too short or empty
-            question = template_fallbacks.get(q_type, template_fallbacks["technical"])
-            return {
-                "question": question,
-                "generated": True,
-                "used_fallback": True
-            }
-        
+    from backend.app.core.ai_gateway import generate_interview_question
+    
+    result = await generate_interview_question(
+        prompt=prompt,
+        fallback=template_fallbacks.get(q_type, template_fallbacks["technical"]),
+    )
+    
+    question = result.text.strip().strip('"').strip("'")
+    
+    # Clean up common issues
+    if question.startswith("Question:"):
+        question = question[9:].strip()
+    
+    # Validate question is meaningful
+    if not question or len(question) < 20:
+        question = template_fallbacks.get(q_type, template_fallbacks["technical"])
         return {
             "question": question,
-            "generated": True
+            "generated": True,
+            "used_fallback": True,
+            "provider": "template_fallback",
         }
-    except Exception as e:
-        # Return template fallback on any error
-        question = template_fallbacks.get(q_type, f"Tell me about your experience with {context.get('target_skill', 'technology')}.")
-        return {
-            "question": question,
-            "generated": False,
-            "error": str(e),
-            "used_fallback": True
-        }
+    
+    return {
+        "question": question,
+        "generated": True,
+        "used_fallback": result.used_fallback,
+        "provider": result.provider,
+    }
 
 
 @router.post("/interview/generate-dynamic/{session_id}")
@@ -403,6 +412,9 @@ async def generate_dynamic_interview(session_id: str):
         }
         
         _write_json(sdir / "interview_plan.json", plan)
+
+        # Transition: plan generated → preflight complete (ready to start)
+        await update_session_status(session_id, SessionStatus.PREFLIGHT_COMPLETE)
         
         # Build preview and check for fallbacks
         questions_preview = []

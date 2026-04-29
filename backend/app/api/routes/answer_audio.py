@@ -21,6 +21,8 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from backend.app.core.ml_models import transcribe_audio, is_gpu_available
 from backend.app.core.rate_limit import check_rate_limit
 from backend.app.core.validation import validate_session_id
+from backend.app.core.db_ops import update_session_status
+from backend.app.models.session import SessionStatus
 from backend.app.api.routes.score_text import score_text_answer
 
 router = APIRouter()
@@ -45,6 +47,9 @@ async def answer_audio(session_id: str, question_id: str, file: UploadFile = Fil
         session_dir = _storage_dir() / session_id
         if not session_dir.exists():
             raise HTTPException(status_code=404, detail="session_id not found")
+
+        # Transition: audio received → answer pending (before ASR)
+        await update_session_status(session_id, SessionStatus.ANSWER_PENDING)
 
         # No GPU check gate — ASR is available on both GPU and CPU now.
 

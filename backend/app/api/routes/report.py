@@ -9,6 +9,8 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, HTTPException
 from backend.app.core.validation import validate_session_id
 from backend.app.core.rate_limit import check_rate_limit
+from backend.app.core.db_ops import update_session_status
+from backend.app.models.session import SessionStatus
 
 router = APIRouter()
 
@@ -81,6 +83,9 @@ async def get_full_report(session_id: str):
         "company":         jd.get("company", ""),
         "expertise_level": prof.get("expertise_level", "fresher"),
     }
+
+    # Mark the session as fully reported in the DB
+    await update_session_status(session_id, SessionStatus.REPORT_GENERATED)
 
     return {
         "status":             "ok",

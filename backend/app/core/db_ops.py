@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from backend.app.core.database import db_available, get_db
+from backend.app.models.session import SessionStatus
 
 # Configure module-level logger
 logger = logging.getLogger(__name__)
@@ -68,7 +69,7 @@ async def create_session_record(
             "candidate_name":  candidate_name,
             "job_role":        job_role,
             "expertise_level": expertise_level,
-            "status":          "created",
+            "status":          SessionStatus.CREATED,
             "created_at":      datetime.utcnow(),
             "updated_at":      datetime.utcnow(),
         })
@@ -78,7 +79,7 @@ async def create_session_record(
 
 async def update_session_status(
     session_id: str,
-    status: str,
+    status: SessionStatus,
     extra: Dict[str, Any] = None,
 ) -> None:
     """Update session status: created → active → completed."""
