@@ -235,7 +235,13 @@ export default function Interview({
     setSub(true);
     setSubmitError(null);
     try {
-      await onSubmitAudio(audioBlob);
+      const res = await onSubmitAudio(audioBlob);
+      if (res && res.raw_score === 0 && res.scoring_method === "cheating_detected") {
+        setToast({ 
+          message: "⚠️ Response flagged. Please provide an original verbal answer.", 
+          type: "error" 
+        });
+      }
     } catch (e) {
       console.error("Audio submission failed:", e);
       setSubmitError(e.message || "Failed to submit audio. Please try again.");

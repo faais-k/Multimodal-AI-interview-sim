@@ -207,7 +207,14 @@ def transcribe_audio(audio_path: str) -> dict:
 
     # beam_size=5 is a good balance of accuracy/speed. 
     # Forced language='en' ensures accented English isn't misidentified as 'ml' etc.
-    segments, info = model.transcribe(audio_path, beam_size=5, word_timestamps=True, language="en")
+    # initial_prompt helps the model include hesitations like um/uh instead of cleaning them.
+    segments, info = model.transcribe(
+        audio_path, 
+        beam_size=5, 
+        word_timestamps=True, 
+        language="en",
+        initial_prompt="Um, uh, like, basically, you know, I mean, I think... "
+    )
 
     full_text = []
     chunks = []
