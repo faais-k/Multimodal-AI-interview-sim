@@ -471,12 +471,21 @@ async def score_text_answer(payload: dict):
                     q_to_a_sim = float(cosine_similarity(q_emb.unsqueeze(0), a_emb.unsqueeze(0))[0])
                     
                     # 1. Direct Question Copy Check (Cosine + Word Overlap)
+                    q_norm = re.sub(r'[^a-z0-9]', '', question_text.lower())
+                    a_norm = re.sub(r'[^a-z0-9]', '', answer_text.lower())
+                    
+                    # Direct normalized containment (catches split words/minor typos)
+                    is_direct_copy = (a_norm in q_norm or q_norm in a_norm) and len(a_norm) > 10
+                    
                     q_words = set(re.findall(r'\w+', question_text.lower()))
                     a_words = set(re.findall(r'\w+', answer_text.lower()))
-                    overlap = len(q_words & a_words) / len(q_words) if q_words else 0
+                    
+                    # Word overlap relative to the ANSWER (detects if answer is a subset of question)
+                    overlap_a = len(q_words & a_words) / len(a_words) if a_words else 0
+                    # Word overlap relative to the QUESTION (detects if question is a subset of answer)
+                    overlap_q = len(q_words & a_words) / len(q_words) if q_words else 0
                     
                     # 2. Repetitive Text Detection (Spam)
-                    # Check if a single phrase of 5+ words is repeated more than 3 times
                     words = re.findall(r'\w+', answer_text.lower())
                     is_repetitive = False
                     if len(words) > 20:
@@ -487,10 +496,16 @@ async def score_text_answer(payload: dict):
                                 break
                     
                     # Trigger if too similar to question OR highly repetitive
-                    is_plagiarism = (q_to_a_sim > 0.85) or (overlap > 0.8 and len(answer_text) < len(question_text) * 1.5)
+                    # Thresholds adjusted to catch direct copies and minor variations
+                    is_plagiarism = (
+                        is_direct_copy or 
+                        (q_to_a_sim > 0.78) or 
+                        (overlap_a > 0.80 and len(a_words) > 3) or 
+                        (overlap_q > 0.80 and len(a_words) < len(q_words) * 1.5)
+                    )
                     
                     if is_plagiarism or is_repetitive:
-                        reason = "Plagiarism detected (Too similar to question)" if is_plagiarism else "Repetitive spam detected"
+                        reason = "Plagiarism detected (Answer is a copy or subset of the question)" if is_plagiarism else "Repetitive spam detected"
                         plagiarism_report = {
                             "session_id": session_id,
                             "question_id": question_id,
@@ -663,16 +678,20 @@ async def _persist_score(
                     detail="Question has already been answered or skipped.",
                 )
 
-        # Record in state
-        is_completed = interview_flow.record_answer(
-            _storage_dir(),
-            session_id,
-            question_id,
-            question_text,
-            answer_text,
-            raw_score,
-            detected_topic=detected_topic,
-        )
+        # Record in state (SKIP for plagiarism - let them retry)
+        is_plagiarism = override_obj and override_obj.get("scoring_method") == "cheating_detected"
+        
+        is_completed = False
+        if not is_plagiarism:
+            is_completed = interview_flow.record_answer(
+                _storage_dir(),
+                session_id,
+                question_id,
+                question_text,
+                answer_text,
+                raw_score,
+                detected_topic=detected_topic,
+            )
 
         hf_open = is_hf_circuit_open()
         

@@ -177,7 +177,8 @@ async def answer_audio(session_id: str, question_id: str, file: UploadFile = Fil
         )
         scored["transcript"] = transcript
         scored["audio_path"] = str(dest_path)
-        scored["scoring_method"] = "whisper_asr"
+        if scored.get("scoring_method") != "cheating_detected":
+            scored["scoring_method"] = "whisper_asr"
         scored["audio_model"] = "whisper-large-v3-turbo" if gpu_ok else "whisper-tiny"
         return scored
 

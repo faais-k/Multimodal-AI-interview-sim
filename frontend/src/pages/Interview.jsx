@@ -723,6 +723,34 @@ export default function Interview({
           </div>
         </Card>
       </main>
+
+      {/* Premium Toast Notification System */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className={cn(
+              "fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 rounded-sm shadow-2xl border backdrop-blur-md",
+              toast.type === "error" ? "bg-error/90 border-error/20 text-white" 
+              : toast.type === "warning" ? "bg-amber-600/90 border-amber-500/20 text-white"
+              : "bg-veridian/90 border-veridian/20 text-white"
+            )}
+          >
+            {toast.type === "error" ? <AlertTriangle size={18} /> 
+             : toast.type === "warning" ? <AlertTriangle size={18} /> 
+             : <Activity size={18} />}
+            <span className="text-sm font-medium tracking-tight">{toast.message}</span>
+            <button 
+              onClick={() => setToast(null)}
+              className="ml-2 p-1 hover:bg-white/10 rounded-full transition-colors"
+            >
+              <Square size={12} fill="currentColor" className="opacity-70" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

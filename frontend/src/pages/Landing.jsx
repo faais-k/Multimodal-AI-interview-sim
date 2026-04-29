@@ -81,7 +81,7 @@ export default function Landing({ onStart, onGuestLogin }) {
 
           <div className="hidden md:flex items-center gap-6 text-sm font-medium text-text-secondary">
             <a href="#features" className="hover:text-text-primary transition-colors">Features</a>
-            <a href="#tech-stack" className="hover:text-text-primary transition-colors">How it works</a>
+            <a href="#how-it-works" className="hover:text-text-primary transition-colors">How it works</a>
             <button onClick={handleGuest} className="hover:text-text-primary transition-colors">Guest Login</button>
           </div>
 
@@ -121,12 +121,18 @@ export default function Landing({ onStart, onGuestLogin }) {
             </Button>
           </motion.div>
 
-          <motion.div variants={itemVariants} id="tech-stack" className="mt-16 pt-8 border-t border-border flex flex-wrap justify-center gap-4 sm:gap-6 text-sm text-text-muted">
-            <span>Hugging Face API</span>
-            <span>Qwen 2.5 72B</span>
-            <span>MediaPipe</span>
-            <span>Whisper ASR</span>
-            <span>React</span>
+          <motion.div variants={itemVariants} id="how-it-works" className="mt-16 pt-8 border-t border-border flex flex-col items-center gap-6">
+            <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-sm text-text-muted">
+              <span>Hugging Face Inference</span>
+              <span>Qwen 2.5 72B (Open Source)</span>
+              <span>MediaPipe Vision</span>
+              <span>Faster-Whisper</span>
+              <span>React 18</span>
+            </div>
+            <p className="text-xs text-text-muted/60 max-w-lg text-center">
+              Our simulation engine leverages open-source LLMs hosted on Hugging Face Spaces for 
+              high-fidelity evaluation and adaptive reasoning.
+            </p>
           </motion.div>
         </motion.div>
       </main>
