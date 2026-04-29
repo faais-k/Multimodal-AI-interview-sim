@@ -25,6 +25,7 @@ from backend.app.api.routes.report import router as report_router
 from backend.app.api.routes.cleanup import router as cleanup_router
 from backend.app.api.routes.admin import router as admin_router
 from backend.app.api.routes.user import router as user_router
+from backend.app.api.routes.metrics_route import router as metrics_router
 from backend.app.core.ml_models import load_models
 from backend.app.core.database import connect_db, disconnect_db
 from backend.app.core.auth import init_firebase
@@ -145,12 +146,31 @@ app.add_middleware(
 )
 
 
-# ── TR-1: Request ID middleware for production tracing ─────────────────────────
+# ── TR-1: Request ID & Metrics middleware for production tracing ─────────────────────────
 @app.middleware("http")
-async def add_request_id(request: Request, call_next):
+async def add_request_id_and_metrics(request: Request, call_next):
+    import time
+    from backend.app.core.metrics import record_request
+
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
-    response = await call_next(request)
+    
+    start_time = time.monotonic()
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+    except Exception as e:
+        status_code = 500
+        raise e
+    finally:
+        duration_s = time.monotonic() - start_time
+        record_request(
+            method=request.method,
+            endpoint=request.url.path,
+            status_code=status_code,
+            duration_s=duration_s
+        )
+    
     response.headers["X-Request-ID"] = request_id
     return response
 
@@ -173,6 +193,7 @@ app.include_router(report_router, prefix="/api")
 app.include_router(cleanup_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(user_router, prefix="/api/user", tags=["User"])
+app.include_router(metrics_router, prefix="/api")
 
 
 @app.get("/")

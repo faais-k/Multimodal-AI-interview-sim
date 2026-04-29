@@ -512,6 +512,9 @@ async def score_text_answer(payload: dict):
         weighted_score = round(raw_score * weight, 2)
         needs_review   = raw_score < min_score
         filler_stats   = analyse_fillers(answer_text)
+        
+        from backend.app.core.metrics import record_answer_score
+        record_answer_score(score=raw_score, scorer="llm" if llm_result else "cosine")
 
         # ── SCOPE 2 — write lock (~5ms) ───────────────────────────────────────
         # record_answer() re-reads state internally to capture any updates

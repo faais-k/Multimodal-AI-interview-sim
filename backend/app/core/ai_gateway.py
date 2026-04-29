@@ -185,6 +185,8 @@ async def ai_generate(
         f"max_tokens={max_tokens} temp={temperature}"
     )
 
+    from backend.app.core.metrics import record_llm_call
+
     for provider_name, provider_fn in _PROVIDERS:
         try:
             text, retries = await _try_provider_with_retry(
@@ -198,6 +200,12 @@ async def ai_generate(
                 f"[AI-GW] DONE req={request_id} task={task} "
                 f"provider={provider_name} total_retries={total_retries} "
                 f"total_latency={latency_ms:.0f}ms"
+            )
+            record_llm_call(
+                provider=provider_name,
+                task=task,
+                outcome="success",
+                latency_s=latency_ms / 1000.0,
             )
             return AIResult(
                 text=text,
@@ -214,6 +222,12 @@ async def ai_generate(
                 f"[AI-GW] PROVIDER_FAILED req={request_id} task={task} "
                 f"provider={provider_name} — switching to next provider. Error: {exc}"
             )
+            record_llm_call(
+                provider=provider_name,
+                task=task,
+                outcome="error",
+                latency_s=(time.monotonic() - overall_start),
+            )
 
     # All providers exhausted — use template fallback
     latency_ms = (time.monotonic() - overall_start) * 1000
@@ -223,6 +237,12 @@ async def ai_generate(
     logger.error(
         f"[AI-GW] ALL_PROVIDERS_FAILED req={request_id} task={task} "
         f"total_latency={latency_ms:.0f}ms — using template fallback. last_error={last_error}"
+    )
+    record_llm_call(
+        provider="template_fallback",
+        task=task,
+        outcome="fallback",
+        latency_s=latency_ms / 1000.0,
     )
     return AIResult(
         text=safe_fallback,

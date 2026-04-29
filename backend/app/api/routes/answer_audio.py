@@ -12,6 +12,7 @@ Audio is always available regardless of GPU. The model tier adapts automatically
 import asyncio
 import re
 import shutil
+import time
 import traceback
 import uuid
 from pathlib import Path
@@ -67,12 +68,20 @@ async def answer_audio(session_id: str, question_id: str, file: UploadFile = Fil
         gpu_ok  = is_gpu_available()
         timeout = ASR_TIMEOUT_GPU if gpu_ok else ASR_TIMEOUT_CPU
         try:
+            start_time = time.monotonic()
             asr_result = await asyncio.wait_for(
                 asyncio.to_thread(transcribe_audio, str(dest_path)),
                 timeout=timeout,
             )
+            latency_s = time.monotonic() - start_time
+            
+            from backend.app.core.metrics import record_asr_transcription
+            record_asr_transcription(outcome="success", latency_s=latency_s)
+            
             transcript = asr_result.get("text", "").strip()
         except asyncio.TimeoutError:
+            from backend.app.core.metrics import record_asr_transcription
+            record_asr_transcription(outcome="timeout", latency_s=timeout)
             raise HTTPException(
                 status_code=504,
                 detail=(
@@ -81,6 +90,8 @@ async def answer_audio(session_id: str, question_id: str, file: UploadFile = Fil
                 ),
             )
         except Exception as exc:
+            from backend.app.core.metrics import record_asr_transcription
+            record_asr_transcription(outcome="error", latency_s=0.0)
             print("ASR error:", exc, traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"ASR transcription failed: {str(exc)[:200]}")
 

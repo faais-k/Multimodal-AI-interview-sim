@@ -59,6 +59,9 @@ async def create_session_record(
     expertise_level: str = "fresher",
 ) -> None:
     """Insert a new session document when a session is created."""
+    from backend.app.core.metrics import record_interview_event
+    record_interview_event("started")
+
     if not db_available():
         return
     try:
@@ -83,6 +86,13 @@ async def update_session_status(
     extra: Dict[str, Any] = None,
 ) -> None:
     """Update session status: created → active → completed."""
+    from backend.app.core.metrics import record_interview_event
+    
+    if status == SessionStatus.INTERVIEW_COMPLETE:
+        record_interview_event("completed")
+    elif status == SessionStatus.REPORT_GENERATED:
+        record_interview_event("reported")
+
     if not db_available():
         return
     try:
