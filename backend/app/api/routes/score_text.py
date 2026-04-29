@@ -603,6 +603,16 @@ async def score_text_answer(payload: dict):
             top_matches
         )
 
+    except HTTPException as e:
+        if e.status_code >= 500:
+            await update_session_status(session_id, SessionStatus.FAILED, extra={"error": e.detail})
+        raise
+    except Exception as exc:
+        print("Scoring error:", exc, traceback.format_exc())
+        await update_session_status(session_id, SessionStatus.FAILED, extra={"error": str(exc)})
+        raise HTTPException(500, f"Scoring engine error: {exc}")
+
+
 async def _persist_score(
     session_id: str,
     question_id: str,
@@ -696,13 +706,3 @@ async def _persist_score(
             await update_session_status(session_id, SessionStatus.QUESTION_ACTIVE)
 
         return {"status": "ok", **score_obj}
-        # ── SCOPE 2 RELEASED ──────────────────────────────────────────────────
-
-    except HTTPException as e:
-        if e.status_code >= 500:
-            await update_session_status(session_id, SessionStatus.FAILED, extra={"error": e.detail})
-        raise
-    except Exception as exc:
-        print("Scoring error:", exc, traceback.format_exc())
-        await update_session_status(session_id, SessionStatus.FAILED, extra={"error": str(exc)})
-        raise HTTPException(500, f"Scoring engine error: {exc}")
