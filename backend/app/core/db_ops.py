@@ -138,7 +138,13 @@ async def update_session_status(
 
         # 1. Transition Validation (unless forced or new session)
         if old_status and not force:
-            allowed = ALLOWED_TRANSITIONS.get(SessionStatus(old_status), [])
+            old_status_enum = SessionStatus(old_status)
+            
+            # Allow idempotency (self-transition) without warning
+            if status == old_status_enum:
+                return
+
+            allowed = ALLOWED_TRANSITIONS.get(old_status_enum, [])
             if status not in allowed:
                 logger.warning(
                     f"⚠️ Illegal transition attempt for {session_id}: {old_status} -> {status}"

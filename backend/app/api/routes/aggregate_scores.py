@@ -400,9 +400,10 @@ async def aggregate_scores(
             analytics_doc = json.loads(analytics_p.read_text(encoding="utf-8"))
         uid = user.get("uid") if user else None
         await save_final_report(session_id, report, analytics_doc, user_id=uid)
+        from backend.app.models.session import SessionStatus
         await update_session_status(
             session_id,
-            "completed",
+            SessionStatus.INTERVIEW_COMPLETE,
             {"final_score": report.get("final_score")},
         )
     except Exception as _mongo_err:
