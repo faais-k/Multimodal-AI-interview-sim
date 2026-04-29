@@ -53,18 +53,9 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
 
   // Initial probe (some browsers allow this without interaction if already granted)
   useEffect(() => {
-    const probe = async () => {
-      try {
-        const result = await navigator.permissions.query({ name: 'camera' });
-        if (result.state === 'granted') {
-          requestPermissions();
-        }
-      } catch (e) {
-        // Fallback for browsers that don't support permissions.query for camera
-        requestPermissions();
-      }
-    };
-    probe();
+    // Always request permissions on mount to trigger the browser prompt.
+    // If already granted, it just connects. If not, it shows the popup.
+    requestPermissions();
     return () => streamRef.current?.getTracks().forEach(t => t.stop());
   }, []);
 
@@ -260,6 +251,22 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
             <h1 className="text-2xl font-semibold mb-2">Pre-Flight Check</h1>
             <p className="text-text-secondary">Verify your environment before the interview begins.</p>
           </div>
+
+          {hfFallback && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 p-4 rounded-md border border-semantic-warning bg-semantic-warning-bg/30 flex items-start gap-3"
+            >
+              <AlertCircle className="text-semantic-warning shrink-0 mt-0.5" size={18} />
+              <div>
+                <h3 className="text-sm font-medium text-semantic-warning">Standard Interview Mode Activated</h3>
+                <p className="text-sm text-text-secondary mt-1">
+                  Our primary AI service is currently at capacity. We've loaded a standard, high-quality set of interview questions for your role instead of dynamically generating them from your resume.
+                </p>
+              </div>
+            </motion.div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
             {/* Checklist (60%) */}
