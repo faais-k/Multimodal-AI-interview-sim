@@ -34,6 +34,8 @@ export default function Interview({
   onSubmitText, 
   onSubmitAudio, 
   onSkip,
+  onExit,
+  error,
   setupData, 
   audioEnabled = false 
 }) {
@@ -293,8 +295,39 @@ export default function Interview({
             <span className="w-1.5 h-1.5 bg-veridian rounded-full" />
             Posture OK
           </div>
+          <div className="w-px h-4 bg-border mx-1" />
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => {
+              if (window.confirm("Are you sure you want to end this interview? Your progress will be lost.")) {
+                onExit();
+              }
+            }}
+            className="text-xs text-semantic-error hover:text-red-700 hover:bg-red-50 h-8"
+          >
+            End Interview
+          </Button>
         </div>
       </header>
+
+      {/* Error Alert Bar */}
+      {error && (
+        <div className="bg-semantic-error text-white px-6 py-2 text-sm flex items-center justify-between animate-in fade-in slide-in-from-top-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} />
+            <span>{error}</span>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onExit}
+            className="text-white hover:bg-white/10 h-7 text-xs border border-white/20"
+          >
+            Exit to Dashboard
+          </Button>
+        </div>
+      )}
 
       {/* Main Interview Area */}
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-8 relative">

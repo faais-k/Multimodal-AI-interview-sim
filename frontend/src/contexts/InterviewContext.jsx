@@ -208,6 +208,25 @@ export function InterviewProvider({ children }) {
               });
             }
           }
+          // If the interview failed
+          if (status.status === "failed") {
+            setError(status.error || "The interview encountered an error. You can try to resume or restart.");
+            // If we have an active question, we can still try to stay on interview step
+            if (status.has_active_question && status.current_question) {
+              dispatch({
+                type: "RESTORE_STATE",
+                state: {
+                  step: "interview",
+                  question: status.current_question,
+                  questionNumber: status.question_number,
+                  totalQuestions: status.total_questions,
+                  sessionId: sid
+                }
+              });
+            }
+            return;
+          }
+
           // If no active question, user stays at their current step
         } catch (e) {
           console.warn("Failed to recover session state:", e);

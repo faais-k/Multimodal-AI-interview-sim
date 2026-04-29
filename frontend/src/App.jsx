@@ -157,6 +157,8 @@ function App() {
         onSubmitText={iv.submitText}
         onSubmitAudio={iv.submitAudio}
         onSkip={() => iv.skipQuestion && iv.skipQuestion()}
+        onExit={() => iv.restart()}
+        error={iv.error}
       />
     );
   }
