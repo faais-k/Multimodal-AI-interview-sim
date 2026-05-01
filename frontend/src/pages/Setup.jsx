@@ -4,6 +4,7 @@ import { Upload, Check, AlertCircle, ArrowRight, FileText, ChevronLeft } from "l
 import { useInterview } from "../contexts/InterviewContext";
 import { api } from "../api/client";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { LOGO_DATA } from "../assets/logo";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
