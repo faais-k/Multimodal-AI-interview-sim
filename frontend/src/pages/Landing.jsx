@@ -11,7 +11,8 @@ import {
   ArrowRight,
   User,
 } from "lucide-react";
-import logo from "../assets/logo.jpg";
+import { LOGO_DATA } from "../assets/logo";
+
 
 const FEATURES = [
   {
@@ -72,7 +73,7 @@ export default function Landing({ onStart, onGuestLogin }) {
       <nav className="app-header">
         <div className="app-header-inner justify-between">
           <div className="app-brand">
-            <img src={logo} alt="Ascent Logo" className="w-8 h-8 rounded-sm object-cover" />
+            <img src={LOGO_DATA} alt="Ascent Logo" className="w-8 h-8 rounded-sm object-cover" />
             <span>Ascent</span>
           </div>
 
@@ -174,7 +175,7 @@ export default function Landing({ onStart, onGuestLogin }) {
       <footer className="border-t border-border py-8 text-sm text-text-muted">
         <div className="app-header-inner justify-between flex-col sm:flex-row">
           <div className="app-brand opacity-60">
-            <img src={logo} alt="Ascent Logo" className="w-6 h-6 rounded-sm object-cover" />
+            <img src={LOGO_DATA} alt="Ascent Logo" className="w-6 h-6 rounded-sm object-cover" />
             <span>Ascent</span>
           </div>
           <p>Open source. MIT License.</p>

@@ -11,7 +11,8 @@ import { Card } from "@/components/ui/card";
 import { ListeningIndicator } from "@/components/animations/ListeningIndicator";
 import { ProcessingVisualization } from "@/components/animations/ProcessingVisualization";
 import { cn } from "@/lib/utils";
-import logo from "../assets/logo.jpg";
+import { LOGO_DATA } from "../assets/logo";
+
 
 const TYPE_META = {
   self_intro: { label: "Introduction", color: "ascent-blue" },
@@ -291,7 +292,7 @@ export default function Interview({
       {/* Top Bar */}
       <header className="h-14 border-b border-border bg-surface-base/95 backdrop-blur-sm flex items-center justify-between px-6 flex-shrink-0 z-20">
         <div className="flex items-center gap-3">
-          <img src={logo} alt="Ascent Logo" className="w-8 h-8 rounded-sm object-cover" />
+          <img src={LOGO_DATA} alt="Ascent Logo" className="w-8 h-8 rounded-sm object-cover" />
           <span className="font-semibold text-sm">Ascent</span>
         </div>
         

@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatScore, getScoreVariant, getVerdict } from "@/lib/utils";
-import logo from "../assets/logo.jpg";
+import { LOGO_DATA } from "../assets/logo";
+
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -105,7 +106,7 @@ export default function Dashboard({ onStartNew, onViewResults }) {
       <header className="app-header">
         <div className="app-header-inner justify-between">
           <div className="app-brand">
-            <img src={logo} alt="Ascent Logo" className="w-8 h-8 rounded-sm object-cover" />
+            <img src={LOGO_DATA} alt="Ascent Logo" className="w-8 h-8 rounded-sm object-cover" />
             <span>Ascent</span>
           </div>
 

@@ -4,8 +4,7 @@ import { Upload, Check, AlertCircle, ArrowRight, FileText, ChevronLeft } from "l
 import { useInterview } from "../contexts/InterviewContext";
 import { api } from "../api/client";
 import { Button } from "@/components/ui/button";
-import logo from "../assets/logo.jpg";
-import { Card } from "@/components/ui/card";
+import { LOGO_DATA } from "../assets/logo";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -180,7 +179,7 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
                 <ChevronLeft size={20} />
               </button>
             )}
-            <img src={logo} alt="Ascent Logo" className="w-8 h-8 rounded-sm object-cover" />
+            <img src={LOGO_DATA} alt="Ascent Logo" className="w-8 h-8 rounded-sm object-cover" />
             <span className="font-semibold">Ascent</span>
           </div>
           <div className="ml-auto flex items-center gap-2 text-sm text-text-muted">

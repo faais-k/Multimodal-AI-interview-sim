@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import logo from "../assets/logo.jpg";
+
 import { cn } from "@/lib/utils";
 import { useAudioRecorder } from "../hooks/useAudioRecorder";
+import { LOGO_DATA } from "../assets/logo";
 
 export default function PreInterview({ onBegin, setupData, sessionId }) {
   const [checks, setChecks] = useState({ camera: false, mic: false });
@@ -227,7 +228,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
       <header className="border-b border-border">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center">
           <div className="flex items-center gap-2">
-            <img src={logo} alt="Ascent Logo" className="w-8 h-8 rounded-sm object-cover" />
+            <img src={LOGO_DATA} alt="Ascent Logo" className="w-8 h-8 rounded-sm object-cover" />
             <span className="font-semibold">Ascent</span>
           </div>
           <div className="ml-auto flex items-center gap-2 text-sm text-text-muted">

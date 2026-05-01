@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "./Results.css";
+import { LOGO_DATA } from "../assets/logo";
 
 /* ── helpers ── */
 const fmt  = v => v != null ? v.toFixed(1) : "—";
@@ -17,8 +18,9 @@ const scoreChipClass = s =>
   : s >= 6.0 ? "chip-warning"
   : "chip-red";
 
+
 const Logo = () => (
-  <img src="/src/assets/logo.jpg" alt="Ascent Logo" className="w-7 h-7 rounded-sm object-cover" />
+  <img src={LOGO_DATA} alt="Ascent Logo" className="w-7 h-7 rounded-sm object-cover" />
 );
 
 const VerdictIcon = ({ verdict, size = 28 }) => {
