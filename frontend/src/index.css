@@ -60,11 +60,11 @@
     --danger-glow: var(--semantic-error-bg);
     --warning-dark: #92400E;
     --warning-glow: var(--semantic-warning-bg);
-    --teal-500: var(--ascent-blue);
-    --teal-600: var(--ascent-blue);
-    --teal-700: var(--ascent-blue-hover);
-    --teal-glow: rgba(37, 99, 235, 0.08);
-    --teal-glow-strong: rgba(37, 99, 235, 0.14);
+    --ascent-blue-500: var(--ascent-blue);
+    --ascent-blue-600: var(--ascent-blue);
+    --ascent-blue-700: var(--ascent-blue-hover);
+    --ascent-blue-glow: rgba(37, 99, 235, 0.08);
+    --ascent-blue-glow-strong: rgba(37, 99, 235, 0.14);
     --success-dark: var(--ascent-blue-hover);
     --success-glow: var(--semantic-success-bg);
     --stone-800: #292926;

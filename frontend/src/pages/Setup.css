@@ -110,7 +110,7 @@
   transition: all var(--dur-fast) var(--ease-out);
 }
 .setup-nav__item:hover { background: var(--bg-surface); color: var(--text-primary); }
-.setup-nav__item.active { background: var(--teal-glow-strong); color: var(--teal-700); }
+.setup-nav__item.active { background: var(--ascent-blue-glow-strong); color: var(--ascent-blue-700); }
 .setup-nav__dot {
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--stone-400); flex-shrink: 0;
@@ -176,10 +176,10 @@
   transition: all var(--dur-fast) var(--ease-out);
 }
 .level-btn:hover { border-color: var(--primary); }
-.level-btn--active { border-color: var(--primary); background: var(--teal-glow-strong); }
+.level-btn--active { border-color: var(--primary); background: var(--ascent-blue-glow-strong); }
 .level-btn__name { font-weight: 600; font-size: var(--text-base); color: var(--text-primary); }
 .level-btn__desc { font-size: var(--text-xs); color: var(--text-secondary); line-height: 1.4; }
-.level-btn--active .level-btn__name { color: var(--teal-700); }
+.level-btn--active .level-btn__name { color: var(--ascent-blue-700); }
 
 .dropzone {
   border: 2px dashed var(--border-medium);
@@ -192,7 +192,7 @@
   background: var(--bg-surface);
   user-select: none;
 }
-.dropzone:hover, .dropzone--drag { border-color: var(--primary); background: var(--teal-glow); }
+.dropzone:hover, .dropzone--drag { border-color: var(--primary); background: var(--ascent-blue-glow); }
 .dropzone--done { border-color: var(--success); border-style: solid; background: var(--success-glow); }
 .dropzone__icon {
   width: 44px; height: 44px; color: var(--text-muted);
