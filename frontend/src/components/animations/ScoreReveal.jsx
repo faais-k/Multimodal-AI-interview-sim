@@ -46,7 +46,7 @@ export function ScoreReveal({
 
   const s = sizes[size];
   const verdict = score >= 8 ? "EXCELLENT" : score >= 6.5 ? "SOLID" : score >= 5 ? "BORDERLINE" : "NEEDS WORK";
-  const verdictColor = score >= 8 ? "bg-veridian-subtle text-veridian" : score >= 6.5 ? "bg-veridian-subtle text-veridian" : score >= 5 ? "bg-semantic-warning-bg text-semantic-warning" : "bg-semantic-error-bg text-semantic-error";
+  const verdictColor = score >= 8 ? "bg-ascent-blue-subtle text-ascent-blue" : score >= 6.5 ? "bg-ascent-blue-subtle text-ascent-blue" : score >= 5 ? "bg-semantic-warning-bg text-semantic-warning" : "bg-semantic-error-bg text-semantic-error";
 
   return (
     <div className={cn("flex flex-col items-center", className)}>
@@ -72,7 +72,7 @@ export function ScoreReveal({
             cy="50"
             r="45"
             fill="none"
-            stroke="#059669"
+            stroke="#2563EB"
             strokeWidth={s.ringWidth}
             strokeLinecap="round"
             strokeDasharray={circumference}

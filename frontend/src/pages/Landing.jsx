@@ -11,6 +11,7 @@ import {
   ArrowRight,
   User,
 } from "lucide-react";
+import logo from "../assets/logo.jpg";
 
 const FEATURES = [
   {
@@ -67,15 +68,11 @@ export default function Landing({ onStart, onGuestLogin }) {
   };
 
   return (
-    <div className="app-page selection:bg-veridian/20 overflow-hidden font-sans">
+    <div className="app-page selection:bg-ascent-blue/20 overflow-hidden font-sans">
       <nav className="app-header">
         <div className="app-header-inner justify-between">
           <div className="app-brand">
-            <span className="app-brand-mark">
-              <svg width="18" height="18" viewBox="0 0 36 36" fill="none">
-                <path d="M8 26 L14 18 L18 22 L22 14 L28 26" stroke="white" strokeWidth="3" strokeLinejoin="round" fill="none" />
-              </svg>
-            </span>
+            <img src={logo} alt="Ascent Logo" className="w-8 h-8 rounded-sm object-cover" />
             <span>Ascent</span>
           </div>
 
@@ -99,13 +96,13 @@ export default function Landing({ onStart, onGuestLogin }) {
           animate="visible"
         >
           <motion.div variants={itemVariants} className="app-kicker mb-8">
-            <span className="w-2 h-2 rounded-full bg-veridian animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-ascent-blue animate-pulse" />
             AI-powered interview sandbox
           </motion.div>
 
           <motion.h1 variants={itemVariants} className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-normal mb-8 leading-[1.08] text-text-primary">
             Interview practice that <br className="hidden sm:block" />
-            <span className="text-veridian">actually prepares you</span>
+            <span className="text-ascent-blue">actually prepares you</span>
           </motion.h1>
 
           <motion.p variants={itemVariants} className="text-base sm:text-lg text-text-secondary mb-12 max-w-2xl mx-auto leading-relaxed">
@@ -154,7 +151,7 @@ export default function Landing({ onStart, onGuestLogin }) {
                 transition={{ delay: idx * 0.06, duration: 0.4 }}
                 className="app-card p-6 transition-colors hover:border-border-strong"
               >
-                <div className="w-10 h-10 rounded-sm bg-veridian-subtle border border-veridian/20 flex items-center justify-center mb-5 text-veridian">
+                <div className="w-10 h-10 rounded-sm bg-ascent-blue-subtle border border-ascent-blue/20 flex items-center justify-center mb-5 text-ascent-blue">
                   <feature.icon size={22} strokeWidth={1.7} />
                 </div>
                 <h3 className="text-lg font-semibold mb-2 text-text-primary">{feature.title}</h3>
@@ -176,10 +173,8 @@ export default function Landing({ onStart, onGuestLogin }) {
 
       <footer className="border-t border-border py-8 text-sm text-text-muted">
         <div className="app-header-inner justify-between flex-col sm:flex-row">
-          <div className="app-brand">
-            <svg width="20" height="20" viewBox="0 0 36 36" fill="none">
-              <path d="M8 26 L14 18 L18 22 L22 14 L28 26" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" fill="none" />
-            </svg>
+          <div className="app-brand opacity-60">
+            <img src={logo} alt="Ascent Logo" className="w-6 h-6 rounded-sm object-cover" />
             <span>Ascent</span>
           </div>
           <p>Open source. MIT License.</p>

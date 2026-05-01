@@ -4,6 +4,7 @@ import { Upload, Check, AlertCircle, ArrowRight, FileText, ChevronLeft } from "l
 import { useInterview } from "../contexts/InterviewContext";
 import { api } from "../api/client";
 import { Button } from "@/components/ui/button";
+import logo from "../assets/logo.jpg";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -25,9 +26,9 @@ function ResumeParsingAnimation({ fileName, extracted, onComplete }) {
   ];
 
   return (
-    <Card className="p-5 border-veridian/30 bg-veridian-subtle/30">
+    <Card className="p-5 border-ascent-blue/30 bg-ascent-blue-subtle/30">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-8 h-8 bg-veridian rounded-sm flex items-center justify-center">
+        <div className="w-8 h-8 bg-ascent-blue rounded-sm flex items-center justify-center">
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
@@ -42,7 +43,7 @@ function ResumeParsingAnimation({ fileName, extracted, onComplete }) {
           <p className="text-sm text-text-secondary">Extracting skills, projects, experience</p>
         </div>
       </div>
-      
+
       <div className="space-y-2">
         {fields.map((field, idx) => (
           <motion.div
@@ -53,10 +54,10 @@ function ResumeParsingAnimation({ fileName, extracted, onComplete }) {
             className="flex items-center justify-between text-sm"
           >
             <span className="text-text-secondary">{field.label}</span>
-            <motion.span 
+            <motion.span
               className={cn(
                 "font-medium",
-                field.value && !field.value.includes("...") ? "text-veridian" : "text-text-muted"
+                field.value && !field.value.includes("...") ? "text-ascent-blue" : "text-text-muted"
               )}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -110,7 +111,7 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
 
   const handleFileSelect = useCallback(async (selectedFile) => {
     if (!selectedFile) return;
-    
+
     setFile(selectedFile);
     setParsing(true);
     setParseError(null);
@@ -122,16 +123,16 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
       iv.setSession(sessionId);
 
       const parseRes = await api.parseAndExtract(sessionId, selectedFile);
-      
+
       if (parseRes.status === "ok") {
         setParsedData(parseRes);
         const extracted = parseRes.extracted;
-        
+
         // Attempt to extract latest role if jobRole is empty
         let defaultRole = form.jobRole;
         if (extracted.current_role) defaultRole = extracted.current_role;
         else if (extracted.target_role) defaultRole = extracted.target_role;
-        
+
         setForm(prev => ({
           ...prev,
           name: extracted.name || prev.name,
@@ -172,21 +173,18 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
         <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center">
           <div className="flex items-center gap-2">
             {onBack && (
-              <button 
+              <button
                 onClick={onBack}
                 className="mr-2 p-1.5 hover:bg-surface-overlay rounded-sm transition-colors"
               >
                 <ChevronLeft size={20} />
               </button>
             )}
-            <svg width="24" height="24" viewBox="0 0 36 36" fill="none">
-              <rect width="36" height="36" rx="6" fill="#059669"/>
-              <path d="M8 26 L14 18 L18 22 L22 14 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/>
-            </svg>
+            <img src={logo} alt="Ascent Logo" className="w-8 h-8 rounded-sm object-cover" />
             <span className="font-semibold">Ascent</span>
           </div>
           <div className="ml-auto flex items-center gap-2 text-sm text-text-muted">
-            <span className="w-2 h-2 bg-veridian rounded-full" />
+            <span className="w-2 h-2 bg-ascent-blue rounded-full" />
             Step 1 of 3
           </div>
         </div>
@@ -218,7 +216,7 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
                 <div
                   className={cn(
                     "border-2 border-dashed border-border rounded-md p-8 sm:p-12 text-center transition-all duration-250 cursor-pointer bg-surface-base",
-                    drag && "border-veridian bg-veridian-subtle/20"
+                    drag && "border-ascent-blue bg-ascent-blue-subtle/20"
                   )}
                   onDragOver={e => { e.preventDefault(); setDrag(true); }}
                   onDragLeave={() => setDrag(false)}
@@ -248,7 +246,7 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
               >
-                <ResumeParsingAnimation 
+                <ResumeParsingAnimation
                   fileName={file?.name}
                   extracted={parsedData?.extracted}
                 />
@@ -262,16 +260,16 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
                 animate={{ opacity: 1, scale: 1 }}
                 className="mb-8"
               >
-                <div className="border border-veridian bg-veridian-subtle/20 rounded-md p-5">
+                <div className="border border-ascent-blue bg-ascent-blue-subtle/20 rounded-md p-5">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-veridian rounded-md flex items-center justify-center">
+                    <div className="w-12 h-12 bg-ascent-blue rounded-md flex items-center justify-center">
                       <Check size={24} className="text-white" />
                     </div>
                     <div className="flex-1">
-                      <p className="font-medium text-veridian">Resume uploaded</p>
+                      <p className="font-medium text-ascent-blue">Resume uploaded</p>
                       <p className="text-sm text-text-secondary">{file.name} • {(file.size / 1024).toFixed(0)} KB</p>
                     </div>
-                    <button 
+                    <button
                       onClick={() => { setFile(null); setParsedData(null); }}
                       className="text-sm text-text-secondary hover:text-text-primary transition-colors"
                     >
@@ -279,16 +277,16 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
                     </button>
                   </div>
                   {parsedData?.extracted?.skills?.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-veridian/20">
+                    <div className="mt-3 pt-3 border-t border-ascent-blue/20">
                       <div className="flex gap-2">
-                        <Badge 
+                        <Badge
                           variant={showDetails === 'skills' ? "default" : "secondary"}
                           className="cursor-pointer transition-colors"
                           onClick={() => setShowDetails(prev => prev === 'skills' ? null : 'skills')}
                         >
                           {parsedData.extracted.skills.length} skills found
                         </Badge>
-                        <Badge 
+                        <Badge
                           variant={showDetails === 'projects' ? "default" : "secondary"}
                           className="cursor-pointer transition-colors"
                           onClick={() => setShowDetails(prev => prev === 'projects' ? null : 'projects')}
@@ -296,7 +294,7 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
                           {parsedData.extracted.projects?.length || 0} projects
                         </Badge>
                       </div>
-                      
+
                       <AnimatePresence>
                         {showDetails === 'skills' && (
                           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
@@ -349,8 +347,8 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
             animate={{ opacity: file && !parsing ? 1 : 0.5 }}
             transition={{ delay: 0.2 }}
             className={cn("space-y-6", (!file || parsing) && "pointer-events-none")}
-            onSubmit={e => { 
-              e.preventDefault(); 
+            onSubmit={e => {
+              e.preventDefault();
               if (canSubmit && !outerLoading) {
                 onSubmit({ ...form, resumeFile: file, parsedData });
               }
@@ -364,7 +362,7 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
                   value={form.name}
                   onChange={e => set("name", e.target.value)}
                   placeholder="Your name"
-                  className="w-full px-4 py-2.5 bg-white border border-border rounded-sm text-sm focus:outline-none focus:border-veridian focus:ring-2 focus:ring-veridian/10 transition-all"
+                  className="w-full px-4 py-2.5 bg-white border border-border rounded-sm text-sm focus:outline-none focus:border-ascent-blue focus:ring-2 focus:ring-ascent-blue/10 transition-all"
                 />
               </div>
               <div>
@@ -374,7 +372,7 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
                   value={form.jobRole}
                   onChange={e => set("jobRole", e.target.value)}
                   placeholder="e.g. Senior Full Stack Engineer"
-                  className="w-full px-4 py-2.5 bg-white border border-border rounded-sm text-sm focus:outline-none focus:border-veridian focus:ring-2 focus:ring-veridian/10 transition-all"
+                  className="w-full px-4 py-2.5 bg-white border border-border rounded-sm text-sm focus:outline-none focus:border-ascent-blue focus:ring-2 focus:ring-ascent-blue/10 transition-all"
                 />
               </div>
             </div>
@@ -389,7 +387,7 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
                   value={form.company}
                   onChange={e => set("company", e.target.value)}
                   placeholder="e.g. Stripe, Google"
-                  className="w-full px-4 py-2.5 bg-white border border-border rounded-sm text-sm focus:outline-none focus:border-veridian focus:ring-2 focus:ring-veridian/10 transition-all"
+                  className="w-full px-4 py-2.5 bg-white border border-border rounded-sm text-sm focus:outline-none focus:border-ascent-blue focus:ring-2 focus:ring-ascent-blue/10 transition-all"
                 />
                 <p className="text-xs text-text-muted mt-1.5">We'll research their interview style</p>
               </div>
@@ -398,7 +396,7 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
                 <select
                   value={form.expertiseLevel}
                   onChange={e => set("expertiseLevel", e.target.value)}
-                  className="w-full px-4 py-2.5 bg-white border border-border rounded-sm text-sm focus:outline-none focus:border-veridian focus:ring-2 focus:ring-veridian/10 transition-all"
+                  className="w-full px-4 py-2.5 bg-white border border-border rounded-sm text-sm focus:outline-none focus:border-ascent-blue focus:ring-2 focus:ring-ascent-blue/10 transition-all"
                 >
                   <option value="fresher">Fresher (0-2 years)</option>
                   <option value="intermediate">Intermediate (2-5 years)</option>
@@ -416,12 +414,12 @@ export default function Setup({ onSubmit, loading: outerLoading, error: outerErr
                 onChange={e => set("jobDescription", e.target.value)}
                 placeholder="Paste the job posting here. We'll match questions to required skills and responsibilities..."
                 rows={4}
-                className="w-full px-4 py-3 bg-white border border-border rounded-sm text-sm resize-none focus:outline-none focus:border-veridian focus:ring-2 focus:ring-veridian/10 transition-all"
+                className="w-full px-4 py-3 bg-white border border-border rounded-sm text-sm resize-none focus:outline-none focus:border-ascent-blue focus:ring-2 focus:ring-ascent-blue/10 transition-all"
               />
             </div>
 
             <div className="pt-4">
-              <Button 
+              <Button
                 type="submit"
                 className="w-full flex items-center justify-center gap-2"
                 disabled={!canSubmit || outerLoading}

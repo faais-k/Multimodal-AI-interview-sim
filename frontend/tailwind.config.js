@@ -20,19 +20,19 @@ export default {
           muted: "#9B9B95",
           disabled: "#B8B8B3",
         },
-        veridian: {
-          DEFAULT: "#059669",
-          hover: "#047857",
-          subtle: "#D1FAE5",
-          muted: "#6EE7B7",
+        "ascent-blue": {
+          DEFAULT: "#2563EB",
+          hover: "#1D4ED8",
+          subtle: "#DBEAFE",
+          muted: "#93C5FD",
         },
         semantic: {
           error: "#DC2626",
           "error-bg": "#FEE2E2",
           warning: "#D97706",
           "warning-bg": "#FEF3C7",
-          success: "#059669",
-          "success-bg": "#D1FAE5",
+          success: "#2563EB",
+          "success-bg": "#DBEAFE",
           info: "#6B6B66",
         },
         border: {
@@ -44,9 +44,9 @@ export default {
         background: "#FAFAF8",
         foreground: "#1A1A18",
         primary: {
-          DEFAULT: "#059669",
+          DEFAULT: "#2563EB",
           foreground: "#FFFFFF",
-          hover: "#047857",
+          hover: "#1D4ED8",
         },
         secondary: {
           DEFAULT: "#F0EFEA",
@@ -57,8 +57,8 @@ export default {
           foreground: "#6B6B66",
         },
         accent: {
-          DEFAULT: "#D1FAE5",
-          foreground: "#059669",
+          DEFAULT: "#DBEAFE",
+          foreground: "#2563EB",
         },
         destructive: {
           DEFAULT: "#DC2626",
@@ -72,7 +72,7 @@ export default {
           DEFAULT: "#FFFFFF",
           foreground: "#1A1A18",
         },
-        ring: "#059669",
+        ring: "#2563EB",
         input: "#E5E4DF",
       },
       fontFamily: {

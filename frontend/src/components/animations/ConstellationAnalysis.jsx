@@ -41,7 +41,7 @@ export function ConstellationAnalysis({
           cx={center.x}
           cy={center.y}
           r="12"
-          fill="#059669"
+          fill="#2563EB"
           className="constellation-node"
           animate={{
             scale: [1, 1.1, 1],
@@ -58,7 +58,7 @@ export function ConstellationAnalysis({
           cx={center.x}
           cy={center.y - radius}
           r="3"
-          fill="#059669"
+          fill="#2563EB"
           opacity="0.6"
           animate={{
             rotate: 360,
@@ -84,7 +84,7 @@ export function ConstellationAnalysis({
               cx={node.x}
               cy={node.y}
               r="6"
-              fill={isAnalyzed ? "#059669" : isProcessing ? "#D97706" : "#9B9B95"}
+              fill={isAnalyzed ? "#2563EB" : isProcessing ? "#D97706" : "#9B9B95"}
               className="constellation-node"
               animate={isProcessing ? {
                 scale: [1, 1.3, 1],

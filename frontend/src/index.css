@@ -15,16 +15,16 @@
     --text-muted: #9B9B95;
     --text-disabled: #B8B8B3;
     
-    --veridian: #059669;
-    --veridian-hover: #047857;
-    --veridian-subtle: #D1FAE5;
+    --ascent-blue: #2563EB;
+    --ascent-blue-hover: #1D4ED8;
+    --ascent-blue-subtle: #DBEAFE;
     
     --semantic-error: #DC2626;
     --semantic-warning: #D97706;
-    --semantic-success: #059669;
+    --semantic-success: #2563EB;
     --semantic-error-bg: #FEE2E2;
     --semantic-warning-bg: #FEF3C7;
-    --semantic-success-bg: #D1FAE5;
+    --semantic-success-bg: #DBEAFE;
     
     --border-default: #E5E4DF;
     --border-subtle: #F0EFEA;
@@ -60,12 +60,12 @@
     --danger-glow: var(--semantic-error-bg);
     --warning-dark: #92400E;
     --warning-glow: var(--semantic-warning-bg);
-    --teal-500: var(--veridian);
-    --teal-600: var(--veridian);
-    --teal-700: var(--veridian-hover);
-    --teal-glow: rgba(5, 150, 105, 0.08);
-    --teal-glow-strong: rgba(5, 150, 105, 0.14);
-    --success-dark: var(--veridian-hover);
+    --teal-500: var(--ascent-blue);
+    --teal-600: var(--ascent-blue);
+    --teal-700: var(--ascent-blue-hover);
+    --teal-glow: rgba(37, 99, 235, 0.08);
+    --teal-glow-strong: rgba(37, 99, 235, 0.14);
+    --success-dark: var(--ascent-blue-hover);
     --success-glow: var(--semantic-success-bg);
     --stone-800: #292926;
     --stone-900: var(--text-primary);
@@ -95,19 +95,19 @@
     --card-foreground: 0 0% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 10%;
-    --primary: var(--veridian);
+    --primary: var(--ascent-blue);
     --primary-foreground: 0 0% 100%;
-    --secondary: 40 10% 94%;
+    --secondary: 210 20% 96%;
     --secondary-foreground: 0 0% 10%;
-    --muted: 40 10% 94%;
-    --muted-foreground: 20 4% 41%;
-    --accent: 152 76% 90%;
-    --accent-foreground: 161 94% 30%;
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 214 95% 91%;
+    --accent-foreground: 221 83% 53%;
     --destructive: 0 84% 50%;
     --destructive-foreground: 0 0% 100%;
-    --border: 40 10% 89%;
-    --input: 40 10% 89%;
-    --ring: 161 94% 30%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
     --radius: 0.5rem;
   }
 }
@@ -170,7 +170,7 @@
     width: 1.5rem;
     height: 1.5rem;
     border-radius: 6px;
-    background: var(--veridian);
+    background: var(--ascent-blue);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -188,9 +188,9 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.375rem 0.625rem;
-    border: 1px solid rgba(5, 150, 105, 0.18);
-    background: rgba(5, 150, 105, 0.08);
-    color: var(--veridian-hover);
+    border: 1px solid rgba(37, 99, 235, 0.18);
+    background: rgba(37, 99, 235, 0.08);
+    color: var(--ascent-blue-hover);
     border-radius: 6px;
     font-size: 0.75rem;
     font-weight: 600;
@@ -233,7 +233,7 @@
   width: 40px;
   height: 40px;
   border: 3px solid var(--border-default);
-  border-top-color: var(--veridian);
+  border-top-color: var(--ascent-blue);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }

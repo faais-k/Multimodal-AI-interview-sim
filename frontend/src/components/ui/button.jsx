@@ -4,15 +4,15 @@ import { cva } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm text-sm font-medium transition-all duration-fast ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-veridian focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm text-sm font-medium transition-all duration-fast ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ascent-blue focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-veridian text-white hover:bg-veridian-hover hover:-translate-y-px active:scale-[0.98]",
+        default: "bg-ascent-blue text-white hover:bg-ascent-blue-hover hover:-translate-y-px active:scale-[0.98]",
         secondary: "bg-surface-overlay text-text-primary border border-border hover:border-border-strong hover:bg-white",
         outline: "border border-border bg-transparent hover:bg-surface-overlay hover:text-text-primary",
         ghost: "hover:bg-surface-overlay hover:text-text-primary",
-        link: "text-veridian underline-offset-4 hover:underline",
+        link: "text-ascent-blue underline-offset-4 hover:underline",
         destructive: "bg-semantic-error text-white hover:bg-red-700",
       },
       size: {

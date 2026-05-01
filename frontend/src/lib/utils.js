@@ -36,7 +36,7 @@ export function getScoreVariant(score) {
  * @returns {string}
  */
 export function getScoreColor(score) {
-  if (score >= 7.5) return 'text-veridian';
+  if (score >= 7.5) return 'text-ascent-blue';
   if (score >= 5.5) return 'text-semantic-warning';
   return 'text-semantic-error';
 }
@@ -47,7 +47,7 @@ export function getScoreColor(score) {
  * @returns {string}
  */
 export function getScoreBg(score) {
-  if (score >= 7.5) return 'bg-veridian-subtle';
+  if (score >= 7.5) return 'bg-ascent-blue-subtle';
   if (score >= 5.5) return 'bg-semantic-warning-bg';
   return 'bg-semantic-error-bg';
 }
@@ -70,8 +70,8 @@ export function getVerdict(score) {
  * @returns {string}
  */
 export function getVerdictColor(score) {
-  if (score >= 8) return 'bg-veridian-subtle text-veridian';
-  if (score >= 6.5) return 'bg-veridian-subtle text-veridian';
+  if (score >= 8) return 'bg-ascent-blue-subtle text-ascent-blue';
+  if (score >= 6.5) return 'bg-ascent-blue-subtle text-ascent-blue';
   if (score >= 5) return 'bg-semantic-warning-bg text-semantic-warning';
   return 'bg-semantic-error-bg text-semantic-error';
 }

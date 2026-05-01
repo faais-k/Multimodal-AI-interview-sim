@@ -13,17 +13,12 @@ const scoreColor = s =>
 
 const scoreChipClass = s =>
   s == null ? "chip-stone"
-  : s >= 7.5 ? "chip-green"
+  : s >= 7.5 ? "chip-blue"
   : s >= 6.0 ? "chip-warning"
   : "chip-red";
 
 const Logo = () => (
-  <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
-    <rect width="36" height="36" rx="10" fill="url(#res-lg)"/>
-    <path d="M8 26 L18 10 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" fill="none" opacity="0.4"/>
-    <path d="M8 26 L14 18 L18 22 L22 14 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
-    <defs><linearGradient id="res-lg" x1="0" y1="0" x2="36" y2="36"><stop offset="0%" stopColor="#14B8A6"/><stop offset="100%" stopColor="#0D9488"/></linearGradient></defs>
-  </svg>
+  <img src="/src/assets/logo.jpg" alt="Ascent Logo" className="w-7 h-7 rounded-sm object-cover" />
 );
 
 const VerdictIcon = ({ verdict, size = 28 }) => {
@@ -62,7 +57,7 @@ function ScoreBar({ value, max = 10, color }) {
   return (
     <div className="score-bar">
       <div className="score-bar__track">
-        <div className="score-bar__fill" style={{ width: `${pct}%`, background: color || "var(--teal-500)" }} />
+        <div className="score-bar__fill" style={{ width: `${pct}%`, background: color || "var(--ascent-blue)" }} />
       </div>
     </div>
   );
@@ -127,7 +122,7 @@ export default function Results({ report, caps, onRestart }) {
           {candidate.name && <span className="results-bar__name">{candidate.name}</span>}
           {candidate.job_role && <span className="chip chip-stone">{candidate.job_role}</span>}
           {candidate.company  && <span className="chip chip-stone">{candidate.company}</span>}
-          {candidate.expertise_level && <span className="chip chip-teal" style={{textTransform:"capitalize"}}>{candidate.expertise_level}</span>}
+          {candidate.expertise_level && <span className="chip chip-blue" style={{textTransform:"capitalize"}}>{candidate.expertise_level}</span>}
         </div>
         <button className="btn-secondary results-bar__restart" onClick={onRestart}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
@@ -281,10 +276,10 @@ export default function Results({ report, caps, onRestart }) {
                   const method = item.scoring_method || item.scorer || "cosine";
                   const methodLabels = {
                     "skipped": { label: "Skipped", chipClass: "chip-stone" },
-                    "llm_qwen": { label: "LLM (Qwen)", chipClass: "chip-teal" },
+                    "llm_qwen": { label: "LLM (Qwen)", chipClass: "chip-blue" },
                     "cosine_similarity": { label: "Cosine", chipClass: "chip-stone" },
                     "whisper_asr": { label: "Whisper ASR", chipClass: "chip-amber" },
-                    "llm": { label: "LLM", chipClass: "chip-teal" },
+                    "llm": { label: "LLM", chipClass: "chip-blue" },
                     "cosine": { label: "Cosine", chipClass: "chip-stone" },
                   };
                   const methodInfo = methodLabels[method] || { label: method, chipClass: "chip-stone" };

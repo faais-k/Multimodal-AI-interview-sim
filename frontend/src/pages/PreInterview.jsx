@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import logo from "../assets/logo.jpg";
 import { cn } from "@/lib/utils";
 import { useAudioRecorder } from "../hooks/useAudioRecorder";
 
@@ -226,14 +227,11 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
       <header className="border-b border-border">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center">
           <div className="flex items-center gap-2">
-            <svg width="24" height="24" viewBox="0 0 36 36" fill="none">
-              <rect width="36" height="36" rx="6" fill="#059669"/>
-              <path d="M8 26 L14 18 L18 22 L22 14 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/>
-            </svg>
+            <img src={logo} alt="Ascent Logo" className="w-8 h-8 rounded-sm object-cover" />
             <span className="font-semibold">Ascent</span>
           </div>
           <div className="ml-auto flex items-center gap-2 text-sm text-text-muted">
-            <span className="w-2 h-2 bg-veridian rounded-full" />
+            <span className="w-2 h-2 bg-ascent-blue rounded-full" />
             Step 2 of 3
           </div>
         </div>
@@ -280,13 +278,13 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
                 >
                   <Card className={cn(
                     "p-5 transition-all",
-                    item.done ? "border-veridian bg-veridian-subtle/10" : 
+                    item.done ? "border-ascent-blue bg-ascent-blue-subtle/10" : 
                     item.status === "generating" ? "border-semantic-warning bg-semantic-warning-bg/30" : ""
                   )}>
                     <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                       <div className={cn(
                         "w-10 h-10 rounded-sm flex items-center justify-center transition-all",
-                        item.done ? "bg-veridian text-white" :
+                        item.done ? "bg-ascent-blue text-white" :
                         item.status === "generating" ? "bg-semantic-warning-bg text-semantic-warning" :
                         item.status === "warning" ? "bg-semantic-warning-bg text-semantic-warning" :
                         "bg-surface-overlay text-text-muted"
@@ -335,7 +333,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
 
                         {item.id === "camera" && !item.done && (
                           <div className="mt-3">
-                            <Button size="sm" onClick={requestPermissions} className="h-8 text-xs bg-veridian hover:bg-veridian-dark">
+                            <Button size="sm" onClick={requestPermissions} className="h-8 text-xs bg-ascent-blue hover:bg-ascent-blue-dark">
                               <Video size={14} className="mr-1.5" /> Grant Camera & Mic Access
                             </Button>
                             {camError && (
@@ -351,7 +349,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
                             <div className="flex items-center gap-2">
                               <div className="h-1.5 bg-surface-overlay rounded-sm flex-1 overflow-hidden">
                                 <motion.div 
-                                  className="h-full bg-veridian rounded-sm"
+                                  className="h-full bg-ascent-blue rounded-sm"
                                   animate={{ width: `${Math.min(volume * 100 * 2, 100)}%` }}
                                   transition={{ type: "spring", stiffness: 300, damping: 20 }}
                                 />
@@ -398,7 +396,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
                   <Info size={18} className="text-text-muted flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-text-secondary">
                     <span className="font-medium">System Note:</span> Hugging Face Inference is currently at capacity. 
-                    We are falling back to <span className="text-veridian">local CPU models</span> for scoring and question selection. 
+                    We are falling back to <span className="text-ascent-blue">local CPU models</span> for scoring and question selection. 
                   </p>
                 </motion.div>
               )}
@@ -417,7 +415,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
               {/* Begin Button */}
               <div className="pt-6 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <p className="text-sm text-text-secondary">
-                  <span className="text-veridian font-medium">{completedChecks}</span> of <span className="font-medium">{checklistItems.length}</span> checks complete
+                  <span className="text-ascent-blue font-medium">{completedChecks}</span> of <span className="font-medium">{checklistItems.length}</span> checks complete
                 </p>
                 <Button 
                   onClick={begin}
@@ -482,7 +480,7 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
                       onClick={() => setSkeletonEnabled(!skeletonEnabled)}
                       className={cn(
                         "relative w-11 h-6 rounded-sm transition-colors",
-                        skeletonEnabled ? "bg-veridian" : "bg-surface-overlay"
+                        skeletonEnabled ? "bg-ascent-blue" : "bg-surface-overlay"
                       )}
                     >
                       <span className={cn(

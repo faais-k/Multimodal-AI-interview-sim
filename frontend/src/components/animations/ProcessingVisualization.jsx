@@ -17,11 +17,11 @@ export function ProcessingVisualization({ className, size = "md" }) {
     >
       {/* Center node */}
       <motion.div
-        className="absolute rounded-full bg-veridian shadow-lg z-20"
+        className="absolute rounded-full bg-ascent-blue shadow-lg z-20"
         style={{ 
           width: s.center, 
           height: s.center,
-          boxShadow: "0 0 30px rgba(5, 150, 105, 0.4)"
+          boxShadow: "0 0 30px rgba(37, 99, 235, 0.4)"
         }}
         animate={{
           scale: [1, 1.05, 1],
@@ -90,7 +90,7 @@ export function ProcessingVisualization({ className, size = "md" }) {
             y1={s.container / 2}
             x2={s.container / 2 + Math.cos((i * 120 * Math.PI) / 180) * s.orbit}
             y2={s.container / 2 + Math.sin((i * 120 * Math.PI) / 180) * s.orbit}
-            stroke="#059669"
+            stroke="#2563EB"
             strokeWidth="1"
             strokeOpacity="0.3"
             initial={{ pathLength: 0 }}
@@ -109,7 +109,7 @@ export function ProcessingVisualization({ className, size = "md" }) {
       {[0, 1].map((i) => (
         <motion.div
           key={i}
-          className="absolute rounded-full border border-veridian/30"
+          className="absolute rounded-full border border-ascent-blue/30"
           style={{
             width: s.center,
             height: s.center,

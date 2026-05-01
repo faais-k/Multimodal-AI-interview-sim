@@ -105,7 +105,7 @@ export default function Processing({ sessionId, onDone }) {
                   >
                     <div className="flex-shrink-0">
                       {isCompleted ? (
-                        <div className="w-5 h-5 bg-veridian rounded-full flex items-center justify-center">
+                        <div className="w-5 h-5 bg-ascent-blue rounded-full flex items-center justify-center">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                         </div>
                       ) : isCurrent ? (

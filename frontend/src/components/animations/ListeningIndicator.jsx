@@ -21,7 +21,7 @@ export function ListeningIndicator({ className, size = "md", volume = 0 }) {
     >
       {/* Outer ring */}
       <motion.div
-        className="absolute rounded-full border-2 border-veridian/40"
+        className="absolute rounded-full border-2 border-ascent-blue/40"
         style={{ width: s.ring1, height: s.ring1 }}
         animate={{
           scale: [1, 1.3, 1],
@@ -36,7 +36,7 @@ export function ListeningIndicator({ className, size = "md", volume = 0 }) {
       
       {/* Middle ring */}
       <motion.div
-        className="absolute rounded-full border-2 border-veridian/60"
+        className="absolute rounded-full border-2 border-ascent-blue/60"
         style={{ width: s.ring2, height: s.ring2 }}
         animate={{
           scale: [1, 1.2, 1],
@@ -52,7 +52,7 @@ export function ListeningIndicator({ className, size = "md", volume = 0 }) {
       
       {/* Inner ring */}
       <motion.div
-        className="absolute rounded-full border-2 border-veridian/50"
+        className="absolute rounded-full border-2 border-ascent-blue/50"
         style={{ width: s.ring3, height: s.ring3 }}
         animate={{
           scale: [1, 1.15, 1],
@@ -68,7 +68,7 @@ export function ListeningIndicator({ className, size = "md", volume = 0 }) {
       
       {/* Core - Reactive to Volume */}
       <motion.div
-        className="absolute rounded-full bg-veridian z-10"
+        className="absolute rounded-full bg-ascent-blue z-10"
         style={{ width: s.core, height: s.core }}
         animate={{ scale: volScale }}
         transition={{ type: "spring", stiffness: 300, damping: 20 }}
@@ -76,7 +76,7 @@ export function ListeningIndicator({ className, size = "md", volume = 0 }) {
       
       {/* Core ring effect - Reactive to volume */}
       <motion.div
-        className="absolute rounded-full border-2 border-veridian/30 z-10"
+        className="absolute rounded-full border-2 border-ascent-blue/30 z-10"
         style={{ width: s.core + 8, height: s.core + 8 }}
         animate={{ scale: volScale * 1.2 }}
         transition={{ type: "spring", stiffness: 300, damping: 20 }}

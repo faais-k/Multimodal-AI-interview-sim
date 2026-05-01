@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatScore, getScoreVariant, getVerdict } from "@/lib/utils";
+import logo from "../assets/logo.jpg";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -91,7 +92,7 @@ export default function Dashboard({ onStartNew, onViewResults }) {
     return Object.entries(latestReport.skill_scores).map(([name, score]) => ({
       name: name.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
       score,
-      color: score >= 7 ? "veridian" : score >= 5 ? "warning" : "error",
+      color: score >= 7 ? "ascent-blue" : score >= 5 ? "warning" : "error",
     })).slice(0, 4);
   };
 
@@ -104,11 +105,7 @@ export default function Dashboard({ onStartNew, onViewResults }) {
       <header className="app-header">
         <div className="app-header-inner justify-between">
           <div className="app-brand">
-            <span className="app-brand-mark">
-              <svg width="18" height="18" viewBox="0 0 36 36" fill="none">
-                <path d="M8 26 L14 18 L18 22 L22 14 L28 26" stroke="white" strokeWidth="3" strokeLinejoin="round" fill="none" />
-              </svg>
-            </span>
+            <img src={logo} alt="Ascent Logo" className="w-8 h-8 rounded-sm object-cover" />
             <span>Ascent</span>
           </div>
 
@@ -131,7 +128,7 @@ export default function Dashboard({ onStartNew, onViewResults }) {
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
             <div>
               <div className="app-kicker mb-4">
-                <span className="w-2 h-2 bg-veridian rounded-full" />
+                <span className="w-2 h-2 bg-ascent-blue rounded-full" />
                 Dashboard
               </div>
               <h1 className="text-2xl sm:text-3xl font-semibold tracking-normal mb-2">Welcome back</h1>
@@ -159,7 +156,7 @@ export default function Dashboard({ onStartNew, onViewResults }) {
                           {trend && (
                             <span className={cn(
                               "text-sm font-medium flex items-center gap-1.5 px-2.5 py-1 rounded-sm",
-                              trend.up ? "bg-veridian-subtle text-veridian" : "bg-semantic-error-bg text-semantic-error"
+                              trend.up ? "bg-ascent-blue-subtle text-ascent-blue" : "bg-semantic-error-bg text-semantic-error"
                             )}>
                               <TrendingUp size={14} className={trend.up ? "" : "rotate-180"} />
                               {trend.up ? "+" : ""}{trend.diff} pts
@@ -171,7 +168,7 @@ export default function Dashboard({ onStartNew, onViewResults }) {
 
                     <div className="relative h-2 bg-surface-overlay rounded-sm overflow-hidden mb-3">
                       <motion.div
-                        className="absolute inset-y-0 left-0 bg-veridian rounded-sm"
+                        className="absolute inset-y-0 left-0 bg-ascent-blue rounded-sm"
                         initial={{ width: 0 }}
                         animate={{ width: `${(readinessScore / 10) * 100}%` }}
                         transition={{ duration: 1.2, ease: "easeOut" }}
@@ -189,7 +186,7 @@ export default function Dashboard({ onStartNew, onViewResults }) {
               <motion.div variants={itemVariants}>
                 <div className="flex items-center justify-between mb-5">
                   <h2 className="text-xl font-semibold flex items-center gap-2">
-                    <Clock size={20} className="text-veridian" /> Session History
+                    <Clock size={20} className="text-ascent-blue" /> Session History
                   </h2>
                 </div>
 
@@ -235,14 +232,14 @@ export default function Dashboard({ onStartNew, onViewResults }) {
                             <div className="flex items-center gap-4 min-w-0">
                               <div className={cn(
                                 "w-14 h-14 rounded-sm flex items-center justify-center border flex-shrink-0",
-                                variant === "high" ? "bg-veridian-subtle border-veridian/20 text-veridian" :
+                                variant === "high" ? "bg-ascent-blue-subtle border-ascent-blue/20 text-ascent-blue" :
                                 variant === "mid" ? "bg-semantic-warning-bg border-semantic-warning/20 text-semantic-warning" :
                                 "bg-semantic-error-bg border-semantic-error/20 text-semantic-error"
                               )}>
                                 <span className="font-semibold text-xl">{formatScore(score)}</span>
                               </div>
                               <div className="min-w-0">
-                                <p className="font-semibold text-text-primary mb-1 group-hover:text-veridian transition-colors">Technical Interview</p>
+                                <p className="font-semibold text-text-primary mb-1 group-hover:text-ascent-blue transition-colors">Technical Interview</p>
                                 <p className="text-sm text-text-muted truncate">
                                   {formatDate(item.saved_at)} - {report.questions_counted || 0} questions
                                 </p>
@@ -252,15 +249,15 @@ export default function Dashboard({ onStartNew, onViewResults }) {
                               <Badge
                                 className={cn(
                                   "px-3 py-1 font-medium bg-transparent border",
-                                  variant === "high" ? "text-veridian border-veridian/30" :
+                                  variant === "high" ? "text-ascent-blue border-ascent-blue/30" :
                                   variant === "mid" ? "text-semantic-warning border-semantic-warning/30" :
                                   "text-semantic-error border-semantic-error/30"
                                 )}
                               >
                                 {getVerdict(score)}
                               </Badge>
-                              <div className="w-8 h-8 rounded-sm bg-surface-overlay flex items-center justify-center group-hover:bg-veridian-subtle transition-colors">
-                                <ChevronRight size={16} className="text-text-secondary group-hover:text-veridian group-hover:translate-x-0.5 transition-all" />
+                              <div className="w-8 h-8 rounded-sm bg-surface-overlay flex items-center justify-center group-hover:bg-ascent-blue-subtle transition-colors">
+                                <ChevronRight size={16} className="text-text-secondary group-hover:text-ascent-blue group-hover:translate-x-0.5 transition-all" />
                               </div>
                             </div>
                           </Card>
@@ -275,7 +272,7 @@ export default function Dashboard({ onStartNew, onViewResults }) {
             <div className="lg:col-span-4 min-w-0">
               <motion.div variants={itemVariants} className="lg:sticky lg:top-24">
                 <h2 className="text-xl font-semibold mb-5 flex items-center gap-2">
-                  <BarChart3 size={20} className="text-veridian" /> Skill Assessment
+                  <BarChart3 size={20} className="text-ascent-blue" /> Skill Assessment
                 </h2>
 
                 <Card className="p-6 relative overflow-hidden">
@@ -298,7 +295,7 @@ export default function Dashboard({ onStartNew, onViewResults }) {
                             <motion.div
                               className={cn(
                                 "h-full rounded-sm",
-                                skill.color === "veridian" ? "bg-veridian" :
+                                skill.color === "ascent-blue" ? "bg-ascent-blue" :
                                 skill.color === "warning" ? "bg-semantic-warning" :
                                 "bg-semantic-error"
                               )}

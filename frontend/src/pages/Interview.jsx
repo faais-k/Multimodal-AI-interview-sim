@@ -11,17 +11,18 @@ import { Card } from "@/components/ui/card";
 import { ListeningIndicator } from "@/components/animations/ListeningIndicator";
 import { ProcessingVisualization } from "@/components/animations/ProcessingVisualization";
 import { cn } from "@/lib/utils";
+import logo from "../assets/logo.jpg";
 
 const TYPE_META = {
-  self_intro: { label: "Introduction", color: "veridian" },
-  intro: { label: "Introduction", color: "veridian" },
+  self_intro: { label: "Introduction", color: "ascent-blue" },
+  intro: { label: "Introduction", color: "ascent-blue" },
   project: { label: "Project", color: "warning" },
   technical: { label: "Technical", color: "secondary" },
   followup: { label: "Follow-up", color: "warning" },
-  hr: { label: "Behavioural", color: "veridian" },
+  hr: { label: "Behavioural", color: "ascent-blue" },
   critical: { label: "Critical", color: "error" },
   wrapup: { label: "Wrap-up", color: "secondary" },
-  warmup: { label: "Warm-up", color: "veridian" },
+  warmup: { label: "Warm-up", color: "ascent-blue" },
 };
 
 export default function Interview({ 
@@ -290,10 +291,7 @@ export default function Interview({
       {/* Top Bar */}
       <header className="h-14 border-b border-border bg-surface-base/95 backdrop-blur-sm flex items-center justify-between px-6 flex-shrink-0 z-20">
         <div className="flex items-center gap-3">
-          <svg width="22" height="22" viewBox="0 0 36 36" fill="none">
-            <rect width="36" height="36" rx="5" fill="#059669"/>
-            <path d="M8 26 L14 18 L18 22 L22 14 L28 26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/>
-          </svg>
+          <img src={logo} alt="Ascent Logo" className="w-8 h-8 rounded-sm object-cover" />
           <span className="font-semibold text-sm">Ascent</span>
         </div>
         
@@ -315,7 +313,7 @@ export default function Interview({
             </div>
           )}
           <div className="flex items-center gap-2 text-xs text-text-secondary">
-            <span className="w-1.5 h-1.5 bg-veridian rounded-full" />
+            <span className="w-1.5 h-1.5 bg-ascent-blue rounded-full" />
             Posture OK
           </div>
           <div className="w-px h-4 bg-border mx-1" />
@@ -406,7 +404,7 @@ export default function Interview({
             >
               {/* Question Type Badge */}
               <div className="flex items-center justify-center gap-2 mb-6">
-                <Badge variant={meta.color === "veridian" ? "default" : meta.color === "warning" ? "warning" : "secondary"}>
+                <Badge variant={meta.color === "ascent-blue" ? "default" : meta.color === "warning" ? "warning" : "secondary"}>
                   {meta.label}
                 </Badge>
                 <span className="text-xs text-text-muted">{qtype === "technical" ? "System Design" : ""}</span>
@@ -429,7 +427,7 @@ export default function Interview({
                 </button>
                 {isAnswering && (
                   <div className="flex items-center gap-2 px-4 py-2 text-sm font-mono bg-surface-overlay border border-border rounded-sm">
-                    <span className="w-2 h-2 bg-veridian rounded-full animate-pulse" />
+                    <span className="w-2 h-2 bg-ascent-blue rounded-full animate-pulse" />
                     {formatTime(timeElapsed)}
                   </div>
                 )}
@@ -438,7 +436,7 @@ export default function Interview({
               {/* Listening Indicator */}
               <div className="flex flex-col items-center mb-10">
                 <ListeningIndicator size="md" className="mb-3" volume={volume} />
-                <span className="text-sm text-veridian font-medium">
+                <span className="text-sm text-ascent-blue font-medium">
                   {isAnswering ? "AI is listening" : "AI is speaking..."}
                 </span>
                 <span className="text-xs text-text-muted mt-1">Speak your answer or switch to text mode</span>
@@ -471,7 +469,7 @@ export default function Interview({
             >
               {/* Question Type Badge */}
               <div className="flex items-center justify-center gap-2 mb-6">
-                <Badge variant={meta.color === "veridian" ? "default" : meta.color === "warning" ? "warning" : "secondary"}>
+                <Badge variant={meta.color === "ascent-blue" ? "default" : meta.color === "warning" ? "warning" : "secondary"}>
                   {meta.label}
                 </Badge>
                 <span className="text-xs text-text-muted">{qtype === "technical" ? "System Design" : ""}</span>
@@ -494,7 +492,7 @@ export default function Interview({
                 </button>
                 {isAnswering && (
                   <div className="flex items-center gap-2 px-4 py-2 text-sm font-mono bg-surface-overlay border border-border rounded-sm">
-                    <span className="w-2 h-2 bg-veridian rounded-full animate-pulse" />
+                    <span className="w-2 h-2 bg-ascent-blue rounded-full animate-pulse" />
                     {formatTime(timeElapsed)}
                   </div>
                 )}
@@ -562,13 +560,13 @@ export default function Interview({
                     placeholder="Structure your answer with:\n• The approach you'd take\n• Key technical decisions and trade-offs\n• How you'd handle specific constraints"
                     rows={6}
                     disabled={busy}
-                    className="w-full px-4 py-4 bg-white border border-border rounded-sm text-base leading-relaxed resize-none focus:outline-none focus:border-veridian focus:ring-2 focus:ring-veridian/10 transition-all"
+                    className="w-full px-4 py-4 bg-white border border-border rounded-sm text-base leading-relaxed resize-none focus:outline-none focus:border-ascent-blue focus:ring-2 focus:ring-ascent-blue/10 transition-all"
                   />
                   <div className="flex items-center justify-between">
                     <span className={cn(
                       "text-sm font-mono",
                       answer.trim().split(/\s+/).filter(Boolean).length >= 50 
-                        ? "text-veridian" 
+                        ? "text-ascent-blue" 
                         : "text-semantic-warning"
                     )}>
                       {answer.trim().split(/\s+/).filter(Boolean).length} / 50 words minimum
@@ -621,15 +619,15 @@ export default function Interview({
               {mode === "voice" && recording && (
                 <div className="flex flex-col items-center gap-8 animate-in">
                   <div className="relative">
-                    <div className="w-24 h-24 rounded-full border-4 border-veridian/20 flex items-center justify-center">
+                    <div className="w-24 h-24 rounded-full border-4 border-ascent-blue/20 flex items-center justify-center">
                       <div 
-                        className="w-20 h-20 rounded-full bg-veridian flex items-center justify-center transition-transform duration-75"
+                        className="w-20 h-20 rounded-full bg-ascent-blue flex items-center justify-center transition-transform duration-75"
                         style={{ transform: `scale(${1 + volume * 0.5})` }}
                       >
                         <Mic size={32} className="text-white" />
                       </div>
                     </div>
-                    <div className="absolute -inset-4 rounded-full border border-veridian/30 animate-ping opacity-20" />
+                    <div className="absolute -inset-4 rounded-full border border-ascent-blue/30 animate-ping opacity-20" />
                   </div>
                   <div className="text-center">
                     <p className="text-sm font-medium text-text-primary mb-1">Recording in progress...</p>
@@ -650,8 +648,8 @@ export default function Interview({
               {/* Voice - Recording Complete / Processing */}
               {mode === "voice" && (audioBlob || isAudioProcessing) && !recording && (
                 <div className="space-y-6 animate-in">
-                  <div className="flex items-center gap-4 p-5 bg-veridian-subtle/30 border border-veridian/30 rounded-sm">
-                    <div className="w-12 h-12 bg-veridian rounded-sm flex items-center justify-center">
+                  <div className="flex items-center gap-4 p-5 bg-ascent-blue-subtle/30 border border-ascent-blue/30 rounded-sm">
+                    <div className="w-12 h-12 bg-ascent-blue rounded-sm flex items-center justify-center">
                       <Activity size={24} className="text-white" />
                     </div>
                     <div className="flex-1">
@@ -717,7 +715,7 @@ export default function Interview({
               </div>
             )}
             <div className="absolute top-2 left-2 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-veridian rounded-full animate-pulse" />
+              <span className="w-1.5 h-1.5 bg-ascent-blue rounded-full animate-pulse" />
               <span className="text-[10px] text-white/60 font-mono">LIVE</span>
             </div>
           </div>
@@ -735,7 +733,7 @@ export default function Interview({
               "fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 rounded-sm shadow-2xl border backdrop-blur-md",
               toast.type === "error" ? "bg-error/90 border-error/20 text-white" 
               : toast.type === "warning" ? "bg-amber-600/90 border-amber-500/20 text-white"
-              : "bg-veridian/90 border-veridian/20 text-white"
+              : "bg-ascent-blue/90 border-ascent-blue/20 text-white"
             )}
           >
             {toast.type === "error" ? <AlertTriangle size={18} /> 
