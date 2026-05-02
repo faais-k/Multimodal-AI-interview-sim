@@ -1,72 +1,58 @@
-venv/
-storage/
-
-# Python cache
-__pycache__/
-*.pyc
-
-# Jupyter
-.ipynb_checkpoints/
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Virtual env
-intrv-sim/
-venv/
+# Environment Variables & Secrets
 .env
+.env.*
+backend/secrets/
 
-# OS
+# Virtual Environment
+venv/
+intrv-sim/
+
+# Storage & Runtime Data
+storage/
+scratch/
+*.log
+
+# IDE / Editor
+.vscode/
+.idea/
+.cursor/
 .DS_Store
 Thumbs.db
 
-# Runtime data (VERY IMPORTANT)
-storage/
-*.log
-
-# IDE
-.vscode/
-.idea/
-
-
-# resumes / personal files
-*.pdf
-*.docx
-
-# local scratch files
-structure.txt
-
-# storage runtime data
-storage/
-*.log
-
-# python
+# Python
 __pycache__/
-*.pyc
-.env
-venv/
-intrv-sim/
-
-# frontend
-node_modules/
-dist/
-
-backend/secrets/
-
-# Agent Planning & Graphs
-.planning/
-.graphifyignore
-graphify-out/
-graphify_help*.txt
-.agents/
-AUDIT_REPORT.md
-README_NEW.md
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
 
 # Testing
 .pytest_cache/
 .coverage
 htmlcov/
 pytest_report.html
+
+# Resumes / Personal Files
+*.pdf
+*.docx
+resumes/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vercel/
+node_modules/
+dist/
+
+# Agent Planning & Graphify
+.planning/
+.agents/
+.agent/
+graphify-out/
+graphify_help*.txt
+# Kept from previous gitignore:
+AUDIT_REPORT.md
+README_NEW.md
+
+# local scratch files
+structure.txt

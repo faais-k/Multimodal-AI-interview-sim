@@ -1,0 +1,36 @@
+# Ignore secrets and environment files
+.env
+.env.*
+backend/secrets/
+secrets/
+*.json
+!package.json
+!composer.json
+!tsconfig.json
+
+# Ignore runtime and build data
+storage/
+scratch/
+node_modules/
+venv/
+intrv-sim/
+dist/
+__pycache__/
+*.pyc
+
+# Ignore agent and IDE directories
+.planning/
+.agents/
+.agent/
+.cursor/
+.vscode/
+.idea/
+
+# Ignore own output
+graphify-out/
+graphify_help*.txt
+
+# Ignore personal/sensitive files
+*.pdf
+*.docx
+resumes/
