@@ -14,7 +14,6 @@ pinned: true
 
 ### AI-powered interviews with speech, video, resume intelligence, async scoring, and production-ready fallback orchestration.
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-ascent--intrv.vercel.app-00C7B7?style=for-the-badge&logo=vercel&logoColor=white)](https://ascent-intrv.vercel.app)
 [![Backend](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Frontend](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB?style=for-the-badge&logo=react&logoColor=111111)](https://react.dev)
 [![License](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](LICENSE)
@@ -52,8 +51,6 @@ It is built like a real deployment target, not just a notebook demo:
 | **Deployment** | Backend on Hugging Face Docker Space, frontend on Vercel |
 
 🔗 **Live Demo:** [https://ascent-intrv.vercel.app](https://ascent-intrv.vercel.app)
-
-🔗 **Repository:** [https://github.com/faais-k/Multimodal-AI-interview-sim](https://github.com/faais-k/Multimodal-AI-interview-sim)
 
 ---
 
@@ -101,7 +98,6 @@ The scoring system is designed to stay useful even when external AI calls fail. 
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/faais-k/)
 [![Email](https://img.shields.io/badge/Email-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:faaisbinkasim@gmail.com)
-[![GitHub](https://img.shields.io/badge/GitHub-faais--k-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/faais-k)
 
 ---
 
@@ -198,21 +194,6 @@ For the full deployment guide, see [`docs/DEPLOY_VERCEL_HF_SPACE.md`](docs/DEPLO
 
 ---
 
-## 📊 GitHub Stats
-
-<div align="center">
-
-![GitHub Stats](https://github-readme-stats.shion.dev/api?username=faais-k&theme=tokyonight&hide_border=false&include_all_commits=true&count_private=false)
-
-![GitHub Streak](https://streak-stats.demolab.com/?user=faais-k&theme=tokyonight&hide_border=false)
-
-![Top Languages](https://github-readme-stats.shion.dev/api/top-langs/?username=faais-k&theme=tokyonight&hide_border=false&include_all_commits=true&count_private=false&layout=compact)
-
-[![Profile Views](https://komarev.com/ghpvc/?username=faais-k&color=1)](https://visitcount.itsvg.in)
-
-</div>
-
----
 
 ## 🛡️ License
 
