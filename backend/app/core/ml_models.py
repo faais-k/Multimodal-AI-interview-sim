@@ -396,6 +396,9 @@ def _groq_api_generate(
             elif resp.status_code == 404 and "model_not_found" in resp.text:
                 last_err = f"Model {model} not found on Groq, trying next candidate"
                 continue
+            elif resp.status_code == 429:
+                last_err = f"Model {model} rate limited (429), trying next candidate"
+                continue
             else:
                 raise RuntimeError(f"Groq API error {resp.status_code}: {resp.text}")
         except requests.RequestException as req_err:

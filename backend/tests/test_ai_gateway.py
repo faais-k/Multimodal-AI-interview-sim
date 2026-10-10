@@ -218,6 +218,27 @@ def test_groq_api_generate_fallback_on_404():
         assert out == "Fallback model worked"
 
 
+def test_groq_api_generate_fallback_on_429():
+    """_groq_api_generate tries next candidate model if current hits 429 rate limit."""
+    from backend.app.core.ml_models import _groq_api_generate
+
+    resp_429 = MagicMock()
+    resp_429.status_code = 429
+    resp_429.text = '{"error":{"message":"Rate limit reached for model","code":"rate_limit_exceeded"}}'
+
+    resp_200 = MagicMock()
+    resp_200.status_code = 200
+    resp_200.json.return_value = {
+        "choices": [{"message": {"content": "Model after 429 worked"}}]
+    }
+
+    with patch("os.getenv", side_effect=lambda k, d="": "mock_groq_key" if k == "GROQ_API_KEY" else d), \
+         patch("requests.post", side_effect=[resp_429, resp_200]):
+        out = _groq_api_generate("Hello", 50, 0.0)
+        assert out == "Model after 429 worked"
+
+
+
 @pytest.mark.asyncio
 async def test_deterministic_error_fails_fast_without_retries():
     """Errors like 'GROQ_API_KEY not set' fail fast on attempt 1 without sleeping."""

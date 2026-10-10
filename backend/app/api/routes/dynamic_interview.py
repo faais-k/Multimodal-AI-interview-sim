@@ -388,12 +388,17 @@ async def generate_dynamic_interview(session_id: str):
         # 6. Wrap-up
         tasks.append(("wrapup", context, "wrapup_1", "wrapup", "wrapup"))
 
-        # Execute all LLM calls in parallel
+        # Execute LLM calls with bounded concurrency to prevent rate-limit / OTPM bursting
+        sem = asyncio.Semaphore(2)
+
+        async def _bounded_generate(q_type, q_context):
+            async with sem:
+                res = await _generate_dynamic_question(q_type, q_context, expertise, company_research)
+                await asyncio.sleep(0.1)
+                return res
+
         results = await asyncio.gather(
-            *[
-                _generate_dynamic_question(q_type, q_context, expertise, company_research)
-                for q_type, q_context, _, _, _ in tasks
-            ]
+            *[_bounded_generate(q_type, q_context) for q_type, q_context, _, _, _ in tasks]
         )
 
         # Build questions from results

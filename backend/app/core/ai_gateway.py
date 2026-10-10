@@ -305,7 +305,7 @@ async def generate_interview_question(
     return await ai_generate(
         prompt=prompt,
         task="question_generation",
-        max_tokens=250,
+        max_tokens=90,  # Interview questions are 1-2 sentences (~40-60 tokens). 90 prevents OTPM bursting.
         temperature=0.7,
         fallback_text=fallback,
     )
