@@ -443,6 +443,8 @@ async def generate_dynamic_interview(session_id: str):
             "llm_fallback": any_fallback,
             "questions_preview": [{"id": q["id"], "type": q["type"]} for q in questions],
         }
+    except HTTPException:
+        raise
     except Exception as e:
         import logging
 

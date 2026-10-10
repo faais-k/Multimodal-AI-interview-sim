@@ -66,7 +66,7 @@ _HF_API_MODEL = os.getenv("HF_API_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 _HF_TOKEN = os.getenv("HF_TOKEN", "")
 
 _GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
-_GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
+_GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b").strip()
 
 # Controls whether LLM is pre-warmed at startup (GPU mode only)
 LLM_EAGER_LOAD = os.getenv("LLM_EAGER_LOAD", "false").lower() == "true"
@@ -353,39 +353,56 @@ def _groq_api_generate(
     max_new_tokens: int = 512,
     temperature: float = 0.0,
 ) -> str:
-    """Call Groq Cloud API for ultra-low latency LLM inference."""
+    """Call Groq Cloud API for ultra-low latency LLM inference with model fallback."""
     api_key = os.getenv("GROQ_API_KEY", "").strip() or _GROQ_API_KEY
     if not api_key:
         raise RuntimeError("GROQ_API_KEY not set")
 
-    model = os.getenv("GROQ_MODEL", "").strip() or _GROQ_MODEL
+    primary_model = os.getenv("GROQ_MODEL", "").strip() or _GROQ_MODEL or "qwen/qwen3.8-27b"
+    candidate_models = [primary_model]
+    for alt in ["qwen/qwen3.8-27b", "openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"]:
+        if alt not in candidate_models:
+            candidate_models.append(alt)
+
     import requests
 
     safe_temp = max(temperature, 0.01)
-    payload = {
-        "model": model,
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": max_new_tokens,
-        "temperature": safe_temp,
-    }
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    resp = requests.post(
-        "https://api.groq.com/openai/v1/chat/completions",
-        headers=headers,
-        json=payload,
-        timeout=15.0,
-    )
-    if resp.status_code != 200:
-        raise RuntimeError(f"Groq API error {resp.status_code}: {resp.text}")
+    last_err = ""
+    for model in candidate_models:
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_new_tokens,
+            "temperature": safe_temp,
+        }
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        try:
+            resp = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=15.0,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                choices = data.get("choices", [])
+                if choices:
+                    content = choices[0].get("message", {}).get("content", "").strip()
+                    if content:
+                        return content
+            elif resp.status_code == 404 and "model_not_found" in resp.text:
+                last_err = f"Model {model} not found on Groq, trying next candidate"
+                continue
+            else:
+                raise RuntimeError(f"Groq API error {resp.status_code}: {resp.text}")
+        except requests.RequestException as req_err:
+            last_err = str(req_err)
+            continue
 
-    data = resp.json()
-    choices = data.get("choices", [])
-    if not choices:
-        raise ValueError("Groq API returned empty choices")
-    return choices[0].get("message", {}).get("content", "").strip()
+    raise RuntimeError(f"Groq API error: {last_err or 'No valid response from available models'}")
 
 
 def _hf_api_fallback(prompt: str) -> str:

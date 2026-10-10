@@ -198,6 +198,26 @@ def test_groq_api_generate_success():
         assert out == "Generated from Groq"
 
 
+def test_groq_api_generate_fallback_on_404():
+    """_groq_api_generate tries next candidate model if current returns 404 model_not_found."""
+    from backend.app.core.ml_models import _groq_api_generate
+
+    resp_404 = MagicMock()
+    resp_404.status_code = 404
+    resp_404.text = '{"error":{"message":"The model does not exist","code":"model_not_found"}}'
+
+    resp_200 = MagicMock()
+    resp_200.status_code = 200
+    resp_200.json.return_value = {
+        "choices": [{"message": {"content": "Fallback model worked"}}]
+    }
+
+    with patch("os.getenv", side_effect=lambda k, d="": "mock_groq_key" if k == "GROQ_API_KEY" else d), \
+         patch("requests.post", side_effect=[resp_404, resp_200]):
+        out = _groq_api_generate("Hello", 50, 0.0)
+        assert out == "Fallback model worked"
+
+
 @pytest.mark.asyncio
 async def test_deterministic_error_fails_fast_without_retries():
     """Errors like 'GROQ_API_KEY not set' fail fast on attempt 1 without sleeping."""
