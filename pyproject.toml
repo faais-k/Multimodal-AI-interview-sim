@@ -21,3 +21,4 @@ exclude = '''
 profile = "black"
 line_length = 100
 line_ending = "\n"
+known_first_party = ["backend", "app"]

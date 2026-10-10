@@ -1,3 +1,4 @@
+# isort: skip_file
 """
 Centralised ML model loading with automatic GPU/CPU tier selection.
 
