@@ -60,7 +60,7 @@ _ASR_MODEL_CPU = "Systran/faster-whisper-tiny"
 ASR_MODEL_NAME = _ASR_MODEL_GPU if GPU_AVAILABLE else _ASR_MODEL_CPU
 
 LLM_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
-_HF_API_MODEL = os.getenv("HF_API_MODEL", "Qwen/Qwen2.5-72B-Instruct")
+_HF_API_MODEL = os.getenv("HF_API_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 _HF_TOKEN = os.getenv("HF_TOKEN", "")
 
 # Controls whether LLM is pre-warmed at startup (GPU mode only)

@@ -13,7 +13,19 @@
  *   If unset or "true", the frontend checks the backend /health endpoint at
  *   startup to determine if ASR is actually available.
  */
-const API_BASE = (import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000/api").replace(/\/$/, "");
+
+export function getApiBase() {
+  const envBase = import.meta.env.VITE_API_BASE;
+  if (envBase && typeof envBase === "string" && envBase.trim()) {
+    return envBase.trim().replace(/\/$/, "");
+  }
+  if (typeof window !== "undefined" && window.location.hostname.includes("vercel.app")) {
+    return "https://faais-k-ascent-interview-backend.hf.space/api";
+  }
+  return "http://127.0.0.1:8000/api";
+}
+
+export const API_BASE = getApiBase();
 
 export const AUDIO_INPUT_HINT =
   import.meta.env.VITE_AUDIO_INPUT_HINT ||

@@ -30,7 +30,7 @@ import os
 import re
 import traceback
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from fastapi import APIRouter, HTTPException
@@ -81,18 +81,32 @@ def _load_state(session_id: str) -> dict:
     return _load_json(p)
 
 
-def _find_question(state: dict, question_id: str) -> dict:
-    for t in state.get("turns", []):
-        if t["role"] == "interviewer" and t["id"] == question_id:
-            return t
-    raise FileNotFoundError(f"Question '{question_id}' not found in interview state")
+def _load_plan(session_id: str) -> dict:
+    p = _storage_dir() / session_id / "interview_plan.json"
+    if not p.exists():
+        return {}
+    return _load_json(p)
 
 
-def _find_asked_question(state: dict, question_id: str) -> dict:
+def _find_question_and_skill(state: dict, question_id: str, session_id: str) -> Tuple[str, str]:
+    """Find question text and targeted skill from state or fallback plan."""
+    # 1. Check questions_asked
     for q in state.get("questions_asked", []):
         if q.get("id") == question_id:
-            return q
-    return {}
+            return q.get("question", ""), q.get("skill_target", "")
+
+    # 2. Check interviewer turns
+    for t in state.get("turns", []):
+        if t.get("role") == "interviewer" and t.get("id") == question_id:
+            return t.get("text", ""), t.get("skill_target", "")
+
+    # 3. Fallback to pre-generated plan
+    plan = _load_plan(session_id)
+    for q in plan.get("questions", []):
+        if q.get("id") == question_id:
+            return q.get("question", ""), q.get("skill_target", "")
+
+    return "", ""
 
 
 def _infer_type(question_id: str, question_text: str) -> str:
@@ -126,28 +140,34 @@ def _infer_type(question_id: str, question_text: str) -> str:
     return "technical"
 
 
-def _build_reference(question_text: str, parsed_resume: dict, state: dict) -> str:
+def _build_reference(question_text: str, parsed_resume: dict, state: dict, skill_target: str = "") -> str:
     resume_summary = parsed_resume.get("summary", "")
-    skills = ", ".join(parsed_resume.get("skills", []))
-
-    # NEW: Handle project dictionaries or strings
-    raw_projects = parsed_resume.get("projects", [])
-    project_list = []
-    for p in raw_projects[:2]:
-        if isinstance(p, dict):
-            project_list.append(f"{p.get('name', '')}: {p.get('details', '')}")
-        else:
-            project_list.append(str(p))
-    projects = " | ".join(project_list)
-    recent_turns = [f"{t['role']}: {t['text']}" for t in state.get("turns", [])[-6:]]
+    skills = ", ".join(parsed_resume.get("skills", [])[:5])
+    skill_anchor = f" Primary skill evaluated: {skill_target}." if skill_target else ""
     return (
-        f"Interview question:\n{question_text}\n\n"
-        f"Resume summary:\n{resume_summary}\n\n"
-        f"Candidate skills:\n{skills}\n\n"
-        f"Candidate projects:\n{projects}\n\n"
-        f"Recent conversation:\n{' | '.join(recent_turns)}\n\n"
-        "A strong answer is specific, structured, and demonstrates real experience."
+        f"Ideal technical interview response to: '{question_text}'.{skill_anchor} "
+        f"Key concepts: {skills}. Relevant background: {resume_summary[:200]}. "
+        "A strong, structured technical answer providing clear explanations, architecture, implementation details, and engineering trade-offs."
     )
+
+
+def _calibrate_cosine_score(sim: float) -> float:
+    """Calibrate raw cosine similarity to an intuitive 1.0 - 10.0 score scale.
+
+    all-mpnet / sentence-transformers cosine similarities for Q&A pairs naturally fall
+    between 0.15 (completely irrelevant) to 0.75+ (highly aligned and relevant).
+    Linear mapping of [-1, 1] compresses all answers into 5.5-7.5.
+    This calibration restores variance, precision, and recall.
+    """
+    if sim <= 0.15:
+        score = 1.0 + max(0.0, (sim + 0.1) / 0.25) * 2.0
+    elif sim <= 0.45:
+        score = 3.0 + ((sim - 0.15) / 0.30) * 3.5
+    elif sim <= 0.75:
+        score = 6.5 + ((sim - 0.45) / 0.30) * 2.5
+    else:
+        score = 9.0 + min(1.0, (sim - 0.75) / 0.25) * 1.0
+    return round(float(np.clip(score, 1.0, 10.0)), 2)
 
 
 def _compute_top_matches(reference: str, answer: str, top_k: int = 6) -> List[Dict]:
@@ -176,9 +196,66 @@ def _compute_score_sync(ref_text: str, answer_text: str):
         encode_sentence(answer_text),
     ).item()
     sim = max(min(sim, 1.0), -1.0)
-    raw_score = round(((sim + 1) / 2) * 10, 2)
+    raw_score = _calibrate_cosine_score(sim)
     top_matches = _compute_top_matches(ref_text, answer_text)
     return sim, raw_score, top_matches
+
+
+def _check_cheating_sync(question_text: str, answer_text: str) -> Optional[dict]:
+    """CPU-bound anti-cheating check (similarity and repetitive text). UNLOCKED."""
+    if not question_text or not answer_text:
+        return None
+    from backend.app.core.ml_models import get_embeddings
+    from torch.nn.functional import cosine_similarity
+
+    q_emb = get_embeddings(question_text, convert_to_tensor=True)
+    a_emb = get_embeddings(answer_text, convert_to_tensor=True)
+    q_to_a_sim = float(cosine_similarity(q_emb.unsqueeze(0), a_emb.unsqueeze(0))[0])
+
+    # 1. Direct Question Copy Check (Cosine + Word Overlap)
+    q_norm = re.sub(r"[^a-z0-9]", "", question_text.lower())
+    a_norm = re.sub(r"[^a-z0-9]", "", answer_text.lower())
+
+    # Direct normalized containment (catches split words/minor typos)
+    is_direct_copy = (a_norm in q_norm or q_norm in a_norm) and len(a_norm) > 10
+
+    q_words = set(re.findall(r"\w+", question_text.lower()))
+    a_words = set(re.findall(r"\w+", answer_text.lower()))
+
+    # Word overlap relative to the ANSWER (detects if answer is a subset of question)
+    overlap_a = len(q_words & a_words) / len(a_words) if a_words else 0
+    # Word overlap relative to the QUESTION (detects if question is a subset of answer)
+    overlap_q = len(q_words & a_words) / len(q_words) if q_words else 0
+
+    # 2. Repetitive Text Detection (Spam)
+    words = re.findall(r"\w+", answer_text.lower())
+    is_repetitive = False
+    if len(words) > 20:
+        for i in range(len(words) - 5):
+            phrase = " ".join(words[i : i + 5])
+            if answer_text.lower().count(phrase) > 3:
+                is_repetitive = True
+                break
+
+    is_plagiarism = (
+        is_direct_copy
+        or (overlap_a >= 0.85 and len(a_words) >= 4 and len(a_words) <= len(q_words) * 1.25)
+        or (overlap_q >= 0.85 and len(a_words) <= len(q_words) * 1.25)
+        or (q_to_a_sim >= 0.93 and overlap_a >= 0.70)
+    )
+
+    if is_plagiarism or is_repetitive:
+        reason = (
+            "Plagiarism detected (Answer is a copy or subset of the question)"
+            if is_plagiarism
+            else "Repetitive spam detected"
+        )
+        return {
+            "is_cheating": True,
+            "reason": reason,
+            "q_to_a_sim": q_to_a_sim,
+        }
+    return None
 
 
 # ── LLM helpers ───────────────────────────────────────────────────────────────
@@ -445,116 +522,68 @@ async def score_text_answer(payload: dict):
                     return {"status": "ok", "cached": True, **cached}
                 except Exception:
                     pass  # Corrupt cache — fall through and re-score
+
             try:
                 state = _load_state(session_id)
-                # Find the question text from state
-                question_text = ""
-                for q in state.get("questions_asked", []):
-                    if q.get("id") == question_id:
-                        question_text = q.get("question", "")
-                        break
-                if not question_text:
-                    # fallback to plan
-                    plan = _load_plan(session_id)
-                    for q in plan.get("questions", []):
-                        if q.get("id") == question_id:
-                            question_text = q.get("question", "")
-                            break
-
-                # ── Anti-Cheating: Enhanced Plagiarism & Spam Filter ──────────────────
-                if question_text:
-                    from backend.app.core.ml_models import get_embeddings
-                    from torch.nn.functional import cosine_similarity
-                    
-                    q_emb = get_embeddings(question_text, convert_to_tensor=True)
-                    a_emb = get_embeddings(answer_text, convert_to_tensor=True)
-                    q_to_a_sim = float(cosine_similarity(q_emb.unsqueeze(0), a_emb.unsqueeze(0))[0])
-                    
-                    # 1. Direct Question Copy Check (Cosine + Word Overlap)
-                    q_norm = re.sub(r'[^a-z0-9]', '', question_text.lower())
-                    a_norm = re.sub(r'[^a-z0-9]', '', answer_text.lower())
-                    
-                    # Direct normalized containment (catches split words/minor typos)
-                    is_direct_copy = (a_norm in q_norm or q_norm in a_norm) and len(a_norm) > 10
-                    
-                    q_words = set(re.findall(r'\w+', question_text.lower()))
-                    a_words = set(re.findall(r'\w+', answer_text.lower()))
-                    
-                    # Word overlap relative to the ANSWER (detects if answer is a subset of question)
-                    overlap_a = len(q_words & a_words) / len(a_words) if a_words else 0
-                    # Word overlap relative to the QUESTION (detects if question is a subset of answer)
-                    overlap_q = len(q_words & a_words) / len(q_words) if q_words else 0
-                    
-                    # 2. Repetitive Text Detection (Spam)
-                    words = re.findall(r'\w+', answer_text.lower())
-                    is_repetitive = False
-                    if len(words) > 20:
-                        for i in range(len(words) - 5):
-                            phrase = " ".join(words[i:i+5])
-                            if answer_text.lower().count(phrase) > 3:
-                                is_repetitive = True
-                                break
-                    
-                    # Trigger if too similar to question OR highly repetitive
-                    # Thresholds adjusted to catch direct copies and minor variations
-                    is_plagiarism = (
-                        is_direct_copy or 
-                        (q_to_a_sim > 0.78) or 
-                        (overlap_a > 0.80 and len(a_words) > 3) or 
-                        (overlap_q > 0.80 and len(a_words) < len(q_words) * 1.5)
-                    )
-                    
-                    if is_plagiarism or is_repetitive:
-                        reason = "Plagiarism detected (Answer is a copy or subset of the question)" if is_plagiarism else "Repetitive spam detected"
-                        plagiarism_report = {
-                            "session_id": session_id,
-                            "question_id": question_id,
-                            "raw_score": 0.0,
-                            "score": 0.0,
-                            "scoring_method": "cheating_detected",
-                            "scorer": "anti_cheat_engine",
-                            "similarity": q_to_a_sim,
-                            "needs_human_review": True,
-                            "llm_evaluation": {
-                                "score": 0.0,
-                                "explanation": f"Security Trigger: {reason}.",
-                                "what_was_missing": "A genuine, non-copied response.",
-                                "strongest_point": "None",
-                                "weaknesses": "Detection of non-authentic content generation."
-                            }
-                        }
-                        return await _persist_score(
-                            session_id, question_id, question_text, answer_text, 
-                            0.0, 0.0, None, {"relevant": False, "reason": reason}, 
-                            "cheating", 0.0, [], plagiarism_report
-                        )
-
             except FileNotFoundError:
                 raise HTTPException(
                     404, "Interview not started. Call /api/session/start_interview first."
                 )
 
-            try:
-                q_turn = _find_question(state, question_id)
-            except FileNotFoundError:
+            question_text, skill_target = _find_question_and_skill(state, question_id, session_id)
+            if not question_text:
                 raise HTTPException(
                     404,
                     f"Question '{question_id}' not found. It may already be answered or the ID is wrong.",
                 )
 
-            question_text = q_turn["text"]
-            asked_q = _find_asked_question(state, question_id)
-            skill_target = asked_q.get("skill_target") or q_turn.get("skill_target") or ""
             qtype = _infer_type(question_id, question_text)
             config = QUESTION_TYPE_WEIGHTS.get(qtype, QUESTION_TYPE_WEIGHTS["technical"])
             min_score = config.get("min_score", 5.0)
             weight = config.get("weight", 0.2)
             expertise_level = state.get("candidate", {}).get("expertise_level", "intermediate")
-            ref_text = _build_reference(question_text, parsed_resume, state)
+            ref_text = _build_reference(question_text, parsed_resume, state, skill_target)
             # Snapshot lists so they remain valid after the lock is released
-            candidate_skills = list(state["candidate"].get("skills", []))
-            candidate_projects = list(state["candidate"].get("projects", []))
-        # ── SCOPE 1 RELEASED — lock free for the next 5-10 seconds ───────────
+            candidate_skills = list(state.get("candidate", {}).get("skills", []))
+            candidate_projects = list(state.get("candidate", {}).get("projects", []))
+        # ── SCOPE 1 RELEASED — lock free for all ML inference ───────────
+
+        # ── Anti-Cheating: Enhanced Plagiarism & Spam Filter (UNLOCKED) ───────────
+        cheating_result = await asyncio.to_thread(_check_cheating_sync, question_text, answer_text)
+        if cheating_result and cheating_result.get("is_cheating"):
+            reason = cheating_result["reason"]
+            q_to_a_sim = cheating_result.get("q_to_a_sim", 0.0)
+            plagiarism_report = {
+                "session_id": session_id,
+                "question_id": question_id,
+                "raw_score": 0.0,
+                "score": 0.0,
+                "scoring_method": "cheating_detected",
+                "scorer": "anti_cheat_engine",
+                "similarity": q_to_a_sim,
+                "needs_human_review": True,
+                "llm_evaluation": {
+                    "score": 0.0,
+                    "explanation": f"Security Trigger: {reason}.",
+                    "what_was_missing": "A genuine, non-copied response.",
+                    "strongest_point": "None",
+                    "weaknesses": "Detection of non-authentic content generation.",
+                },
+            }
+            return await _persist_score(
+                session_id,
+                question_id,
+                question_text,
+                answer_text,
+                0.0,
+                0.0,
+                None,
+                {"relevant": False, "reason": reason},
+                "cheating",
+                0.0,
+                [],
+                plagiarism_report,
+            )
 
         # All ML inference runs WITHOUT the lock
         sim, cosine_raw_score, top_matches = await asyncio.to_thread(

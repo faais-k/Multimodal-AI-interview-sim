@@ -16,16 +16,10 @@ accelerate==1.6.0
 # NLP utilities
 scikit-learn==1.6.1
 numpy>=1.26.0
-spacy==3.8.4
 
 # ── Resume parsing ─────────────────────────────────────────────────────────────
 pdfplumber==0.11.6
 docx2txt==0.8
-
-# ── Audio ─────────────────────────────────────────────────────────────────────
-soundfile==0.13.1
-librosa==0.11.0
-ffmpeg-python==0.2.0
 
 # ── LLM question generation (via HuggingFace Inference API) ───────────────────
 requests==2.32.3

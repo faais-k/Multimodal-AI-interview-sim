@@ -48,6 +48,7 @@ dist/
 .planning/
 .agents/
 .agent/
+.superpowers/
 graphify-out/
 graphify_help*.txt
 # Kept from previous gitignore:

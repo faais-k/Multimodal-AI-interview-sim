@@ -144,20 +144,24 @@ async def update_session_status(
 
         # 1. Transition Validation (unless forced or new session)
         if old_status and not force:
-            old_status_enum = SessionStatus(old_status)
-            
-            # Allow idempotency (self-transition) without warning
-            if status == old_status_enum:
-                return
+            try:
+                old_status_enum = SessionStatus(old_status) if not isinstance(old_status, SessionStatus) else old_status
+            except (ValueError, TypeError):
+                old_status_enum = None
 
-            allowed = ALLOWED_TRANSITIONS.get(old_status_enum, [])
-            if status not in allowed:
-                logger.warning(
-                    f"⚠️ Illegal transition attempt for {session_id}: {old_status} -> {status}"
-                )
-                # In production, we might raise an error here. For now, we log and allow if it's FAILED.
-                if status != SessionStatus.FAILED:
+            if old_status_enum is not None:
+                # Allow idempotency (self-transition) without warning
+                if status == old_status_enum:
                     return
+
+                allowed = ALLOWED_TRANSITIONS.get(old_status_enum, [])
+                if status not in allowed:
+                    logger.warning(
+                        f"⚠️ Illegal transition attempt for {session_id}: {old_status} -> {status}"
+                    )
+                    # In production, we might raise an error here. For now, we log and allow if it's FAILED.
+                    if status != SessionStatus.FAILED:
+                        return
 
         # 2. Heartbeats & Timestamps
         now = datetime.utcnow()

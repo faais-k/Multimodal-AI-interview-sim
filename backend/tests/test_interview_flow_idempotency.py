@@ -102,3 +102,38 @@ def test_duplicate_followup_text_uses_alternate_not_completed(tmp_path):
     assert result["id"].startswith("followup_python_")
     assert result["question"] != duplicate_text
     assert "completed" not in result
+
+
+def test_generate_followup_hits_cache_with_valid_time_id(tmp_path):
+    """Ensure followup_cache in interview_plan.json is successfully used."""
+    session_id = "session-cache-test"
+    session_dir = tmp_path / session_id
+    session_dir.mkdir(parents=True, exist_ok=True)
+
+    plan = {
+        "followup_cache": {
+            "tech_1": "Can you explain the exact time complexity of that lookup?"
+        }
+    }
+    (session_dir / "interview_plan.json").write_text(json.dumps(plan), encoding="utf-8")
+
+    state = {
+        "session_id": session_id,
+        "turns": [],
+        "questions_asked": []
+    }
+
+    result = interview_flow.generate_followup_question(
+        state=state,
+        original_q={"id": "tech_1", "question": "Explain hash tables."},
+        depth=1,
+        storage_dir=tmp_path,
+        session_id=session_id,
+    )
+
+    assert result is not None
+    assert result["question"] == "Can you explain the exact time complexity of that lookup?"
+    assert result["type"] == "followup"
+    assert result["id"].startswith("followup_")
+    assert result["cache_key"] == "tech_1"
+

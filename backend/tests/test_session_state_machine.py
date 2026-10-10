@@ -64,6 +64,7 @@ async def test_update_session_status_accepts_enum():
     from backend.app.models.session import SessionStatus
 
     mock_collection = AsyncMock()
+    mock_collection.find_one.return_value = {"status": SessionStatus.PREFLIGHT_COMPLETE.value}
     mock_db = MagicMock()
     mock_db.sessions = mock_collection
 

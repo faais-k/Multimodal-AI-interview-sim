@@ -16,6 +16,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://faais-k-ascent-interview-backend.hf.space/api/:path*"
+    },
+    {
       "source": "/__/auth/:path*",
       "destination": "https://ascent-ai-intrv-simulator.firebaseapp.com/__/auth/:path*"
     },

@@ -3,6 +3,7 @@ import os
 import sys
 import uuid
 from contextlib import asynccontextmanager
+from typing import Optional, Tuple
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -54,34 +55,33 @@ def _setup_logging():
 logger = _setup_logging()
 
 
-def get_cors_origins() -> list:
+def get_cors_origins() -> Tuple[list, Optional[str]]:
     """
-    Get CORS allowed origins from environment variable.
+    Get CORS allowed origins from environment variable or deployment defaults.
 
     Set ALLOWED_ORIGINS to a comma-separated list of exact origin URLs.
     Example: ALLOWED_ORIGINS=https://my-app.vercel.app,https://my-space.hf.space
-
-    NOTE: FastAPI CORSMiddleware does NOT support wildcard patterns
-    like https://*.vercel.app — only exact strings or a single "*".
     """
     env_origins = os.getenv("ALLOWED_ORIGINS", "").strip()
 
     if env_origins:
         origins = [o.strip() for o in env_origins.split(",") if o.strip()]
         if origins:
-            return origins
+            return origins, None
 
-    # No explicit config — allow all origins but warn in production
-    app_stage = os.getenv("APP_STAGE", "development").lower()
-    if app_stage == "production":
-        logger.error(
-            "ALLOWED_ORIGINS is not set in PRODUCTION. Refusing all origins for safety. "
-            "Set ALLOWED_ORIGINS=https://your-frontend.vercel.app"
-        )
-        return []
-
-    logger.warning("No ALLOWED_ORIGINS set. Defaulting to allow all origins in development.")
-    return ["*"]
+    # Deployment on Hugging Face Spaces connecting to Vercel:
+    # Allow vercel.app domains via regex and localhost for testing.
+    # Fallback to "*" for token-authenticated endpoints (allow_credentials=False).
+    vercel_regex = r"^https:\/\/.*\.vercel\.app$"
+    default_origins = [
+        "https://ascent-intrv.vercel.app",
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "*",
+    ]
+    logger.info("Using default CORS origins for Vercel and local environments.")
+    return default_origins, vercel_regex
 
 
 @asynccontextmanager
@@ -131,12 +131,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-cors_origins = get_cors_origins()
-logger.info(f"CORS configured with {len(cors_origins)} allowed origins")
+cors_origins, cors_regex = get_cors_origins()
+logger.info(f"CORS configured with {len(cors_origins)} allowed origins and regex: {cors_regex}")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
+    allow_origin_regex=cors_regex,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
