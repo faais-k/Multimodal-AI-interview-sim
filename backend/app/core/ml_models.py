@@ -65,6 +65,9 @@ LLM_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
 _HF_API_MODEL = os.getenv("HF_API_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 _HF_TOKEN = os.getenv("HF_TOKEN", "")
 
+_GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+_GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
+
 # Controls whether LLM is pre-warmed at startup (GPU mode only)
 LLM_EAGER_LOAD = os.getenv("LLM_EAGER_LOAD", "false").lower() == "true"
 
@@ -312,15 +315,21 @@ def load_llm_model():
                 _llm_tokenizer = None
                 _llm_mode = "disabled"
         else:
-            # ── CPU path: use HF Inference API ───────────────────────────
-            if _HF_TOKEN:
+            # ── CPU path: use Groq API or HF Inference API ───────────────
+            groq_key = os.getenv("GROQ_API_KEY", "").strip() or _GROQ_API_KEY
+            if groq_key:
+                print(f"⚡ CPU mode — LLM inference via Groq Cloud ({os.getenv('GROQ_MODEL', _GROQ_MODEL)})")
+                _llm_model = _API_PROXY
+                _llm_tokenizer = None
+                _llm_mode = "api"
+            elif _HF_TOKEN:
                 print(f"📡 CPU mode — LLM scoring via HF Inference API ({_HF_API_MODEL})")
                 _llm_model = _API_PROXY
                 _llm_tokenizer = None
                 _llm_mode = "api"
             else:
                 print(
-                    "ℹ️  No GPU and no HF_TOKEN — LLM scoring disabled. Using cosine similarity only."
+                    "ℹ️  No GPU and no GROQ_API_KEY / HF_TOKEN — LLM scoring disabled. Using cosine similarity only."
                 )
                 _llm_model = None
                 _llm_tokenizer = None
@@ -337,6 +346,46 @@ def get_llm_model():
     Callers must handle (None, None) gracefully.
     """
     return _llm_model, _llm_tokenizer
+
+
+def _groq_api_generate(
+    prompt: str,
+    max_new_tokens: int = 512,
+    temperature: float = 0.0,
+) -> str:
+    """Call Groq Cloud API for ultra-low latency LLM inference."""
+    api_key = os.getenv("GROQ_API_KEY", "").strip() or _GROQ_API_KEY
+    if not api_key:
+        raise RuntimeError("GROQ_API_KEY not set")
+
+    model = os.getenv("GROQ_MODEL", "").strip() or _GROQ_MODEL
+    import requests
+
+    safe_temp = max(temperature, 0.01)
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_new_tokens,
+        "temperature": safe_temp,
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    resp = requests.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        headers=headers,
+        json=payload,
+        timeout=15.0,
+    )
+    if resp.status_code != 200:
+        raise RuntimeError(f"Groq API error {resp.status_code}: {resp.text}")
+
+    data = resp.json()
+    choices = data.get("choices", [])
+    if not choices:
+        raise ValueError("Groq API returned empty choices")
+    return choices[0].get("message", {}).get("content", "").strip()
 
 
 def _hf_api_fallback(prompt: str) -> str:
@@ -478,8 +527,14 @@ def llm_generate(
     if model is None:
         model, tokenizer = load_llm_model()
 
-    # ── API mode: route to HF Inference API ──────────────────────────────
+    # ── API mode: route to Groq or HF Inference API ──────────────────────
     if isinstance(model, _APIProxy):
+        groq_key = os.getenv("GROQ_API_KEY", "").strip() or _GROQ_API_KEY
+        if groq_key:
+            try:
+                return _groq_api_generate(prompt, max_new_tokens, temperature)
+            except Exception as e:
+                logger.warning(f"Groq API error ({e}) — falling back to HF API")
         return _hf_api_generate(prompt, max_new_tokens, temperature)
 
     # ── Disabled mode ────────────────────────────────────────────────────

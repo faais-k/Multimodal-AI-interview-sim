@@ -64,6 +64,13 @@ class AIResult:
 # ── Internal provider callables ──────────────────────────────────────────────
 
 
+def _call_groq_api(prompt: str, max_tokens: int, temperature: float) -> str:
+    """Call the Groq Cloud API synchronously (ultra-low latency)."""
+    from backend.app.core.ml_models import _groq_api_generate
+
+    return _groq_api_generate(prompt, max_new_tokens=max_tokens, temperature=temperature)
+
+
 def _call_hf_api(prompt: str, max_tokens: int, temperature: float) -> str:
     """Call the HuggingFace Inference API synchronously."""
     from backend.app.core.ml_models import _hf_api_generate, is_hf_circuit_open
@@ -100,6 +107,7 @@ def _call_local_gpu(prompt: str, max_tokens: int, temperature: float) -> str:
 # List of (provider_name, callable) in priority order.
 # Each callable accepts (prompt, max_tokens, temperature) → str
 _PROVIDERS: list[tuple[str, Callable]] = [
+    ("groq", _call_groq_api),
     ("hf_api", _call_hf_api),
     ("local_gpu", _call_local_gpu),
 ]
@@ -150,6 +158,21 @@ async def _try_provider_with_retry(
                 f"[AI-GW] req={request_id} task={task} provider={provider_name} "
                 f"attempt={attempt+1} FAILED: {exc}"
             )
+            # Fail fast without retries on deterministic configuration / auth errors
+            exc_str = str(exc).lower()
+            if any(
+                err in exc_str
+                for err in (
+                    "not set",
+                    "not configured",
+                    "no gpu",
+                    "circuit is open",
+                    "401",
+                    "402",
+                    "unauthorized",
+                )
+            ):
+                break
         # Exponential backoff before next retry
         if attempt < _MAX_RETRIES:
             delay = _RETRY_BASE_DELAY * (2**attempt)

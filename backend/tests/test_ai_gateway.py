@@ -170,3 +170,56 @@ async def test_convenience_wrappers_use_correct_tasks():
     assert q.task == "question_generation"
     assert s.task == "answer_scoring"
     assert f.task == "followup_generation"
+
+
+def test_call_groq_api_delegates_to_ml_models():
+    """_call_groq_api calls _groq_api_generate with expected args."""
+    from backend.app.core.ai_gateway import _call_groq_api
+
+    with patch("backend.app.core.ml_models._groq_api_generate", return_value="Groq response") as mock_groq:
+        res = _call_groq_api("Test prompt", 100, 0.5)
+        assert res == "Groq response"
+        mock_groq.assert_called_once_with("Test prompt", max_new_tokens=100, temperature=0.5)
+
+
+def test_groq_api_generate_success():
+    """_groq_api_generate successfully parses OpenAI-compatible response from Groq."""
+    from backend.app.core.ml_models import _groq_api_generate
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "choices": [{"message": {"content": "Generated from Groq"}}]
+    }
+
+    with patch("os.getenv", side_effect=lambda k, d="": "mock_groq_key" if k == "GROQ_API_KEY" else d), \
+         patch("requests.post", return_value=mock_resp):
+        out = _groq_api_generate("Hello", 50, 0.0)
+        assert out == "Generated from Groq"
+
+
+@pytest.mark.asyncio
+async def test_deterministic_error_fails_fast_without_retries():
+    """Errors like 'GROQ_API_KEY not set' fail fast on attempt 1 without sleeping."""
+    from backend.app.core.ai_gateway import _try_provider_with_retry
+
+    call_count = 0
+
+    def missing_key_provider(prompt, max_tokens, temperature):
+        nonlocal call_count
+        call_count += 1
+        raise RuntimeError("GROQ_API_KEY not set")
+
+    with pytest.raises(RuntimeError) as exc_info:
+        await _try_provider_with_retry(
+            "groq",
+            missing_key_provider,
+            "test prompt",
+            50,
+            0.0,
+            "req123",
+            "test_task",
+        )
+
+    assert "GROQ_API_KEY not set" in str(exc_info.value)
+    assert call_count == 1  # must NOT retry
