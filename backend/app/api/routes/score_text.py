@@ -733,7 +733,8 @@ async def _persist_score(
                 detected_topic=detected_topic,
             )
 
-        hf_open = is_hf_circuit_open()
+        groq_active = bool(os.getenv("GROQ_API_KEY", "").strip())
+        hf_open = is_hf_circuit_open() if not groq_active else False
 
         # Calculate derived metrics
         qtype = _infer_type(question_id, question_text)
@@ -755,8 +756,8 @@ async def _persist_score(
                 "raw_score": raw_score,
                 "cosine_raw_score": cosine_raw_score,
                 "scorer": "llm" if llm_result else "cosine",
-                "scoring_method": "llm_qwen" if llm_result else "cosine_similarity",
-                "llm_fallback": (llm_result is None) and hf_open,
+                "scoring_method": ("llm_groq" if groq_active else "llm_qwen") if llm_result else "cosine_similarity",
+                "llm_fallback": (llm_result is None),
                 "llm_evaluation": llm_result,
                 "relevance_check": relevance_check,
                 "weighted_score": weighted_score,

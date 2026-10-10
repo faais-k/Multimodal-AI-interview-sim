@@ -121,14 +121,14 @@ export default function Landing({ onStart, onGuestLogin }) {
 
           <motion.div variants={itemVariants} id="how-it-works" className="mt-16 pt-8 border-t border-border flex flex-col items-center gap-6">
             <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-sm text-text-muted">
-              <span>Hugging Face Inference</span>
-              <span>Qwen 2.5 72B (Open Source)</span>
+              <span>Groq & Hugging Face</span>
+              <span>Llama 3.3 70B & Qwen 2.5</span>
               <span>MediaPipe Vision</span>
               <span>Faster-Whisper</span>
               <span>React 18</span>
             </div>
             <p className="text-xs text-text-muted/60 max-w-lg text-center">
-              Our simulation engine leverages open-source LLMs hosted on Hugging Face Spaces for 
+              Our simulation engine leverages high-speed open-source LLMs with low-latency inference for 
               high-fidelity evaluation and adaptive reasoning.
             </p>
           </motion.div>

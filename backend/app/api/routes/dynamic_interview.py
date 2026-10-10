@@ -434,17 +434,13 @@ async def generate_dynamic_interview(session_id: str):
         questions_preview = []
         any_fallback = any(r.get("used_fallback", False) for r in results)
 
-        from backend.app.core.ml_models import is_hf_circuit_open
-
-        hf_open = is_hf_circuit_open()
-
         return {
             "status": "ok",
             "session_id": session_id,
             "total_questions": len(questions),
             "expertise_level": expertise,
             "company_researched": bool(company),
-            "llm_fallback": any_fallback or hf_open,
+            "llm_fallback": any_fallback,
             "questions_preview": [{"id": q["id"], "type": q["type"]} for q in questions],
         }
     except Exception as e:

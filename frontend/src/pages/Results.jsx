@@ -185,7 +185,7 @@ export default function Results({ report, caps, onRestart }) {
               </div>
               <div className="telemetry-item">
                 <span className="telemetry-label">LLM Evaluator</span>
-                <span className="telemetry-value">{caps.llmMode === "local" ? "Local GPU Inference" : caps.llmMode === "api" ? "Serverless API (Qwen)" : "Cosine Fallback"}</span>
+                <span className="telemetry-value">{caps.llmMode === "local" ? "Local GPU Inference" : caps.llmMode === "api" ? "Cloud LLM (Groq / HF)" : "Cosine Fallback"}</span>
               </div>
               <div className="telemetry-item">
                 <span className="telemetry-label">Speech Recognition</span>
@@ -278,6 +278,7 @@ export default function Results({ report, caps, onRestart }) {
                   const method = item.scoring_method || item.scorer || "cosine";
                   const methodLabels = {
                     "skipped": { label: "Skipped", chipClass: "chip-stone" },
+                    "llm_groq": { label: "LLM (Groq)", chipClass: "chip-blue" },
                     "llm_qwen": { label: "LLM (Qwen)", chipClass: "chip-blue" },
                     "cosine_similarity": { label: "Cosine", chipClass: "chip-stone" },
                     "whisper_asr": { label: "Whisper ASR", chipClass: "chip-amber" },

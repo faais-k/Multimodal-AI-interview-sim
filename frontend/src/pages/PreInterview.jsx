@@ -396,8 +396,8 @@ export default function PreInterview({ onBegin, setupData, sessionId }) {
                 >
                   <Info size={18} className="text-text-muted flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-text-secondary">
-                    <span className="font-medium">System Note:</span> Hugging Face Inference is currently at capacity. 
-                    We are falling back to <span className="text-ascent-blue">local CPU models</span> for scoring and question selection. 
+                    <span className="font-medium">System Note:</span> Cloud AI Inference is operating in standard mode. 
+                    Using <span className="text-ascent-blue">curated question banks</span> and local scoring for your interview. 
                   </p>
                 </motion.div>
               )}
