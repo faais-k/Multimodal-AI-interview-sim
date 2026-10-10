@@ -4,13 +4,13 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, HTTPException, Depends
-from backend.app.core.db_ops import save_final_report, update_session_status
-from backend.app.core.auth import get_optional_user
+from fastapi import APIRouter, Depends, HTTPException
 
+from backend.app.core.auth import get_optional_user
+from backend.app.core.db_ops import save_final_report, update_session_status
+from backend.app.core.filler_words import aggregate_filler_report
 from backend.app.core.scoring_config import QUESTION_TYPE_WEIGHTS
 from backend.app.core.validation import validate_session_id
-from backend.app.core.filler_words import aggregate_filler_report
 
 router = APIRouter()
 
@@ -387,7 +387,9 @@ async def aggregate_scores(
         "strengths": strengths,
         "weak_areas": weak_areas,
         "not_assessed": not_assessed,
-        "skill_scores": {k: v["avg_score"] for k, v in skill_coverage.items() if v["avg_score"] is not None},
+        "skill_scores": {
+            k: v["avg_score"] for k, v in skill_coverage.items() if v["avg_score"] is not None
+        },
         "scores": scores,
     }
 
@@ -403,6 +405,7 @@ async def aggregate_scores(
         uid = user.get("uid") if user else None
         await save_final_report(session_id, report, analytics_doc, user_id=uid)
         from backend.app.models.session import SessionStatus
+
         await update_session_status(
             session_id,
             SessionStatus.INTERVIEW_COMPLETE,

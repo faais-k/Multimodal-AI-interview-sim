@@ -1,5 +1,7 @@
+from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, Depends, Request
-from typing import List, Dict, Any, Optional
+
 from backend.app.core.auth import get_optional_user
 from backend.app.core.database import db_available, get_db
 

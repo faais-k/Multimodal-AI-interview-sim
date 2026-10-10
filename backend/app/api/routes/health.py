@@ -1,8 +1,9 @@
 import os
 
 from fastapi import APIRouter
+
 from backend.app.core.database import db_available
-from backend.app.core.ml_models import is_gpu_available, get_model_info
+from backend.app.core.ml_models import get_model_info, is_gpu_available
 
 router = APIRouter(tags=["Health"])
 

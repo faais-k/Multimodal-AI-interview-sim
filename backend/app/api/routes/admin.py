@@ -6,10 +6,11 @@ They fall back gracefully to empty results in flat-file mode.
 """
 
 import os
+
 from fastapi import APIRouter, Header, HTTPException
 
-from backend.app.core.db_ops import list_sessions, get_session_report, get_session_violations
 from backend.app.core.database import db_available
+from backend.app.core.db_ops import get_session_report, get_session_violations, list_sessions
 
 router = APIRouter(tags=["Admin"])
 

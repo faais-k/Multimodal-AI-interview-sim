@@ -8,12 +8,19 @@ jobs:
   sync-to-hub:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          lfs: true
-      - name: Push to hub
+
+      - name: Push backend to Hugging Face Docker Space
         env:
-          # This secret must be added to your GitHub Repo Settings
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: git push --force https://faais-k:$HF_TOKEN@huggingface.co/spaces/faais-k/ascent-interview-backend main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Create an orphan deployment branch containing only files required for the HF Docker Space
+          git checkout --orphan hf-space-deploy
+          # Remove frontend and non-backend artifacts from HF Space deployment
+          git rm -rf --ignore-unmatch frontend .github .planning .agents .superpowers
+          git commit -m "deploy(hf): sync backend container to Hugging Face Space"
+          git push --force https://faais-k:$HF_TOKEN@huggingface.co/spaces/faais-k/ascent-interview-backend hf-space-deploy:main

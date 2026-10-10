@@ -1,12 +1,13 @@
-from fastapi import APIRouter, HTTPException
-from pathlib import Path
 import json
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict
 
+from fastapi import APIRouter, HTTPException
+
+from backend.app.core.rate_limit import check_rate_limit
 from backend.app.core.storage import get_storage_dir, write_json_atomic
 from backend.app.core.validation import validate_session_id
-from backend.app.core.rate_limit import check_rate_limit
 
 router = APIRouter()
 
@@ -123,6 +124,7 @@ async def get_session_status(session_id: str):
 
     # Load machine state from DB (modern/reliable)
     from backend.app.core.db_ops import get_session_status_db
+
     db_state = await get_session_status_db(session_id) or {}
     status_str = db_state.get("status", "active" if not state.get("completed") else "completed")
 
@@ -162,7 +164,8 @@ async def get_session_status(session_id: str):
         "questions_asked_count": len(questions_asked),
         "stage": state.get("cursor", {}).get("stage", "intro"),
         "has_active_question": has_active_question,
-        "is_completed": state.get("completed", False) or status_str in ["interview_complete", "report_generated"],
+        "is_completed": state.get("completed", False)
+        or status_str in ["interview_complete", "report_generated"],
         "error": db_state.get("error"),
         "last_activity": db_state.get("last_activity_at"),
     }
@@ -177,7 +180,7 @@ async def skip_question(session_id: str, question_id: str = None):
     validate_session_id(session_id)
     sdir = _require_session(session_id)
 
-    from backend.app.core.interview_flow import read_state, write_state, get_state_lock
+    from backend.app.core.interview_flow import get_state_lock, read_state, write_state
 
     try:
         async with get_state_lock(session_id):
@@ -264,8 +267,8 @@ async def skip_question(session_id: str, question_id: str = None):
             write_state(storage, session_id, state)
 
             from backend.app.core import interview_flow
-            from backend.app.models.session import SessionStatus
             from backend.app.core.db_ops import update_session_status
+            from backend.app.models.session import SessionStatus
 
             plan = _read_json(storage / session_id / "interview_plan.json")
             decision = interview_flow._decide_next_read(storage, session_id, plan)
@@ -290,7 +293,11 @@ async def skip_question(session_id: str, question_id: str = None):
                 await update_session_status(session_id, SessionStatus.QUESTION_ACTIVE)
             else:
                 next_question = None
-                raw_status = next_q.get("status", "interview_complete") if isinstance(next_q, dict) else "interview_complete"
+                raw_status = (
+                    next_q.get("status", "interview_complete")
+                    if isinstance(next_q, dict)
+                    else "interview_complete"
+                )
                 # Map string status to enum
                 if raw_status == "completed" or raw_status == "interview_complete":
                     await update_session_status(session_id, SessionStatus.INTERVIEW_COMPLETE)

@@ -17,9 +17,9 @@ Usage:
 Prometheus endpoint is served at /metrics by the metrics router.
 """
 
+import logging
 import os
 import time
-import logging
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -28,13 +28,13 @@ logger = logging.getLogger(__name__)
 _PROMETHEUS_ENABLED = False
 try:
     from prometheus_client import (
-        Counter,
-        Histogram,
-        Gauge,
-        CollectorRegistry,
-        generate_latest,
         CONTENT_TYPE_LATEST,
         REGISTRY,
+        CollectorRegistry,
+        Counter,
+        Gauge,
+        Histogram,
+        generate_latest,
     )
 
     _PROMETHEUS_ENABLED = True

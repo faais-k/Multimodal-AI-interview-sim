@@ -10,6 +10,7 @@ from typing import Dict, List, Optional
 import docx2txt
 import pdfplumber
 from fastapi import APIRouter, HTTPException
+
 from backend.app.core.validation import validate_session_id
 
 router = APIRouter()

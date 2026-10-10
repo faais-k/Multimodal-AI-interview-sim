@@ -4,14 +4,14 @@ import os
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from backend.app.core import interview_flow
+from backend.app.core.auth import get_optional_user
+from backend.app.core.db_ops import create_session_record, update_session_status
 from backend.app.core.rate_limit import check_rate_limit
 from backend.app.core.validation import validate_session_id
-from backend.app.core.db_ops import create_session_record, update_session_status
-from backend.app.core.auth import get_optional_user
 from backend.app.models.session import SessionStatus
 
 router = APIRouter(tags=["Session"])

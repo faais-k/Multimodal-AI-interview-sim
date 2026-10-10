@@ -205,15 +205,15 @@ def transcribe_audio(audio_path: str) -> dict:
     if model is None:
         raise RuntimeError("ASR model unavailable. Check server logs.")
 
-    # beam_size=5 is a good balance of accuracy/speed. 
+    # beam_size=5 is a good balance of accuracy/speed.
     # Forced language='en' ensures accented English isn't misidentified as 'ml' etc.
     # initial_prompt helps the model include hesitations like um/uh instead of cleaning them.
     segments, info = model.transcribe(
-        audio_path, 
-        beam_size=5, 
-        word_timestamps=True, 
+        audio_path,
+        beam_size=5,
+        word_timestamps=True,
         language="en",
-        initial_prompt="Um, uh, like, basically, you know, I mean, I think... "
+        initial_prompt="Um, uh, like, basically, you know, I mean, I think... ",
     )
 
     full_text = []
@@ -436,9 +436,7 @@ def _hf_api_generate(
                         f"using fallbacks for {_HF_CIRCUIT_COOLDOWN}s"
                     )
                 if not fallback_on_error:
-                    raise RuntimeError(
-                        f"HF API error {e.response.status_code}: {e.server_message}"
-                    )
+                    raise RuntimeError(f"HF API error {e.response.status_code}: {e.server_message}")
                 return _hf_api_fallback(prompt)
             except Exception as e:
                 print(f"⚠️  HF API exception: {e}")

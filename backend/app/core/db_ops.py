@@ -21,41 +21,45 @@ ALLOWED_TRANSITIONS = {
     SessionStatus.CREATED: [SessionStatus.PREFLIGHT_COMPLETE, SessionStatus.FAILED],
     SessionStatus.PREFLIGHT_COMPLETE: [SessionStatus.QUESTION_ACTIVE, SessionStatus.FAILED],
     SessionStatus.QUESTION_ACTIVE: [
-        SessionStatus.QUESTION_ACTIVE,    # Idempotent re-calls
-        SessionStatus.ANSWER_PENDING,    # Audio answer start
-        SessionStatus.SCORING_PENDING,   # Text answer start
-        SessionStatus.INTERVIEW_COMPLETE,# Skip/Completion
+        SessionStatus.QUESTION_ACTIVE,  # Idempotent re-calls
+        SessionStatus.ANSWER_PENDING,  # Audio answer start
+        SessionStatus.SCORING_PENDING,  # Text answer start
+        SessionStatus.INTERVIEW_COMPLETE,  # Skip/Completion
         SessionStatus.REPORT_GENERATED,  # Direct completion
-        SessionStatus.FAILED
+        SessionStatus.FAILED,
     ],
     SessionStatus.ANSWER_PENDING: [
-        SessionStatus.SCORING_PENDING, 
-        SessionStatus.QUESTION_ACTIVE,   # Fallback/Recovery
-        SessionStatus.FAILED, 
-        SessionStatus.TIMED_OUT
+        SessionStatus.SCORING_PENDING,
+        SessionStatus.QUESTION_ACTIVE,  # Fallback/Recovery
+        SessionStatus.FAILED,
+        SessionStatus.TIMED_OUT,
     ],
     SessionStatus.SCORING_PENDING: [
-        SessionStatus.QUESTION_ACTIVE, 
-        SessionStatus.FOLLOWUP_PENDING, 
-        SessionStatus.INTERVIEW_COMPLETE, 
-        SessionStatus.FAILED, 
-        SessionStatus.TIMED_OUT
+        SessionStatus.QUESTION_ACTIVE,
+        SessionStatus.FOLLOWUP_PENDING,
+        SessionStatus.INTERVIEW_COMPLETE,
+        SessionStatus.FAILED,
+        SessionStatus.TIMED_OUT,
     ],
     SessionStatus.FOLLOWUP_PENDING: [SessionStatus.QUESTION_ACTIVE, SessionStatus.FAILED],
     SessionStatus.INTERVIEW_COMPLETE: [
-        SessionStatus.INTERVIEW_COMPLETE, # Idempotent
-        SessionStatus.REPORT_GENERATED, 
-        SessionStatus.FAILED
+        SessionStatus.INTERVIEW_COMPLETE,  # Idempotent
+        SessionStatus.REPORT_GENERATED,
+        SessionStatus.FAILED,
     ],
     SessionStatus.REPORT_GENERATED: [SessionStatus.REPORT_GENERATED],  # Terminal idempotent
     SessionStatus.FAILED: [
-        SessionStatus.CREATED, 
-        SessionStatus.QUESTION_ACTIVE, 
-        SessionStatus.ANSWER_PENDING, 
+        SessionStatus.CREATED,
+        SessionStatus.QUESTION_ACTIVE,
+        SessionStatus.ANSWER_PENDING,
         SessionStatus.SCORING_PENDING,
-        SessionStatus.FAILED
+        SessionStatus.FAILED,
     ],
-    SessionStatus.TIMED_OUT: [SessionStatus.SCORING_PENDING, SessionStatus.QUESTION_ACTIVE, SessionStatus.TIMED_OUT],
+    SessionStatus.TIMED_OUT: [
+        SessionStatus.SCORING_PENDING,
+        SessionStatus.QUESTION_ACTIVE,
+        SessionStatus.TIMED_OUT,
+    ],
 }
 
 
@@ -145,7 +149,11 @@ async def update_session_status(
         # 1. Transition Validation (unless forced or new session)
         if old_status and not force:
             try:
-                old_status_enum = SessionStatus(old_status) if not isinstance(old_status, SessionStatus) else old_status
+                old_status_enum = (
+                    SessionStatus(old_status)
+                    if not isinstance(old_status, SessionStatus)
+                    else old_status
+                )
             except (ValueError, TypeError):
                 old_status_enum = None
 

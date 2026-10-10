@@ -83,7 +83,7 @@ def _call_hf_api(prompt: str, max_tokens: int, temperature: float) -> str:
 
 def _call_local_gpu(prompt: str, max_tokens: int, temperature: float) -> str:
     """Call the local GPU model synchronously."""
-    from backend.app.core.ml_models import llm_generate, is_gpu_available, get_llm_mode_str
+    from backend.app.core.ml_models import get_llm_mode_str, is_gpu_available, llm_generate
 
     if not is_gpu_available():
         raise RuntimeError("No GPU available for local model")

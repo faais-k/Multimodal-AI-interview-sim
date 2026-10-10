@@ -45,13 +45,13 @@ from sentence_transformers import util
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from backend.app.core import interview_flow
+from backend.app.core.db_ops import update_session_status
 from backend.app.core.filler_words import analyse_fillers
 from backend.app.core.interview_reasoning import detect_topic
 from backend.app.core.ml_models import encode_sentence
 from backend.app.core.rate_limit import check_rate_limit
 from backend.app.core.scoring_config import QUESTION_TYPE_WEIGHTS
 from backend.app.core.validation import validate_session_id
-from backend.app.core.db_ops import update_session_status
 from backend.app.models.session import SessionStatus
 
 router = APIRouter()
@@ -111,7 +111,7 @@ def _find_question_and_skill(state: dict, question_id: str, session_id: str) -> 
 
 def _infer_type(question_id: str, question_text: str) -> str:
     qid = question_id.lower()
-    
+
     # Prioritise ID-based checks (most reliable)
     if qid.startswith("intro_") or "self_intro" in qid:
         return "self_intro"
@@ -127,20 +127,30 @@ def _infer_type(question_id: str, question_text: str) -> str:
         return "critical"
     if qid.startswith("warmup_"):
         return "warmup"
-        
+
     # Keyword fallback for dynamically generated questions
     qtext_lower = question_text.lower()
     tech_kws = [
-        "explain", "how", "design", "architecture", "implement", 
-        "build", "complexity", "database", "scaling", "algorithm"
+        "explain",
+        "how",
+        "design",
+        "architecture",
+        "implement",
+        "build",
+        "complexity",
+        "database",
+        "scaling",
+        "algorithm",
     ]
     if any(k in qtext_lower for k in tech_kws):
         return "technical"
-        
+
     return "technical"
 
 
-def _build_reference(question_text: str, parsed_resume: dict, state: dict, skill_target: str = "") -> str:
+def _build_reference(
+    question_text: str, parsed_resume: dict, state: dict, skill_target: str = ""
+) -> str:
     resume_summary = parsed_resume.get("summary", "")
     skills = ", ".join(parsed_resume.get("skills", [])[:5])
     skill_anchor = f" Primary skill evaluated: {skill_target}." if skill_target else ""
@@ -205,8 +215,9 @@ def _check_cheating_sync(question_text: str, answer_text: str) -> Optional[dict]
     """CPU-bound anti-cheating check (similarity and repetitive text). UNLOCKED."""
     if not question_text or not answer_text:
         return None
-    from backend.app.core.ml_models import get_embeddings
     from torch.nn.functional import cosine_similarity
+
+    from backend.app.core.ml_models import get_embeddings
 
     q_emb = get_embeddings(question_text, convert_to_tensor=True)
     a_emb = get_embeddings(answer_text, convert_to_tensor=True)
@@ -654,7 +665,7 @@ async def score_text_answer(payload: dict):
             relevance_check,
             detected_topic,
             sim,
-            top_matches
+            top_matches,
         )
 
     except HTTPException as e:
@@ -679,17 +690,17 @@ async def _persist_score(
     detected_topic: str,
     sim: float,
     top_matches: list,
-    override_obj: Optional[dict] = None
+    override_obj: Optional[dict] = None,
 ) -> dict:
-    from backend.app.core.scoring_config import QUESTION_TYPE_WEIGHTS
     from backend.app.core.ml_models import is_hf_circuit_open
-    
+    from backend.app.core.scoring_config import QUESTION_TYPE_WEIGHTS
+
     # ── SCOPE 2 — write lock (~5ms) ───────────────────────────────────────
     async with interview_flow.get_state_lock(session_id):
         safe_qid = re.sub(r"[^a-zA-Z0-9_\-]", "_", question_id)[:80]
         out_dir = _storage_dir() / session_id / "scores"
         score_path = out_dir / f"{safe_qid}.json"
-        
+
         # Check cache (only for non-plagiarism or if we want to skip)
         if score_path.exists() and not override_obj:
             try:
@@ -709,7 +720,7 @@ async def _persist_score(
 
         # Record in state (SKIP for plagiarism - let them retry)
         is_plagiarism = override_obj and override_obj.get("scoring_method") == "cheating_detected"
-        
+
         is_completed = False
         if not is_plagiarism:
             is_completed = interview_flow.record_answer(
@@ -723,7 +734,7 @@ async def _persist_score(
             )
 
         hf_open = is_hf_circuit_open()
-        
+
         # Calculate derived metrics
         qtype = _infer_type(question_id, question_text)
         config = QUESTION_TYPE_WEIGHTS.get(qtype, QUESTION_TYPE_WEIGHTS["technical"])
@@ -731,7 +742,7 @@ async def _persist_score(
         min_score = config["min_score"]
         weighted_score = round(raw_score * weight, 2)
         needs_review = raw_score < min_score
-        
+
         if override_obj:
             score_obj = {**override_obj, "is_completed": is_completed, "is_final": is_completed}
         else:
@@ -760,6 +771,7 @@ async def _persist_score(
             }
 
         from backend.app.core.storage import write_json_atomic
+
         write_json_atomic(score_path, score_obj)
 
         # Transition state after scoring

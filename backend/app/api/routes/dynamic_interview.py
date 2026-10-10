@@ -18,8 +18,9 @@ from pathlib import Path
 from typing import Dict, List
 
 from fastapi import APIRouter, HTTPException
-from backend.app.core.validation import validate_session_id
+
 from backend.app.core.db_ops import update_session_status
+from backend.app.core.validation import validate_session_id
 from backend.app.models.session import SessionStatus
 
 router = APIRouter()

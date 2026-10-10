@@ -23,6 +23,7 @@ def detect_topic(
 
     # Lazy imports — models may not be ready at module load time
     from sentence_transformers import util
+
     from backend.app.core.ml_models import encode_sentence
 
     candidates = []

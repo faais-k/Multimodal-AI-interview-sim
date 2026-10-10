@@ -6,10 +6,11 @@ Provides FastAPI dependencies for verifying Firebase ID tokens.
 
 import os
 from typing import Optional
-from fastapi import Request, HTTPException, Security
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
 import firebase_admin
-from firebase_admin import credentials, auth
+from fastapi import HTTPException, Request, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from firebase_admin import auth, credentials
 
 security = HTTPBearer()
 

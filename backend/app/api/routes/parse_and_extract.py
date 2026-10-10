@@ -11,7 +11,8 @@ import re
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+
 from backend.app.core.validation import validate_session_id
 
 router = APIRouter()
@@ -464,9 +465,9 @@ async def parse_and_extract_resume(session_id: str = Form(...), resume: UploadFi
     - raw_text_excerpt: First 1000 chars of extracted text for verification
     """
     from backend.app.api.routes.parse_resume import (
-        build_parsed_schema,
-        _extract_pdf_text,
         _extract_page_text_column_aware,
+        _extract_pdf_text,
+        build_parsed_schema,
     )
 
     validate_session_id(session_id)

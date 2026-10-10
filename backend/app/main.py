@@ -4,32 +4,33 @@ import sys
 import uuid
 from contextlib import asynccontextmanager
 from typing import Optional, Tuple
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.app.api.routes.admin import router as admin_router
+from backend.app.api.routes.aggregate_scores import router as aggregate_router
+from backend.app.api.routes.analytics_report import router as analytics_router
+from backend.app.api.routes.answer_audio import router as answer_audio_router
+from backend.app.api.routes.cleanup import router as cleanup_router
+from backend.app.api.routes.dynamic_interview import router as dynamic_interview_router
+from backend.app.api.routes.final_decision import router as decision_router
 from backend.app.api.routes.health import router as health_router
+from backend.app.api.routes.interview_plan import router as plan_router
+from backend.app.api.routes.metrics_route import router as metrics_router
+from backend.app.api.routes.parse_and_extract import router as parse_extract_router
+from backend.app.api.routes.parse_resume import router as parse_router
+from backend.app.api.routes.posture import router as posture_router
+from backend.app.api.routes.report import router as report_router
+from backend.app.api.routes.score_text import router as score_router
 from backend.app.api.routes.session import router as session_router
 from backend.app.api.routes.session_extra import router as session_extra_router
 from backend.app.api.routes.upload import router as upload_router
-from backend.app.api.routes.parse_resume import router as parse_router
-from backend.app.api.routes.parse_and_extract import router as parse_extract_router
-from backend.app.api.routes.interview_plan import router as plan_router
-from backend.app.api.routes.dynamic_interview import router as dynamic_interview_router
-from backend.app.api.routes.score_text import router as score_router
-from backend.app.api.routes.answer_audio import router as answer_audio_router
-from backend.app.api.routes.posture import router as posture_router
-from backend.app.api.routes.aggregate_scores import router as aggregate_router
-from backend.app.api.routes.analytics_report import router as analytics_router
-from backend.app.api.routes.final_decision import router as decision_router
-from backend.app.api.routes.violation import router as violation_router
-from backend.app.api.routes.report import router as report_router
-from backend.app.api.routes.cleanup import router as cleanup_router
-from backend.app.api.routes.admin import router as admin_router
 from backend.app.api.routes.user import router as user_router
-from backend.app.api.routes.metrics_route import router as metrics_router
-from backend.app.core.ml_models import load_models
-from backend.app.core.database import connect_db, disconnect_db
+from backend.app.api.routes.violation import router as violation_router
 from backend.app.core.auth import init_firebase
+from backend.app.core.database import connect_db, disconnect_db
+from backend.app.core.ml_models import load_models
 
 
 # ── Logging Configuration ─────────────────────────────────────────────────────
@@ -148,6 +149,7 @@ app.add_middleware(
 @app.middleware("http")
 async def add_request_id_and_metrics(request: Request, call_next):
     import time
+
     from backend.app.core.metrics import record_request
 
     request_id = str(uuid.uuid4())

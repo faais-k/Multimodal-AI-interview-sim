@@ -7,7 +7,8 @@ If METRICS_TOKEN is unset, the endpoint is open (suitable for trusted networks).
 """
 
 import os
-from fastapi import APIRouter, HTTPException, Header
+
+from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import Response
 
 from backend.app.core.metrics import get_metrics_output, is_metrics_enabled

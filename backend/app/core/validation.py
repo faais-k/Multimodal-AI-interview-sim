@@ -7,6 +7,7 @@ session_id such as "../other_session" resolves to a sibling directory.
 """
 
 import re
+
 from fastapi import HTTPException
 
 _UUID4_RE = re.compile(

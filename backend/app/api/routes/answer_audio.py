@@ -20,12 +20,12 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from backend.app.core.ml_models import transcribe_audio, is_gpu_available
+from backend.app.api.routes.score_text import score_text_answer
+from backend.app.core.db_ops import update_session_status
+from backend.app.core.ml_models import is_gpu_available, transcribe_audio
 from backend.app.core.rate_limit import check_rate_limit
 from backend.app.core.validation import validate_session_id
-from backend.app.core.db_ops import update_session_status
 from backend.app.models.session import SessionStatus
-from backend.app.api.routes.score_text import score_text_answer
 
 router = APIRouter()
 
@@ -159,7 +159,9 @@ async def answer_audio(session_id: str, question_id: str, file: UploadFile = Fil
             )
 
         if not transcript:
-            await update_session_status(session_id, SessionStatus.FAILED, extra={"error": "Empty transcription"})
+            await update_session_status(
+                session_id, SessionStatus.FAILED, extra={"error": "Empty transcription"}
+            )
             raise HTTPException(
                 status_code=422,
                 detail="Transcription produced empty text. Please speak clearly and re-record.",
