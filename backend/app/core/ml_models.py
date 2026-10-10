@@ -26,6 +26,7 @@ LLM loading behaviour:
         Requires HF_TOKEN env var. Without it, falls back to cosine-only scoring.
 """
 
+import hashlib
 import logging
 import os
 import threading
@@ -139,8 +140,6 @@ def encode_sentence(texts: Union[str, List[str]], convert_to_tensor: bool = True
     """Encode text to embeddings with caching for single strings."""
     # PERF-1: Cache single-string encodings (the common case in scoring)
     if isinstance(texts, str):
-        import hashlib
-
         cache_key = hashlib.md5(texts.encode()).hexdigest()[:16]
         if cache_key in _embedding_cache:
             return _embedding_cache[cache_key]
